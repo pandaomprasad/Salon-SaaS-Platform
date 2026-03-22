@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Salon Panel — Luxe Salon Management Platform
+
+Internal management platform for Luxe Salon. Built for owners, managers, and staff to manage bookings, customers, services, schedules, and reports.
+
+---
+
+## Tech Stack
+
+- [Next.js 14](https://nextjs.org) — App Router
+- [TypeScript](https://www.typescriptlang.org)
+- [Tailwind CSS v4](https://tailwindcss.com)
+- [Lucide React](https://lucide.dev) — Icons
+
+---
+
+## Project Structure
+```
+apps/salon-panel/
+│
+├── app/                        # Next.js app router
+│   ├── globals.css             # Global styles + Tailwind theme
+│   ├── layout.tsx              # Root layout
+│   └── page.tsx                # Entry point
+│
+├── components/
+│   ├── layout/                 # AppShell, Sidebar, Header
+│   ├── pages/                  # One file per page
+│   └── ui/                     # Reusable primitives (Button, Card, Input, etc.)
+│
+├── lib/
+│   ├── types.ts                # All TypeScript interfaces
+│   ├── data.ts                 # Mock data (replace with API later)
+│   └── utils.ts                # Formatting helpers
+│
+└── public/
+```
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+Make sure you have the following installed:
+
+- [Node.js](https://nodejs.org) v18 or higher
+- npm v9 or higher
+
+### Installation
+
+Navigate to the salon-panel app:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd apps/salon-panel
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Running the Development Server
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Learn More
+### Building for Production
+```bash
+npm run build
+npm run start
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Demo Credentials
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Role    | Email                      | Password     |
+|---------|----------------------------|--------------|
+| Owner   | aria@luxesalon.com         | owner123     |
+| Manager | marco@luxesalon.com        | manager123   |
+| Staff   | jade@luxesalon.com         | staff123     |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Role-Based Access
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Page            | Owner | Manager | Staff |
+|-----------------|-------|---------|-------|
+| Dashboard       | ✓     | ✓       | ✓     |
+| Bookings        | ✓     | ✓       | ✓     |
+| Customers       | ✓     | ✓       | ✓     |
+| Services        | ✓     | ✓       | ✗     |
+| Staff Schedule  | ✓     | ✓       | ✗     |
+| Reports         | ✓     | ✗       | ✗     |
+| Notifications   | ✓     | ✓       | ✓     |
+
+---
+
+## Connecting a Real Backend
+
+All mock data lives in `lib/data.ts`. When your backend is ready:
+
+1. Replace the exports in `lib/data.ts` with API calls
+2. Update `lib/types.ts` if your API response shapes differ
+3. No changes needed in components — they consume types, not raw data
+
+---
+
+## Monorepo Structure
+
+This app is part of the `Salon-SaaS-Platform` monorepo:
+```
+Salon-SaaS-Platform/
+├── apps/
+│   ├── customer-app/       # Customer-facing app
+│   └── salon-panel/        # This app — internal management
+```
