@@ -1,4 +1,4 @@
-# Salon Panel — Luxe Salon Management Platform
+# Salon Panel — Salon Management Platform
 
 Internal management platform for Luxe Salon. Built for owners, managers, and staff to manage bookings, customers, services, schedules, and reports.
 
