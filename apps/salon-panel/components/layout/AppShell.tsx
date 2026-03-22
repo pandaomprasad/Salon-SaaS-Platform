@@ -16,13 +16,16 @@ import { User, Page } from '@/lib/types'
 export default function AppShell() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── Not logged in ────────────────────────────────────────────
   if (!currentUser) {
-    return <LoginPage onLogin={(user) => {
-      setCurrentUser(user)
-      setCurrentPage('dashboard')
-    }} />
+    return (
+      <LoginPage onLogin={(user) => {
+        setCurrentUser(user)
+        setCurrentPage('dashboard')
+      }} />
+    )
   }
 
   // ── Page renderer ────────────────────────────────────────────
@@ -48,20 +51,24 @@ export default function AppShell() {
         name={currentUser.name}
         email={currentUser.email}
         initials={currentUser.initials}
+        isOpen={sidebarOpen}
         onNavigate={setCurrentPage}
         onLogout={() => {
           setCurrentUser(null)
           setCurrentPage('dashboard')
         }}
+        onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="ml-60 flex flex-col min-h-screen">
+      {/* Offset content on desktop only */}
+      <div className="lg:ml-56 flex flex-col min-h-screen">
         <Header
           currentPage={currentPage}
           initials={currentUser.initials}
           onNavigate={setCurrentPage}
+          onMenuClick={() => setSidebarOpen(true)}
         />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
           {renderPage()}
         </main>
       </div>

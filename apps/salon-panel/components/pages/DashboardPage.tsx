@@ -46,7 +46,7 @@ export default function DashboardPage({ user }: DashboardPageProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Today's Revenue"
           value={formatCurrency(todayRevenue)}
@@ -76,7 +76,6 @@ export default function DashboardPage({ user }: DashboardPageProps) {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-        {/* Today's timeline */}
         {/* Today's timeline */}
         <div className="xl:col-span-2 bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6">
           <div className="flex items-center justify-between mb-5">
@@ -118,7 +117,6 @@ export default function DashboardPage({ user }: DashboardPageProps) {
         </div>
 
         {/* Staff today */}
-        {/* Staff today */}
         <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6">
           <h3 className="font-semibold mb-5">Staff Today</h3>
           <div className="space-y-4">
@@ -142,7 +140,6 @@ export default function DashboardPage({ user }: DashboardPageProps) {
 
       </div>
 
-      {/* Upcoming bookings table */}
       {/* Upcoming bookings table */}
       <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6">
         <h3 className="font-semibold mb-5">Upcoming Bookings</h3>

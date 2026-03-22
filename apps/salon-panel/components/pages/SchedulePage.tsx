@@ -98,7 +98,7 @@ export default function SchedulePage({ user }: SchedulePageProps) {
       </div>
 
       {/* Staff cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {STAFF.map(s => (
           <Card key={s.id} onClick={() => setSelected(s)} className="p-5">
 
