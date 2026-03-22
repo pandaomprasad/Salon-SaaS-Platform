@@ -7,12 +7,12 @@ import { AdminUser, Page } from '@/lib/types'
 import LoginPage from '@/components/pages/LoginPage'
 import DashboardPage from '@/components/pages/DashboardPage'
 import SalonsPage from '@/components/pages/SalonsPage'
-import BookingsPage from '@/components/pages/BookingsPage'
-import CustomersPage from '@/components/pages/CustomersPage'
-import StaffPage from '@/components/pages/StaffPage'
-import ReportsPage from '@/components/pages/ReportsPage'
-import AnnouncementsPage from '@/components/pages/AnnouncementsPage'
-import AdminsPage from '@/components/pages/AdminsPage'
+// import BookingsPage from '@/components/pages/BookingsPage'
+// import CustomersPage from '@/components/pages/CustomersPage'
+// import StaffPage from '@/components/pages/StaffPage'
+// import ReportsPage from '@/components/pages/ReportsPage'
+// import AnnouncementsPage from '@/components/pages/AnnouncementsPage'
+// import AdminsPage from '@/components/pages/AdminsPage'
 
 export default function AppShell() {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null)
@@ -32,12 +32,12 @@ export default function AppShell() {
     switch (currentPage) {
       case 'dashboard':     return <DashboardPage     />
       case 'salons':        return <SalonsPage        />
-      case 'bookings':      return <BookingsPage      />
-      case 'customers':     return <CustomersPage     />
-      case 'staff':         return <StaffPage         />
-      case 'reports':       return <ReportsPage       />
-      case 'announcements': return <AnnouncementsPage />
-      case 'admins':        return <AdminsPage        />
+    //   case 'bookings':      return <BookingsPage      />
+    //   case 'customers':     return <CustomersPage     />
+    //   case 'staff':         return <StaffPage         />
+    //   case 'reports':       return <ReportsPage       />
+    //   case 'announcements': return <AnnouncementsPage />
+    //   case 'admins':        return <AdminsPage        />
       default:              return null
     }
   }
