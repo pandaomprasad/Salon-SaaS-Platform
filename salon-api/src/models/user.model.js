@@ -109,8 +109,7 @@ const userSchema = new mongoose.Schema(
 // ================================
 // Indexes for performance
 // ================================
-// we query users by email constantly (login)
-userSchema.index({ email: 1 })
+// email already has unique:true above so no need to re-index it
 // we query staff/managers by their branch often
 userSchema.index({ branchId: 1 })
 // we query all users under a salon often
@@ -120,15 +119,15 @@ userSchema.index({ salonId: 1 })
 // Hash password before saving
 // ================================
 // "pre save hook" — runs automatically before every .save()
-userSchema.pre('save', async function (next) {
+// we use next-less async style which works correctly in mongoose v8+
+userSchema.pre('save', async function () {
   // only hash if password was changed/is new
   // without this check, re-saving a user would double-hash the password
-  if (!this.isModified('password')) return next()
+  if (!this.isModified('password')) return
 
   // 12 = salt rounds — higher = more secure but slower
   // 12 is a good balance for production
   this.password = await bcrypt.hash(this.password, 12)
-  next()
 })
 
 // ================================
