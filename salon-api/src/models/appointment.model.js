@@ -201,15 +201,13 @@ appointmentSchema.index({ branchId: 1, date: 1, status: 1 })
 // ================================
 // Pre-save hook — auto-record status changes
 // ================================
-appointmentSchema.pre('save', function (next) {
-  // if status was modified, push to history
+appointmentSchema.pre('save', function () {
   if (this.isModified('status')) {
     this.statusHistory.push({
       status: this.status,
       changedAt: new Date()
     })
   }
-  next()
 })
 
 module.exports = mongoose.model('Appointment', appointmentSchema)
