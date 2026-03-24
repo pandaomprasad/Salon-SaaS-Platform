@@ -21,6 +21,15 @@ const createService = async (req, res, next) => {
     if (!branch) {
       return next(new AppError('Branch not found', 404))
     }
+    // CHECK DUPLICATE — add this block
+    const existing = await Service.findOne({
+      branchId,
+      name: { $regex: new RegExp(`^${req.body.name}$`, 'i') }, // case-insensitive
+      isActive: true
+    })
+    if (existing) {
+      return next(new AppError(`Service "${req.body.name}" already exists in this branch`, 400))
+    }
 
     const service = await Service.create({
       ...req.body,

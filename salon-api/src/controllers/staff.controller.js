@@ -25,10 +25,15 @@ const createStaff = async (req, res, next) => {
       return next(new AppError('Managers cannot create other managers.', 403))
     }
 
-    // verify branch exists and belongs to this salon
-    const branch = await Branch.findOne({ _id: branchId, salonId })
+    // verify branch exists
+    const branch = await Branch.findById(branchId)
     if (!branch) {
       return next(new AppError('Branch not found', 404))
+    }
+
+    // verify branch belongs to this salon
+    if (branch.salonId.toString() !== salonId.toString()) {
+      return next(new AppError('Access denied. This branch does not belong to your salon.', 403))
     }
 
     // check email not already taken
@@ -50,7 +55,7 @@ const createStaff = async (req, res, next) => {
       phone,
       password,
       role: roleDoc._id,
-      salonId,
+      salonId: branch.salonId,  // use branch's actual salonId
       branchId,
       isActive: true
     })

@@ -1,0 +1,41 @@
+const router = require('express').Router()
+
+const {
+  bookAppointment,
+  getAppointments,
+  getAppointment,
+  updateAppointmentStatus,
+  rateAppointment
+} = require('../controllers/appointment.controller')
+
+const authenticate = require('../middleware/authenticate')
+const checkPermission = require('../middleware/checkPermission')
+
+router.use(authenticate)
+
+router.post('/',
+  checkPermission('appointment:create'),
+  bookAppointment
+)
+
+router.get('/',
+  checkPermission('appointment:read'),
+  getAppointments
+)
+
+router.get('/:appointmentId',
+  checkPermission('appointment:read'),
+  getAppointment
+)
+
+router.patch('/:appointmentId/status',
+  checkPermission('appointment:update'),
+  updateAppointmentStatus
+)
+
+router.patch('/:appointmentId/rate',
+  checkPermission('appointment:read'),
+  rateAppointment
+)
+
+module.exports = router
