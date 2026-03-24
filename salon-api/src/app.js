@@ -20,6 +20,19 @@ const app = express()
 // ================================
 connectDB()
 
+// Register all models
+require('./models/permission.model')
+require('./models/role.model')
+require('./models/user.model')
+require('./models/salon.model')
+require('./models/branch.model')
+require('./models/service.model')
+require('./models/slot.model')
+require('./models/appointment.model')
+
+// Security Middleware
+app.use(helmet())
+// ... rest of file
 // ================================
 // Security Middleware
 // ================================
@@ -87,7 +100,7 @@ app.get('/health', (req, res) => {
 // ================================
 // API Routes — we'll add these next
 // ================================
-// app.use('/api/v1/auth', require('./routes/auth.routes'))
+app.use('/api/v1/auth', require('./routes/auth.routes'))
 // app.use('/api/v1/salons', require('./routes/salon.routes'))
 // app.use('/api/v1/branches', require('./routes/branch.routes'))
 // app.use('/api/v1/appointments', require('./routes/appointment.routes'))
