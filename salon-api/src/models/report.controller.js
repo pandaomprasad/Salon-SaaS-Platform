@@ -1,0 +1,359 @@
+const Appointment = require('../models/appointment.model')
+const Service = require('../models/service.model')
+const User = require('../models/user.model')
+const Slot = require('../models/slot.model')
+const AppError = require('../utils/AppError')
+const dayjs = require('dayjs')
+
+// ================================
+// GET /api/v1/reports/overview
+// owner → entire salon
+// manager → their branch only
+// ================================
+const getOverview = async (req, res, next) => {
+  try {
+    const { role, branchId, salonId } = req.user
+    const { startDate, endDate } = req.query
+
+    // default to current month if no dates given
+    const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
+    const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    // build filter based on role
+    const filter = {
+      date: { $gte: start, $lte: end }
+    }
+
+    if (role === 'manager') filter.branchId = branchId
+    if (role === 'owner') filter.salonId = salonId
+
+    // run all queries in parallel for performance
+    const [
+      totalAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      pendingAppointments,
+      confirmedAppointments,
+      noShowAppointments,
+      revenueData
+    ] = await Promise.all([
+      Appointment.countDocuments(filter),
+      Appointment.countDocuments({ ...filter, status: 'COMPLETED' }),
+      Appointment.countDocuments({ ...filter, status: 'CANCELLED' }),
+      Appointment.countDocuments({ ...filter, status: 'PENDING' }),
+      Appointment.countDocuments({ ...filter, status: 'CONFIRMED' }),
+      Appointment.countDocuments({ ...filter, status: 'NO_SHOW' }),
+
+      // total revenue from completed appointments only
+      Appointment.aggregate([
+        { $match: { ...filter, status: 'COMPLETED' } },
+        { $group: { _id: null, total: { $sum: '$pricePaid' } } }
+      ])
+    ])
+
+    const totalRevenue = revenueData[0]?.total || 0
+
+    res.status(200).json({
+      success: true,
+      data: {
+        period: { startDate: start, endDate: end },
+        appointments: {
+          total: totalAppointments,
+          completed: completedAppointments,
+          cancelled: cancelledAppointments,
+          pending: pendingAppointments,
+          confirmed: confirmedAppointments,
+          noShow: noShowAppointments,
+          completionRate: totalAppointments > 0
+            ? ((completedAppointments / totalAppointments) * 100).toFixed(1) + '%'
+            : '0%'
+        },
+        revenue: {
+          total: totalRevenue,
+          // formatted display e.g. ₹5000.00
+          display: `₹${(totalRevenue / 100).toFixed(2)}`
+        }
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/reports/popular-services
+// most booked services in a period
+// ================================
+const getPopularServices = async (req, res, next) => {
+  try {
+    const { role, branchId, salonId } = req.user
+    const { startDate, endDate, limit = 5 } = req.query
+
+    const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
+    const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const matchFilter = {
+      date: { $gte: start, $lte: end },
+      status: 'COMPLETED'
+    }
+
+    if (role === 'manager') matchFilter.branchId = branchId
+    if (role === 'owner') matchFilter.salonId = salonId
+
+    const popularServices = await Appointment.aggregate([
+      { $match: matchFilter },
+
+      // group by serviceId and count bookings + sum revenue
+      {
+        $group: {
+          _id: '$serviceId',
+          totalBookings: { $sum: 1 },
+          totalRevenue: { $sum: '$pricePaid' }
+        }
+      },
+
+      // sort by most booked
+      { $sort: { totalBookings: -1 } },
+
+      // limit results
+      { $limit: parseInt(limit) },
+
+      // join with services collection to get service details
+      {
+        $lookup: {
+          from: 'services',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'service'
+        }
+      },
+
+      // flatten the service array
+      { $unwind: '$service' },
+
+      // shape the output
+      {
+        $project: {
+          _id: 0,
+          serviceId: '$_id',
+          name: '$service.name',
+          category: '$service.category',
+          totalBookings: 1,
+          totalRevenue: 1,
+          revenueDisplay: {
+            $concat: ['₹', { $toString: { $divide: ['$totalRevenue', 100] } }]
+          }
+        }
+      }
+    ])
+
+    res.status(200).json({
+      success: true,
+      data: {
+        period: { startDate: start, endDate: end },
+        popularServices
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/reports/staff-performance
+// bookings and revenue per staff member
+// ================================
+const getStaffPerformance = async (req, res, next) => {
+  try {
+    const { role, branchId, salonId } = req.user
+    const { startDate, endDate } = req.query
+
+    const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
+    const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const matchFilter = {
+      date: { $gte: start, $lte: end },
+      status: 'COMPLETED'
+    }
+
+    if (role === 'manager') matchFilter.branchId = branchId
+    if (role === 'owner') matchFilter.salonId = salonId
+
+    const staffPerformance = await Appointment.aggregate([
+      { $match: matchFilter },
+
+      {
+        $group: {
+          _id: '$staffId',
+          totalAppointments: { $sum: 1 },
+          totalRevenue: { $sum: '$pricePaid' },
+          avgRating: { $avg: '$rating.score' }
+        }
+      },
+
+      { $sort: { totalAppointments: -1 } },
+
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'staff'
+        }
+      },
+
+      { $unwind: '$staff' },
+
+      {
+        $project: {
+          _id: 0,
+          staffId: '$_id',
+          name: '$staff.name',
+          email: '$staff.email',
+          totalAppointments: 1,
+          totalRevenue: 1,
+          revenueDisplay: {
+            $concat: ['₹', { $toString: { $divide: ['$totalRevenue', 100] } }]
+          },
+          avgRating: {
+            $cond: {
+              if: { $gt: ['$avgRating', null] },
+              then: { $round: ['$avgRating', 1] },
+              else: 'No ratings yet'
+            }
+          }
+        }
+      }
+    ])
+
+    res.status(200).json({
+      success: true,
+      data: {
+        period: { startDate: start, endDate: end },
+        staffPerformance
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/reports/daily-bookings
+// bookings count per day in a period
+// useful for charts on frontend
+// ================================
+const getDailyBookings = async (req, res, next) => {
+  try {
+    const { role, branchId, salonId } = req.user
+    const { startDate, endDate } = req.query
+
+    const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
+    const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const matchFilter = {
+      date: { $gte: start, $lte: end }
+    }
+
+    if (role === 'manager') matchFilter.branchId = branchId
+    if (role === 'owner') matchFilter.salonId = salonId
+
+    const dailyData = await Appointment.aggregate([
+      { $match: matchFilter },
+
+      {
+        $group: {
+          _id: '$date',
+          total: { $sum: 1 },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$status', 'COMPLETED'] }, 1, 0] }
+          },
+          cancelled: {
+            $sum: { $cond: [{ $eq: ['$status', 'CANCELLED'] }, 1, 0] }
+          },
+          revenue: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'COMPLETED'] }, '$pricePaid', 0]
+            }
+          }
+        }
+      },
+
+      { $sort: { _id: 1 } },
+
+      {
+        $project: {
+          _id: 0,
+          date: '$_id',
+          total: 1,
+          completed: 1,
+          cancelled: 1,
+          revenue: 1,
+          revenueDisplay: {
+            $concat: ['₹', { $toString: { $divide: ['$revenue', 100] } }]
+          }
+        }
+      }
+    ])
+
+    res.status(200).json({
+      success: true,
+      data: {
+        period: { startDate: start, endDate: end },
+        dailyBookings: dailyData
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/reports/slot-utilization
+// how many slots are being used vs available
+// ================================
+const getSlotUtilization = async (req, res, next) => {
+  try {
+    const { role, branchId, salonId } = req.user
+    const { date } = req.query
+
+    const targetDate = date || dayjs().format('YYYY-MM-DD')
+
+    const filter = { date: targetDate }
+    if (role === 'manager') filter.branchId = branchId
+    if (role === 'owner') filter.salonId = salonId
+
+    const [total, available, booked, blocked] = await Promise.all([
+      Slot.countDocuments(filter),
+      Slot.countDocuments({ ...filter, status: 'AVAILABLE' }),
+      Slot.countDocuments({ ...filter, status: 'BOOKED' }),
+      Slot.countDocuments({ ...filter, status: 'BLOCKED' })
+    ])
+
+    res.status(200).json({
+      success: true,
+      data: {
+        date: targetDate,
+        slots: {
+          total,
+          available,
+          booked,
+          blocked,
+          utilizationRate: total > 0
+            ? ((booked / total) * 100).toFixed(1) + '%'
+            : '0%'
+        }
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+module.exports = {
+  getOverview,
+  getPopularServices,
+  getStaffPerformance,
+  getDailyBookings,
+  getSlotUtilization
+}

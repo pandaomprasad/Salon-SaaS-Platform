@@ -108,6 +108,7 @@ app.use('/api/v1/branches/:branchId/staff',           require('./routes/staff.ro
 app.use('/api/v1/branches/:branchId/services',        require('./routes/service.routes'))
 app.use('/api/v1/branches/:branchId/slots',      require('./routes/slot.routes'))
 app.use('/api/v1/appointments',                  require('./routes/appointment.routes'))
+app.use('/api/v1/reports',                       require('./routes/report.routes'))
 // app.use('/api/v1/appointments', require('./routes/appointment.routes'))
 
 // ================================
