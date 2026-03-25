@@ -5,7 +5,8 @@ const {
   getAppointments,
   getAppointment,
   updateAppointmentStatus,
-  rateAppointment
+  rateAppointment,
+  rescheduleAppointment
 } = require('../controllers/appointment.controller')
 
 const authenticate = require('../middleware/authenticate')
@@ -37,5 +38,8 @@ router.patch('/:appointmentId/rate',
   checkPermission('appointment:read'),
   rateAppointment
 )
-
+router.patch('/:appointmentId/reschedule',
+  checkPermission('appointment:update'),
+  rescheduleAppointment
+)
 module.exports = router

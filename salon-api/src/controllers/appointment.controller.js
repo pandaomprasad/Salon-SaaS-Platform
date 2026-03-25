@@ -382,11 +382,254 @@ const rateAppointment = async (req, res, next) => {
     next(error)
   }
 }
+// ================================
+// PATCH /api/v1/appointments/:appointmentId/reschedule
+// customer → change slot only (same staff + service)
+// manager  → change slot + staff + service
+// ================================
+const rescheduleAppointment = async (req, res, next) => {
+  try {
+    const { appointmentId } = req.params
+    const { newSlotId, newServiceId, newStaffId, reason } = req.body
+    const { userId, role, branchId } = req.user
 
+    // --------------------------------
+    // Step 1 — find appointment
+    // --------------------------------
+    const appointment = await Appointment.findById(appointmentId)
+    if (!appointment) {
+      return next(new AppError('Appointment not found', 404))
+    }
+
+    // --------------------------------
+    // Step 2 — scope checks
+    // --------------------------------
+
+    // customer can only reschedule their own
+    if (role === 'customer' && appointment.customerId.toString() !== userId.toString()) {
+      return next(new AppError('Access denied. This is not your appointment.', 403))
+    }
+
+    // manager can only reschedule appointments in their branch
+    if (role === 'manager' && appointment.branchId.toString() !== branchId.toString()) {
+      return next(new AppError('Access denied. This appointment is not in your branch.', 403))
+    }
+
+    // --------------------------------
+    // Step 3 — check current status allows reschedule
+    // --------------------------------
+    const reschedulableStatuses = ['PENDING', 'CONFIRMED']
+    if (!reschedulableStatuses.includes(appointment.status)) {
+      return next(
+        new AppError(
+          `Cannot reschedule an appointment that is ${appointment.status}`,
+          400
+        )
+      )
+    }
+
+    // --------------------------------
+    // Step 4 — validate new slot
+    // --------------------------------
+    if (!newSlotId) {
+      return next(new AppError('New slot is required', 400))
+    }
+
+    // make sure new slot is different from current
+    if (newSlotId === appointment.slotId.toString()) {
+      return next(new AppError('New slot must be different from current slot', 400))
+    }
+
+    const newSlot = await Slot.findById(newSlotId)
+    if (!newSlot) {
+      return next(new AppError('New slot not found', 404))
+    }
+
+    if (newSlot.status !== 'AVAILABLE') {
+      return next(new AppError('Selected slot is not available', 400))
+    }
+
+    // new slot must be in the future
+    const slotDateTime = dayjs(`${newSlot.date} ${newSlot.startTime}`)
+    if (slotDateTime.isBefore(dayjs())) {
+      return next(new AppError('Cannot reschedule to a slot in the past', 400))
+    }
+
+    // new slot must be in same branch
+    if (newSlot.branchId.toString() !== appointment.branchId.toString()) {
+      return next(new AppError('New slot must be in the same branch', 400))
+    }
+
+    // --------------------------------
+    // Step 5 — customer restrictions
+    // customer can only use slots for same staff
+    // --------------------------------
+    if (role === 'customer') {
+      if (newSlot.staffId.toString() !== appointment.staffId.toString()) {
+        return next(
+          new AppError(
+            'You can only reschedule to a slot with the same staff member. Contact the salon to change staff.',
+            400
+          )
+        )
+      }
+
+      // customer cannot change service or staff
+      if (newServiceId || newStaffId) {
+        return next(
+          new AppError(
+            'Customers can only change the time slot. Contact the salon to change service or staff.',
+            400
+          )
+        )
+      }
+    }
+
+    // --------------------------------
+    // Step 6 — manager can change service and staff
+    // --------------------------------
+    let finalServiceId = appointment.serviceId
+    let finalStaffId = appointment.staffId
+    let finalPrice = appointment.pricePaid
+
+    if (role === 'manager' || role === 'owner') {
+
+      // changing service
+      if (newServiceId) {
+        const newService = await Service.findOne({
+          _id: newServiceId,
+          branchId: appointment.branchId,
+          isActive: true
+        })
+
+        if (!newService) {
+          return next(new AppError('New service not found in this branch', 404))
+        }
+
+        finalServiceId = newService._id
+        finalPrice = newService.price
+      }
+
+      // changing staff — must match new slot's staff
+      if (newStaffId) {
+        if (newSlot.staffId.toString() !== newStaffId.toString()) {
+          return next(
+            new AppError(
+              'New staff must match the staff assigned to the new slot',
+              400
+            )
+          )
+        }
+        finalStaffId = newStaffId
+      } else {
+        // even if not explicitly changing staff
+        // new slot might be for a different staff — update it
+        finalStaffId = newSlot.staffId
+      }
+
+      // verify new staff can perform the service
+      const serviceToCheck = await Service.findById(finalServiceId)
+      if (
+        serviceToCheck.eligibleStaff.length > 0 &&
+        !serviceToCheck.eligibleStaff
+          .map((id) => id.toString())
+          .includes(finalStaffId.toString())
+      ) {
+        return next(
+          new AppError(
+            'Selected staff cannot perform this service',
+            400
+          )
+        )
+      }
+    }
+
+    // --------------------------------
+    // Step 7 — atomic slot swap
+    // free old slot + book new slot atomically
+    // --------------------------------
+
+    // atomically book new slot — prevents double booking
+    const bookedNewSlot = await Slot.findOneAndUpdate(
+      { _id: newSlotId, status: 'AVAILABLE' },
+      { status: 'BOOKED', appointmentId: appointment._id },
+      { new: true }
+    )
+
+    if (!bookedNewSlot) {
+      return next(
+        new AppError(
+          'This slot was just booked by someone else. Please choose another.',
+          400
+        )
+      )
+    }
+
+    // free the old slot
+    await Slot.findByIdAndUpdate(appointment.slotId, {
+      status: 'AVAILABLE',
+      appointmentId: null
+    })
+
+    // --------------------------------
+    // Step 8 — update appointment
+    // --------------------------------
+    const oldSlotInfo = {
+      slotId: appointment.slotId,
+      date: appointment.date,
+      startTime: appointment.startTime,
+      endTime: appointment.endTime
+    }
+
+    appointment.slotId = newSlotId
+    appointment.date = newSlot.date
+    appointment.startTime = newSlot.startTime
+    appointment.endTime = newSlot.endTime
+    appointment.staffId = finalStaffId
+    appointment.serviceId = finalServiceId
+    appointment.pricePaid = finalPrice
+
+    // reset to PENDING after reschedule — needs reconfirmation
+    appointment.status = 'PENDING'
+
+    // record in history
+    appointment.statusHistory.push({
+      status: 'PENDING',
+      changedBy: userId,
+      changedAt: new Date(),
+      note: reason
+        ? `Rescheduled: ${reason}. Was: ${oldSlotInfo.date} ${oldSlotInfo.startTime}`
+        : `Rescheduled from ${oldSlotInfo.date} ${oldSlotInfo.startTime} to ${newSlot.date} ${newSlot.startTime}`
+    })
+
+    await appointment.save()
+
+    res.status(200).json({
+      success: true,
+      message: 'Appointment rescheduled successfully',
+      data: {
+        appointment: {
+          id: appointment._id,
+          date: appointment.date,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          status: appointment.status,
+          staffId: appointment.staffId,
+          serviceId: appointment.serviceId,
+          pricePaid: appointment.pricePaid
+        },
+        previousSlot: oldSlotInfo
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 module.exports = {
   bookAppointment,
   getAppointments,
   getAppointment,
   updateAppointmentStatus,
-  rateAppointment
+  rateAppointment,
+  rescheduleAppointment
 }

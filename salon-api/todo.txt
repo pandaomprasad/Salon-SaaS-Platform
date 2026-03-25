@@ -1,0 +1,15 @@
+1. Customer can't see available branches/salons
+Right now a customer has no way to discover salons and branches to book at. Should there be a public route like GET /api/v1/salons that customers can browse without login?
+2. Notifications
+When an appointment is booked/confirmed/cancelled — should the customer get an email or SMS? We have Bull queue installed but never used it.
+3. Reschedule appointment
+Currently a customer can only cancel. Should they be able to reschedule to a different slot?
+4. Staff schedule / availability
+A way for staff to set their own availability — like "I'm off on Thursday" — separate from the branch working hours.
+5. Customer appointment history
+Customers can view appointments but is there a dedicated GET /api/v1/customers/me/appointments route needed?
+6. Password reset
+No forgot password / reset password flow yet.
+7. Branch-level analytics dashboard
+Manager sees their branch stats — already covered in reports but should manager have a dedicated dashboard endpoint?
+8.In app notification 
