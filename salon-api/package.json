@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon src/app.js",
     "dev": "nodemon src/app.js",
-    "seed" : "node src/utils/seeder.js"
+    "seed": "node src/utils/seeder.js"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.2",
     "morgan": "^1.10.1",
+    "node-cron": "^4.2.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
