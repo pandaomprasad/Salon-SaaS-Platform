@@ -13,3 +13,6 @@ No forgot password / reset password flow yet.
 7. Branch-level analytics dashboard
 Manager sees their branch stats — already covered in reports but should manager have a dedicated dashboard endpoint?
 8.In app notification 
+
+---------Add later--------
+TTL-based locks, expired lock cleanup, Redis dependency

@@ -38,8 +38,10 @@ router.patch('/:appointmentId/rate',
   checkPermission('appointment:read'),
   rateAppointment
 )
+
 router.patch('/:appointmentId/reschedule',
   checkPermission('appointment:update'),
   rescheduleAppointment
 )
+
 module.exports = router

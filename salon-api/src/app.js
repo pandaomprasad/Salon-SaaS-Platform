@@ -30,9 +30,9 @@ require('./models/service.model')
 require('./models/slot.model')
 require('./models/appointment.model')
 
-// Security Middleware
-app.use(helmet())
-// ... rest of file
+
+
+
 // ================================
 // Security Middleware
 // ================================
@@ -97,6 +97,12 @@ app.get('/health', (req, res) => {
   })
 })
 
+// DEBUG — log every request before route matching
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.originalUrl}`)
+  next()
+})
+
 // ================================
 // API Routes — we'll add these next
 // ================================
@@ -108,8 +114,8 @@ app.use('/api/v1/branches/:branchId/staff',      require('./routes/staff.routes'
 app.use('/api/v1/branches/:branchId/services',   require('./routes/service.routes'))
 app.use('/api/v1/branches/:branchId/slots',      require('./routes/slot.routes'))
 app.use('/api/v1/appointments',                  require('./routes/appointment.routes'))
+app.use('/api/v1/customers',                     require('./routes/customer.routes'))
 app.use('/api/v1/reports',                       require('./routes/report.routes'))
-// app.use('/api/v1/appointments', require('./routes/appointment.routes'))
 
 // ================================
 // 404 Handler
@@ -149,5 +155,9 @@ const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`)
 })
+
+
+
+
 
 module.exports = app
