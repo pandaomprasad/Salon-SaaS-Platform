@@ -1,79 +1,97 @@
-const redis = require('../config/redis')
-const Role = require('../models/role.model')
-const logger = require('./logger')
+const Role = require("../models/role.model");
+const logger = require("./logger");
+
+const REDIS_ENABLED = process.env.REDIS_ENABLED === "true";
+const redis = REDIS_ENABLED ? require("../config/redis") : null;
+
+const CACHE_TTL = 60 * 60 * 24;
+const CACHE_PREFIX = "permissions:";
 
 // ================================
-// Cache key format
+// getRolePermissions
 // ================================
-// "permissions:owner"   => ["salon:create", "salon:read", ...]
-// "permissions:manager" => ["branch:read", "staff:create", ...]
-// TTL = 24 hours
-
-const CACHE_TTL = 60 * 60 * 24 // 24 hours in seconds
-const CACHE_PREFIX = 'permissions:'
-
-// ================================
-// Get permissions for a role
-// ================================
-// flow:
-//   1. check Redis cache first
-//   2. if not cached → query MongoDB, then cache it
-//   3. return array of "resource:action" strings
+// gets base permissions for a role
+// cached in Redis for 24 hours
 
 const getRolePermissions = async (roleName) => {
   try {
-    const cacheKey = `${CACHE_PREFIX}${roleName}`
-
-    // step 1 — check cache
-    const cached = await redis.get(cacheKey)
-    if (cached) {
-      // redis stores strings, so we parse the JSON array back
-      return JSON.parse(cached)
+    if (redis) {
+      const cacheKey = `${CACHE_PREFIX}${roleName}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
     }
 
-    // step 2 — not in cache, query MongoDB
-    // populate('permissions') fetches the actual Permission documents
-    // instead of just their ObjectIds
-    const role = await Role.findOne({ name: roleName })
-      .populate('permissions')
+    const role = await Role.findOne({ name: roleName }).populate("permissions");
 
-    if (!role) return []
+    if (!role) return [];
 
-    // convert permission documents to "resource:action" strings
-    // e.g. { resource: "appointment", action: "read" } => "appointment:read"
     const permissionKeys = role.permissions.map(
-      (p) => `${p.resource}:${p.action}`
-    )
+      (p) => `${p.resource}:${p.action}`,
+    );
 
-    // step 3 — save to Redis for next time
-    await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(permissionKeys))
+    if (redis) {
+      const cacheKey = `${CACHE_PREFIX}${roleName}`;
+      await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(permissionKeys));
+    }
 
-    logger.info(`Permissions cached for role: ${roleName}`)
-    return permissionKeys
-
+    return permissionKeys;
   } catch (error) {
-    // if Redis is down, fall back to MongoDB — don't crash the app
-    logger.error(`Permission cache error: ${error.message}`)
-
-    const role = await Role.findOne({ name: roleName }).populate('permissions')
-    if (!role) return []
-    return role.permissions.map((p) => `${p.resource}:${p.action}`)
+    logger.error(`Permission cache error: ${error.message}`);
+    const role = await Role.findOne({ name: roleName }).populate("permissions");
+    if (!role) return [];
+    return role.permissions.map((p) => `${p.resource}:${p.action}`);
   }
-}
+};
 
 // ================================
-// Bust cache for a role
+// getUserPermissions
 // ================================
-// call this whenever a role's permissions are updated
-// so the next request re-fetches from MongoDB
+// gets FINAL permissions for a specific user
+// merges role permissions + extra permissions
+// then removes denied permissions
+//
+// flow:
+//   1. get role base permissions
+//   2. add user's extraPermissions
+//   3. remove user's deniedPermissions
+//   4. return final unique list
+
+const getUserPermissions = async (roleName, userId) => {
+  try {
+    const User = require("../models/user.model");
+
+    // get base role permissions
+    const rolePermissions = await getRolePermissions(roleName);
+
+    // get user specific overrides
+    const user = await User.findById(userId)
+      .select("extraPermissions deniedPermissions")
+      .lean();
+
+    if (!user) return rolePermissions;
+
+    const extra = user.extraPermissions || [];
+    const denied = user.deniedPermissions || [];
+
+    // merge role + extra, then remove denied
+    const merged = [...new Set([...rolePermissions, ...extra])];
+    const final = merged.filter((p) => !denied.includes(p));
+
+    return final;
+  } catch (error) {
+    logger.error(`getUserPermissions error: ${error.message}`);
+    return await getRolePermissions(roleName);
+  }
+};
 
 const bustRoleCache = async (roleName) => {
+  if (!redis) return;
   try {
-    await redis.del(`${CACHE_PREFIX}${roleName}`)
-    logger.info(`Cache busted for role: ${roleName}`)
+    await redis.del(`${CACHE_PREFIX}${roleName}`);
+    logger.info(`Cache busted for role: ${roleName}`);
   } catch (error) {
-    logger.error(`Cache bust error: ${error.message}`)
+    logger.error(`Cache bust error: ${error.message}`);
   }
-}
+};
 
-module.exports = { getRolePermissions, bustRoleCache }
+module.exports = { getRolePermissions, getUserPermissions, bustRoleCache };

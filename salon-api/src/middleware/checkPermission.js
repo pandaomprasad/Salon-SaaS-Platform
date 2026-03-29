@@ -1,47 +1,41 @@
-const AppError = require('../utils/AppError')
-const { getRolePermissions } = require('../utils/permissionCache')
+const AppError = require("../utils/AppError");
+const { getUserPermissions } = require("../utils/permissionCache");
 
 // ================================
 // checkPermission middleware
 // ================================
-// usage in routes:
-//   router.get('/staff', authenticate, checkPermission('staff:read'), controller)
-//   router.delete('/staff/:id', authenticate, checkPermission('staff:delete'), controller)
+// checks FINAL permissions for a user
+// final = role permissions + extra - denied
 //
-// it returns a middleware function (factory pattern)
-// so we can pass the required permission as an argument
+// usage:
+//   router.get('/reports', authenticate, checkPermission('report:read'), controller)
 
 const checkPermission = (requiredPermission) => {
   return async (req, res, next) => {
     try {
-      // req.user is set by authenticate middleware before this runs
-      const { role } = req.user
+      const { role, userId } = req.user;
 
       // owner bypasses all permission checks
-      // they can do everything within their own salon
-      // scope check (salonId) is handled separately
-      if (role === 'owner') return next()
+      if (role === "owner") return next();
 
-      // get permissions for this role from Redis cache
-      // e.g. ["appointment:read", "appointment:update", "staff:read"]
-      const permissions = await getRolePermissions(role)
+      // get final permissions for this specific user
+      // merges role + extra - denied
+      const permissions = await getUserPermissions(role, userId);
 
-      // check if required permission is in the list
       if (!permissions.includes(requiredPermission)) {
         return next(
           new AppError(
             `Access denied. Required permission: ${requiredPermission}`,
-            403
-          )
-        )
+            403,
+          ),
+        );
       }
 
-      next()
-
+      next();
     } catch (error) {
-      next(new AppError('Permission check failed.', 500))
+      next(new AppError("Permission check failed.", 500));
     }
-  }
-}
+  };
+};
 
-module.exports = checkPermission
+module.exports = checkPermission;

@@ -317,10 +317,128 @@ const deleteStaff = async (req, res, next) => {
   }
 };
 
+// ================================
+// PATCH /api/v1/branches/:branchId/staff/:staffId/permissions
+// owner only — grant extra permissions to a specific user
+// ================================
+const updateStaffPermissions = async (req, res, next) => {
+  try {
+    const { branchId, staffId } = req.params;
+    const { extraPermissions, deniedPermissions } = req.body;
+    const { role: userRole, salonId } = req.user;
+
+    // only owner can manage permissions
+    if (userRole !== "owner") {
+      return next(
+        new AppError("Only owners can manage staff permissions", 403),
+      );
+    }
+
+    const user = await User.findOne({ _id: staffId, branchId, salonId });
+    if (!user) {
+      return next(new AppError("Staff member not found", 404));
+    }
+
+    // validate permission format "resource:action"
+    const validFormat = /^[a-z]+:[a-z]+$/;
+    const allPerms = [
+      ...(extraPermissions || []),
+      ...(deniedPermissions || []),
+    ];
+
+    for (const perm of allPerms) {
+      if (!validFormat.test(perm)) {
+        return next(
+          new AppError(
+            `Invalid permission format: "${perm}". Must be "resource:action" e.g. "report:read"`,
+            400,
+          ),
+        );
+      }
+    }
+
+    // update permissions
+    if (extraPermissions !== undefined) {
+      user.extraPermissions = extraPermissions;
+    }
+    if (deniedPermissions !== undefined) {
+      user.deniedPermissions = deniedPermissions;
+    }
+
+    await user.save();
+
+    // get final permissions to show in response
+    const { getUserPermissions } = require("../utils/permissionCache");
+    const roleDoc = await Role.findById(user.role).lean();
+    const finalPermissions = await getUserPermissions(roleDoc.name, user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Staff permissions updated successfully",
+      data: {
+        userId: user._id,
+        name: user.name,
+        extraPermissions: user.extraPermissions,
+        deniedPermissions: user.deniedPermissions,
+        finalPermissions,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// GET /api/v1/branches/:branchId/staff/:staffId/permissions
+// owner — view a staff member's final permissions
+// ================================
+const getStaffPermissions = async (req, res, next) => {
+  try {
+    const { branchId, staffId } = req.params;
+    const { role: userRole, salonId } = req.user;
+
+    if (userRole !== "owner") {
+      return next(new AppError("Only owners can view staff permissions", 403));
+    }
+
+    const user = await User.findOne({ _id: staffId, branchId, salonId })
+      .populate("role", "name")
+      .lean();
+
+    if (!user) {
+      return next(new AppError("Staff member not found", 404));
+    }
+
+    const {
+      getUserPermissions,
+      getRolePermissions,
+    } = require("../utils/permissionCache");
+
+    const rolePermissions = await getRolePermissions(user.role.name);
+    const finalPermissions = await getUserPermissions(user.role.name, user._id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId: user._id,
+        name: user.name,
+        role: user.role.name,
+        rolePermissions,
+        extraPermissions: user.extraPermissions || [],
+        deniedPermissions: user.deniedPermissions || [],
+        finalPermissions,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 module.exports = {
   createStaff,
   getStaff,
   getStaffMember,
   updateStaff,
   deleteStaff,
+  updateStaffPermissions,
+  getStaffPermissions,
 };
