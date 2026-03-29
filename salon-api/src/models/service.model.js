@@ -103,8 +103,8 @@ serviceSchema.pre("save", function () {
 
 // virtual — formatted price display
 // service.priceDisplay => "₹500.00"
-serviceSchema.virtual("priceDisplay").get(function () {
-  return `₹${(this.price / 100).toFixed(2)}`;
-});
+// serviceSchema.virtual("priceDisplay").get(function () {
+//   return `₹${(this.price / 100).toFixed(2)}`;
+// });
 
 module.exports = mongoose.model("Service", serviceSchema);

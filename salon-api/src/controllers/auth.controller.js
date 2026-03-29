@@ -1,26 +1,26 @@
-const User = require('../models/user.model')
-const Role = require('../models/role.model')
-const AppError = require('../utils/AppError')
+const User = require("../models/user.model");
+const Role = require("../models/role.model");
+const AppError = require("../utils/AppError");
 const {
   generateAccessToken,
   generateRefreshToken,
-  verifyRefreshToken
-} = require('../utils/token')
-const bcrypt = require('bcryptjs')
+  verifyRefreshToken,
+} = require("../utils/token");
+const bcrypt = require("bcryptjs");
 
 // ================================
 // Helper — build user payload for token
 // ================================
 const buildUserPayload = async (user) => {
-  const role = await Role.findById(user.role).select('name').lean()
+  const role = await Role.findById(user.role).select("name").lean();
   return {
     _id: user._id,
     salonId: user.salonId,
     branchId: user.branchId,
     tokenVersion: user.tokenVersion,
-    roleName: role.name
-  }
-}
+    roleName: role.name,
+  };
+};
 
 // ================================
 // POST /api/v1/auth/register
@@ -29,18 +29,20 @@ const buildUserPayload = async (user) => {
 // staff/manager/owner are created by owner (we build that later)
 const register = async (req, res, next) => {
   try {
-    const { name, email, phone, password } = req.body
+    const { name, email, phone, password } = req.body;
 
     // check if email already exists
-    const existing = await User.findOne({ email })
+    const existing = await User.findOne({ email });
     if (existing) {
-      return next(new AppError('Email already registered', 400))
+      return next(new AppError("Email already registered", 400));
     }
 
     // get customer role
-    const customerRole = await Role.findOne({ name: 'customer' })
+    const customerRole = await Role.findOne({ name: "customer" });
     if (!customerRole) {
-      return next(new AppError('Customer role not found. Please run seeder.', 500))
+      return next(
+        new AppError("Customer role not found. Please run seeder.", 500),
+      );
     }
 
     // create user — password gets hashed by pre-save hook
@@ -49,63 +51,63 @@ const register = async (req, res, next) => {
       email,
       phone,
       password,
-      role: customerRole._id
-    })
+      role: customerRole._id,
+    });
 
     // build tokens
-    const payload = await buildUserPayload(user)
-    const accessToken = generateAccessToken(payload)
-    const refreshToken = generateRefreshToken(payload)
+    const payload = await buildUserPayload(user);
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
     // save hashed refresh token to DB
-    user.refreshToken = await bcrypt.hash(refreshToken, 10)
-    user.lastLoginAt = new Date()
-    await user.save()
+    user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    user.lastLoginAt = new Date();
+    await user.save();
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
+      message: "Registration successful",
       data: {
         user: {
           id: user._id,
           name: user.name,
           email: user.email,
           phone: user.phone,
-          role: 'customer'
+          role: "customer",
         },
         accessToken,
-        refreshToken
-      }
-    })
+        refreshToken,
+      },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // POST /api/v1/auth/login
 // ================================
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body
+    const { email, password } = req.body;
 
     // find user — select password explicitly since select:false
     const user = await User.findOne({ email })
-      .select('+password +refreshToken')
-      .populate('role', 'name')
+      .select("+password +refreshToken")
+      .populate("role", "name");
 
     if (!user) {
-      return next(new AppError('Invalid email or password', 401))
+      return next(new AppError("Invalid email or password", 401));
     }
 
     if (!user.isActive) {
-      return next(new AppError('Your account has been deactivated', 401))
+      return next(new AppError("Your account has been deactivated", 401));
     }
 
     // compare password
-    const isMatch = await user.comparePassword(password)
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return next(new AppError('Invalid email or password', 401))
+      return next(new AppError("Invalid email or password", 401));
     }
 
     // build tokens
@@ -114,20 +116,20 @@ const login = async (req, res, next) => {
       salonId: user.salonId,
       branchId: user.branchId,
       tokenVersion: user.tokenVersion,
-      roleName: user.role.name
-    }
+      roleName: user.role.name,
+    };
 
-    const accessToken = generateAccessToken(payload)
-    const refreshToken = generateRefreshToken(payload)
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
     // save hashed refresh token
-    user.refreshToken = await bcrypt.hash(refreshToken, 10)
-    user.lastLoginAt = new Date()
-    await user.save()
+    user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    user.lastLoginAt = new Date();
+    await user.save();
 
     res.status(200).json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       data: {
         user: {
           id: user._id,
@@ -136,16 +138,16 @@ const login = async (req, res, next) => {
           phone: user.phone,
           role: user.role.name,
           salonId: user.salonId,
-          branchId: user.branchId
+          branchId: user.branchId,
         },
         accessToken,
-        refreshToken
-      }
-    })
+        refreshToken,
+      },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // POST /api/v1/auth/refresh
@@ -154,34 +156,38 @@ const login = async (req, res, next) => {
 // we verify it and issue a new access token
 const refresh = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body
+    const { refreshToken } = req.body;
 
     // verify the refresh token signature
-    let decoded
+    let decoded;
     try {
-      decoded = verifyRefreshToken(refreshToken)
+      decoded = verifyRefreshToken(refreshToken);
     } catch (err) {
-      return next(new AppError('Invalid or expired refresh token', 401))
+      return next(new AppError("Invalid or expired refresh token", 401));
     }
 
     // find user and check stored refresh token
     const user = await User.findById(decoded.userId)
-      .select('+refreshToken')
-      .populate('role', 'name')
+      .select("+refreshToken")
+      .populate("role", "name");
 
     if (!user || !user.refreshToken) {
-      return next(new AppError('Refresh token not found. Please log in again.', 401))
+      return next(
+        new AppError("Refresh token not found. Please log in again.", 401),
+      );
     }
 
     // compare the incoming token against stored hash
-    const isValid = await bcrypt.compare(refreshToken, user.refreshToken)
+    const isValid = await bcrypt.compare(refreshToken, user.refreshToken);
     if (!isValid) {
-      return next(new AppError('Refresh token mismatch. Please log in again.', 401))
+      return next(
+        new AppError("Refresh token mismatch. Please log in again.", 401),
+      );
     }
 
     // check tokenVersion
     if (user.tokenVersion !== decoded.tokenVersion) {
-      return next(new AppError('Session expired. Please log in again.', 401))
+      return next(new AppError("Session expired. Please log in again.", 401));
     }
 
     // issue new access token
@@ -190,22 +196,22 @@ const refresh = async (req, res, next) => {
       salonId: user.salonId,
       branchId: user.branchId,
       tokenVersion: user.tokenVersion,
-      roleName: user.role.name
-    }
+      roleName: user.role.name,
+    };
 
-    const newAccessToken = generateAccessToken(payload)
+    const newAccessToken = generateAccessToken(payload);
 
     res.status(200).json({
       success: true,
-      message: 'Token refreshed',
+      message: "Token refreshed",
       data: {
-        accessToken: newAccessToken
-      }
-    })
+        accessToken: newAccessToken,
+      },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // POST /api/v1/auth/logout
@@ -216,17 +222,17 @@ const logout = async (req, res, next) => {
   try {
     // req.user is set by authenticate middleware
     await User.findByIdAndUpdate(req.user.userId, {
-      refreshToken: null
-    })
+      refreshToken: null,
+    });
 
     res.status(200).json({
       success: true,
-      message: 'Logged out successfully'
-    })
+      message: "Logged out successfully",
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // GET /api/v1/auth/me
@@ -235,13 +241,13 @@ const logout = async (req, res, next) => {
 const me = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.userId)
-      .populate('role', 'name')
-      .populate('salonId', 'name')
-      .populate('branchId', 'name address')
-      .lean()
+      .populate("role", "name")
+      .populate("salonId", "name")
+      .populate("branchId", "name address")
+      .lean();
 
     if (!user) {
-      return next(new AppError('User not found', 404))
+      return next(new AppError("User not found", 404));
     }
 
     res.status(200).json({
@@ -255,13 +261,13 @@ const me = async (req, res, next) => {
           role: user.role.name,
           salon: user.salonId,
           branch: user.branchId,
-          lastLoginAt: user.lastLoginAt
-        }
-      }
-    })
+          lastLoginAt: user.lastLoginAt,
+        },
+      },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-module.exports = { register, login, refresh, logout, me }
+module.exports = { register, login, refresh, logout, me };
