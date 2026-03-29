@@ -1,48 +1,65 @@
-const { body } = require('express-validator')
+const { body } = require("express-validator");
 
 const createServiceValidator = [
-  body('name')
+  body("name")
     .trim()
-    .notEmpty().withMessage('Service name is required')
-    .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
+    .notEmpty()
+    .withMessage("Service name is required")
+    .isLength({ max: 100 })
+    .withMessage("Name cannot exceed 100 characters"),
 
-  body('category')
-    .notEmpty().withMessage('Category is required')
-    .isIn(['hair', 'skin', 'nails', 'makeup', 'spa', 'other'])
-    .withMessage('Invalid category'),
+  body("category")
+    .notEmpty()
+    .withMessage("Category is required")
+    .isIn(["hair", "skin", "nails", "makeup", "spa", "other"])
+    .withMessage("Invalid category"),
 
-  body('price')
-    .notEmpty().withMessage('Price is required')
-    .isInt({ min: 0 }).withMessage('Price must be a positive number in paise'),
+  // price must be in paise — minimum ₹1 = 100 paise
+  // maximum ₹100,000 = 10,000,000 paise (prevents absurd values)
+  body("price")
+    .notEmpty()
+    .withMessage("Price is required")
+    .isInt({ min: 100, max: 10000000 })
+    .withMessage(
+      "Price must be in paise. Min ₹1 = 100 paise, Max ₹1,00,000 = 10000000 paise. Example: send 50000 for ₹500",
+    ),
 
-  body('durationMinutes')
-    .notEmpty().withMessage('Duration is required')
-    .isInt({ min: 15 }).withMessage('Minimum duration is 15 minutes'),
+  body("durationMinutes")
+    .notEmpty()
+    .withMessage("Duration is required")
+    .isInt({ min: 15, max: 480 })
+    .withMessage("Duration must be between 15 and 480 minutes"),
 
-  body('description')
+  body("description")
     .optional()
     .trim()
-    .isLength({ max: 300 }).withMessage('Description cannot exceed 300 characters'),
-]
+    .isLength({ max: 300 })
+    .withMessage("Description cannot exceed 300 characters"),
+];
 
 const updateServiceValidator = [
-  body('name')
+  body("name")
     .optional()
     .trim()
-    .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
+    .isLength({ max: 100 })
+    .withMessage("Name cannot exceed 100 characters"),
 
-  body('category')
+  body("category")
     .optional()
-    .isIn(['hair', 'skin', 'nails', 'makeup', 'spa', 'other'])
-    .withMessage('Invalid category'),
+    .isIn(["hair", "skin", "nails", "makeup", "spa", "other"])
+    .withMessage("Invalid category"),
 
-  body('price')
+  body("price")
     .optional()
-    .isInt({ min: 0 }).withMessage('Price must be a positive number in paise'),
+    .isInt({ min: 100, max: 10000000 })
+    .withMessage(
+      "Price must be in paise. Min ₹1 = 100 paise, Max ₹1,00,000 = 10000000 paise. Example: send 50000 for ₹500",
+    ),
 
-  body('durationMinutes')
+  body("durationMinutes")
     .optional()
-    .isInt({ min: 15 }).withMessage('Minimum duration is 15 minutes'),
-]
+    .isInt({ min: 15, max: 480 })
+    .withMessage("Duration must be between 15 and 480 minutes"),
+];
 
-module.exports = { createServiceValidator, updateServiceValidator }
+module.exports = { createServiceValidator, updateServiceValidator };

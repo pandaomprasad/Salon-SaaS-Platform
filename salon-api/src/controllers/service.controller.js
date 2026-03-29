@@ -1,7 +1,8 @@
-const Service = require('../models/service.model')
-const Branch = require('../models/branch.model')
-const User = require('../models/user.model')
-const AppError = require('../utils/AppError')
+const Service = require("../models/service.model");
+const Branch = require("../models/branch.model");
+const User = require("../models/user.model");
+const AppError = require("../utils/AppError");
+const { formatPrice } = require("../utils/priceHelper");
 
 // ================================
 // POST /api/v1/branches/:branchId/services
@@ -9,43 +10,50 @@ const AppError = require('../utils/AppError')
 // ================================
 const createService = async (req, res, next) => {
   try {
-    const { branchId } = req.params
-    const { salonId, branchId: userBranchId, role } = req.user
+    const { branchId } = req.params;
+    const { salonId, branchId: userBranchId, role } = req.user;
 
     // manager scope check
-    if (role === 'manager' && branchId !== userBranchId.toString()) {
-      return next(new AppError('Access denied. This branch is not assigned to you.', 403))
+    if (role === "manager" && branchId !== userBranchId.toString()) {
+      return next(
+        new AppError("Access denied. This branch is not assigned to you.", 403),
+      );
     }
 
-    const branch = await Branch.findOne({ _id: branchId, salonId })
+    const branch = await Branch.findOne({ _id: branchId, salonId });
     if (!branch) {
-      return next(new AppError('Branch not found', 404))
+      return next(new AppError("Branch not found", 404));
     }
     // CHECK DUPLICATE — add this block
     const existing = await Service.findOne({
       branchId,
-      name: { $regex: new RegExp(`^${req.body.name}$`, 'i') }, // case-insensitive
-      isActive: true
-    })
+      name: { $regex: new RegExp(`^${req.body.name}$`, "i") }, // case-insensitive
+      isActive: true,
+    });
     if (existing) {
-      return next(new AppError(`Service "${req.body.name}" already exists in this branch`, 400))
+      return next(
+        new AppError(
+          `Service "${req.body.name}" already exists in this branch`,
+          400,
+        ),
+      );
     }
 
     const service = await Service.create({
       ...req.body,
       branchId,
-      salonId
-    })
+      salonId,
+    });
 
     res.status(201).json({
       success: true,
-      message: 'Service created successfully',
-      data: { service }
-    })
+      message: "Service created successfully",
+      data: { service },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // GET /api/v1/branches/:branchId/services
@@ -53,48 +61,50 @@ const createService = async (req, res, next) => {
 // ================================
 const getServices = async (req, res, next) => {
   try {
-    const { branchId } = req.params
-    const { category } = req.query
+    const { branchId } = req.params;
+    const { category } = req.query;
 
-    const filter = { branchId, isActive: true }
-    if (category) filter.category = category
+    const filter = { branchId, isActive: true };
+    if (category) filter.category = category;
 
-    const services = await Service.find(filter)
-      .select('-eligibleStaff')
-      .lean()
+    const services = await Service.find(filter).select("-eligibleStaff").lean();
+    const servicesWithDisplay = services.map((s) => ({
+      ...s,
+      priceFormatted: formatPrice(s.price, s.currency),
+    }));
 
     res.status(200).json({
       success: true,
-      data: { services }
-    })
+      data: { services: servicesWithDisplay },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // GET /api/v1/branches/:branchId/services/:serviceId
 // ================================
 const getService = async (req, res, next) => {
   try {
-    const { branchId, serviceId } = req.params
+    const { branchId, serviceId } = req.params;
 
     const service = await Service.findOne({ _id: serviceId, branchId })
-      .populate('eligibleStaff', 'name email')
-      .lean()
+      .populate("eligibleStaff", "name email")
+      .lean();
 
     if (!service) {
-      return next(new AppError('Service not found', 404))
+      return next(new AppError("Service not found", 404));
     }
 
     res.status(200).json({
       success: true,
-      data: { service }
-    })
+      data: { service },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // PATCH /api/v1/branches/:branchId/services/:serviceId
@@ -102,34 +112,45 @@ const getService = async (req, res, next) => {
 // ================================
 const updateService = async (req, res, next) => {
   try {
-    const { branchId, serviceId } = req.params
-    const { salonId, branchId: userBranchId, role } = req.user
+    const { branchId, serviceId } = req.params;
+    const { salonId, branchId: userBranchId, role } = req.user;
 
-    if (role === 'manager' && branchId !== userBranchId.toString()) {
-      return next(new AppError('Access denied.', 403))
+    if (role === "manager" && branchId !== userBranchId.toString()) {
+      return next(new AppError("Access denied.", 403));
     }
 
-    const service = await Service.findOne({ _id: serviceId, branchId, salonId })
+    const service = await Service.findOne({
+      _id: serviceId,
+      branchId,
+      salonId,
+    });
     if (!service) {
-      return next(new AppError('Service not found', 404))
+      return next(new AppError("Service not found", 404));
     }
 
-    const allowed = ['name', 'description', 'category', 'price', 'durationMinutes', 'isActive']
+    const allowed = [
+      "name",
+      "description",
+      "category",
+      "price",
+      "durationMinutes",
+      "isActive",
+    ];
     allowed.forEach((field) => {
-      if (req.body[field] !== undefined) service[field] = req.body[field]
-    })
+      if (req.body[field] !== undefined) service[field] = req.body[field];
+    });
 
-    await service.save()
+    await service.save();
 
     res.status(200).json({
       success: true,
-      message: 'Service updated successfully',
-      data: { service }
-    })
+      message: "Service updated successfully",
+      data: { service },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // DELETE /api/v1/branches/:branchId/services/:serviceId
@@ -137,29 +158,33 @@ const updateService = async (req, res, next) => {
 // ================================
 const deleteService = async (req, res, next) => {
   try {
-    const { branchId, serviceId } = req.params
-    const { salonId, branchId: userBranchId, role } = req.user
+    const { branchId, serviceId } = req.params;
+    const { salonId, branchId: userBranchId, role } = req.user;
 
-    if (role === 'manager' && branchId !== userBranchId.toString()) {
-      return next(new AppError('Access denied.', 403))
+    if (role === "manager" && branchId !== userBranchId.toString()) {
+      return next(new AppError("Access denied.", 403));
     }
 
-    const service = await Service.findOne({ _id: serviceId, branchId, salonId })
+    const service = await Service.findOne({
+      _id: serviceId,
+      branchId,
+      salonId,
+    });
     if (!service) {
-      return next(new AppError('Service not found', 404))
+      return next(new AppError("Service not found", 404));
     }
 
-    service.isActive = false
-    await service.save()
+    service.isActive = false;
+    await service.save();
 
     res.status(200).json({
       success: true,
-      message: 'Service deactivated successfully'
-    })
+      message: "Service deactivated successfully",
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // ================================
 // PATCH /api/v1/branches/:branchId/services/:serviceId/staff
@@ -168,42 +193,48 @@ const deleteService = async (req, res, next) => {
 // ================================
 const assignStaffToService = async (req, res, next) => {
   try {
-    const { branchId, serviceId } = req.params
-    const { staffIds } = req.body // array of user IDs
-    const { salonId } = req.user
+    const { branchId, serviceId } = req.params;
+    const { staffIds } = req.body; // array of user IDs
+    const { salonId } = req.user;
 
     if (!Array.isArray(staffIds) || staffIds.length === 0) {
-      return next(new AppError('staffIds must be a non-empty array', 400))
+      return next(new AppError("staffIds must be a non-empty array", 400));
     }
 
     // verify all staff belong to this branch
     const staff = await User.find({
       _id: { $in: staffIds },
       branchId,
-      salonId
-    }).lean()
+      salonId,
+    }).lean();
 
     if (staff.length !== staffIds.length) {
-      return next(new AppError('One or more staff members not found in this branch', 400))
+      return next(
+        new AppError("One or more staff members not found in this branch", 400),
+      );
     }
 
-    const service = await Service.findOne({ _id: serviceId, branchId, salonId })
+    const service = await Service.findOne({
+      _id: serviceId,
+      branchId,
+      salonId,
+    });
     if (!service) {
-      return next(new AppError('Service not found', 404))
+      return next(new AppError("Service not found", 404));
     }
 
-    service.eligibleStaff = staffIds
-    await service.save()
+    service.eligibleStaff = staffIds;
+    await service.save();
 
     res.status(200).json({
       success: true,
-      message: 'Staff assigned to service successfully',
-      data: { service }
-    })
+      message: "Staff assigned to service successfully",
+      data: { service },
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 module.exports = {
   createService,
@@ -211,5 +242,5 @@ module.exports = {
   getService,
   updateService,
   deleteService,
-  assignStaffToService
-}
+  assignStaffToService,
+};
