@@ -11,11 +11,13 @@ const {
 
 const authenticate = require('../middleware/authenticate')
 const checkPermission = require('../middleware/checkPermission')
+const idempotency = require('../middleware/idempotency')
 
 router.use(authenticate)
 
 router.post('/',
   checkPermission('appointment:create'),
+  idempotency,
   bookAppointment
 )
 
