@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const tenantPlugin = require('../utils/tenantPlugin')
 
 // Appointment = a confirmed booking
 // Links: customer → branch → staff → service → slot
@@ -209,5 +210,5 @@ appointmentSchema.pre('save', function () {
     })
   }
 })
-
+appointmentSchema.plugin(tenantPlugin)
 module.exports = mongoose.model('Appointment', appointmentSchema)

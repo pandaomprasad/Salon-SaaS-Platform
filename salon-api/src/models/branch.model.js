@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const tenantPlugin = require('../utils/tenantPlugin')
 
 // Branch = a single physical location of a salon
 // Each branch has its own address, services, staff, and slots
@@ -141,5 +142,6 @@ const branchSchema = new mongoose.Schema(
 // ================================
 branchSchema.index({ salonId: 1 })
 branchSchema.index({ salonId: 1, isActive: 1 })
+branchSchema.plugin(tenantPlugin)
 
 module.exports = mongoose.model('Branch', branchSchema)

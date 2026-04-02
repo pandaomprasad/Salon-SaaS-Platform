@@ -5,8 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { logout } from "@/store/slices/authSlice";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getCurrentPage, getUserRole } from "@/lib/mapUser";
+
 export default function LayoutWrapper({
   children,
 }: {
@@ -18,20 +19,30 @@ export default function LayoutWrapper({
 
   const { user, salon } = useSelector((state: RootState) => state.auth);
 
+  const [mounted, setMounted] = useState(false);
+
   const currentPage = getCurrentPage(pathname);
   const hideSidebar = pathname === "/login";
 
+  // ✅ Ensure client-side rendering only
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // 🔐 Redirect if not logged in
   useEffect(() => {
-    if (!user && pathname !== "/login") {
-      router.push("/login");
+    if (mounted && !user && pathname !== "/login") {
+      router.replace("/login");
     }
-  }, [user, pathname, router]);
+  }, [user, pathname, router, mounted]);
 
-  // 🛑 Prevent rendering before redirect
+  // ⛔ Prevent hydration mismatch
+  if (!mounted) return null;
+
+  // ⛔ Show fallback while redirecting
   if (!user && pathname !== "/login") {
     return (
-      <div style={{ padding: "20px" }}>
+      <div className="p-5">
         <p>Redirecting to login...</p>
       </div>
     );
@@ -54,7 +65,7 @@ export default function LayoutWrapper({
             onLogout={() => {
               localStorage.removeItem("token");
               dispatch(logout());
-              router.push("/login");
+              router.replace("/login");
             }}
             onClose={() => {}}
           />
@@ -62,7 +73,9 @@ export default function LayoutWrapper({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-gray-50">{children}</div>
+      <main className="flex-1 overflow-auto bg-gray-50">
+        {children}
+      </main>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const tenantPlugin = require('../utils/tenantPlugin')
 
 // Slot = a bookable time window for a specific staff on a specific day
 // e.g. Staff John, Branch Bandra, 2024-01-15, 10:00 AM - 11:00 AM
@@ -107,5 +108,5 @@ slotSchema.index(
   { staffId: 1, date: 1, startTime: 1 },
   { unique: true }
 )
-
+slotSchema.plugin(tenantPlugin)
 module.exports = mongoose.model('Slot', slotSchema)

@@ -96,7 +96,21 @@ const authenticate = async (req, res, next) => {
     }
 
     logger.info(`Authenticated: ${user.email} [${role.name}]`)
-    next()
+   // --------------------------------
+    // Step 6 — wrap request in tenant context
+    // --------------------------------
+    // AsyncLocalStorage makes salonId/branchId available
+    // to mongoose plugin on every query in this request
+    // without passing req around
+    setTenantContext(
+      {
+        userId: user._id,
+        role: role.name,
+        salonId: user.salonId,
+        branchId: user.branchId
+      },
+      () => next() // run the rest of the request inside this context
+    )
 
   } catch (error) {
     next(new AppError('Authentication failed.', 401))

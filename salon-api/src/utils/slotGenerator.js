@@ -1,5 +1,9 @@
 const dayjs = require('dayjs')
-
+// NOTE: this runs as a cron job — no tenant context
+// mongoose plugin auto-skips injection when no context is set
+// so queries here return ALL branches as expected
+const Branch = require('../models/branch.model')
+// ... rest of file unchanged
 // ================================
 // generateSlots
 // ================================

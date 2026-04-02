@@ -1,43 +1,49 @@
-const BASE_URL = "http://localhost:6969/api/v1";
+// ============================================================
+// api/services/authService.ts
+// REPLACES your existing authService — now uses apiClient
+// ============================================================
 
-interface LoginPayload {
-  email: string;
-  password: string;
+import apiClient from "@/lib/api-client";
+import type {
+  ApiResponse,
+  LoginPayload,
+  LoginResponse,
+  RegisterPayload,
+  BackendUser,
+} from "@/lib/api";
+
+export async function loginSalon(
+  payload: LoginPayload,
+): Promise<ApiResponse<LoginResponse>> {
+  const { data } = await apiClient.post<ApiResponse<LoginResponse>>(
+    "/auth/login",
+    payload,
+  );
+  return data;
 }
 
-export interface User {
-  _id: string;
-  name: string;
-  email: string;
-  role: string;
+export async function registerCustomer(
+  payload: RegisterPayload,
+): Promise<ApiResponse<LoginResponse>> {
+  const { data } = await apiClient.post<ApiResponse<LoginResponse>>(
+    "/auth/register",
+    payload,
+  );
+  return data;
 }
 
-interface LoginResponse {
-  data: {
-    salon: any;
-    user: User;
-    accessToken: string;
-  };
-  success: boolean;
-  message?: string;
+export async function refreshToken(
+  refreshToken: string,
+): Promise<ApiResponse<{ accessToken: string; refreshToken?: string }>> {
+  const { data } = await apiClient.post("/auth/refresh", { refreshToken });
+  return data;
 }
 
-export const loginSalon = async (
-  data: LoginPayload,
-): Promise<LoginResponse> => {
-  const res = await fetch(`${BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
+export async function logoutSalon(): Promise<void> {
+  await apiClient.post("/auth/logout");
+}
 
-  const result: LoginResponse = await res.json();
-
-  if (!res.ok) {
-    throw new Error(result.message || "Login failed");
-  }
-
-  return result;
-};
+export async function getMe(): Promise<ApiResponse<BackendUser>> {
+  const { data } = await apiClient.get<ApiResponse<BackendUser>>("/auth/me");
+  return data;
+}

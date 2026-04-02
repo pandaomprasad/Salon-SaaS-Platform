@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require('../utils/tenantPlugin')
 
 // Service = what a branch offers
 // Each branch has its OWN services with its OWN prices
@@ -106,5 +107,5 @@ serviceSchema.pre("save", function () {
 // serviceSchema.virtual("priceDisplay").get(function () {
 //   return `₹${(this.price / 100).toFixed(2)}`;
 // });
-
+serviceSchema.plugin(tenantPlugin)
 module.exports = mongoose.model("Service", serviceSchema);
