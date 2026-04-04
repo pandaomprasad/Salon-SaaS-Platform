@@ -6,7 +6,9 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { logout } from "@/store/slices/authSlice";
 import { useEffect, useState } from "react";
-import { getCurrentPage, getUserRole } from "@/lib/mapUser";
+import { tokenStorage } from "@/lib/api-client";
+import { pathnameToPage, canAccess } from "@/lib/rbac";
+import type { UserRole } from "@/lib/api";
 
 export default function LayoutWrapper({
   children,
@@ -17,65 +19,80 @@ export default function LayoutWrapper({
   const pathname = usePathname();
   const dispatch = useDispatch();
 
-  const { user, salon } = useSelector((state: RootState) => state.auth);
+  const { user, salon, isLoading } = useSelector(
+    (state: RootState) => state.auth,
+  );
 
   const [mounted, setMounted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const currentPage = getCurrentPage(pathname);
+  const currentPage = pathnameToPage(pathname);
   const hideSidebar = pathname === "/login";
 
-  // ✅ Ensure client-side rendering only
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 🔐 Redirect if not logged in
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (mounted && !user && pathname !== "/login") {
+    if (mounted && !isLoading && !user && pathname !== "/login") {
       router.replace("/login");
     }
-  }, [user, pathname, router, mounted]);
+  }, [user, isLoading, pathname, router, mounted]);
 
-  // ⛔ Prevent hydration mismatch
-  if (!mounted) return null;
+  // Redirect if user doesn't have access to current page
+  useEffect(() => {
+    if (mounted && !isLoading && user && pathname !== "/login") {
+      const role = user.role as UserRole;
+      if (!canAccess(role, currentPage)) {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, isLoading, pathname, currentPage, router, mounted]);
 
-  // ⛔ Show fallback while redirecting
+  if (!mounted || isLoading) return null;
+
   if (!user && pathname !== "/login") {
     return (
-      <div className="p-5">
-        <p>Redirecting to login...</p>
+      <div className="min-h-screen flex items-center justify-center bg-paper">
+        <p className="text-ash text-sm">Redirecting to login...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen bg-paper">
       {/* Sidebar */}
       {!hideSidebar && user && (
-        <div className="w-64 shrink-0">
-          <Sidebar
-            currentPage={currentPage}
-            role={getUserRole(user.role)}
-            name={user.name}
-            email={user.email}
-            initials={user.initials}
-            salonName={salon?.name || "Salon"}
-            isOpen={true}
-            onNavigate={(page) => router.push(`/${page}`)}
-            onLogout={() => {
-              localStorage.removeItem("token");
-              dispatch(logout());
-              router.replace("/login");
-            }}
-            onClose={() => {}}
-          />
-        </div>
+        <Sidebar
+          currentPage={currentPage}
+          role={user.role as UserRole}
+          name={user.name}
+          email={user.email}
+          initials={user.initials}
+          salonName={salon?.name || "Salon"}
+          isOpen={sidebarOpen}
+          onNavigate={(page) => {
+            router.push(`/${page}`);
+            setSidebarOpen(false);
+          }}
+          onLogout={() => {
+            tokenStorage.clearTokens();
+            dispatch(logout());
+            router.replace("/login");
+          }}
+          onClose={() => setSidebarOpen(false)}
+        />
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-gray-50">
-        {children}
-      </main>
+      {/* Main content — offset for sidebar on desktop */}
+      {!hideSidebar && user ? (
+        <div className="lg:ml-56 flex flex-col min-h-screen">
+          <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        </div>
+      ) : (
+        <>{children}</>
+      )}
     </div>
   );
 }

@@ -1,19 +1,18 @@
-import { User as ApiUser } from "@/api/services/authService";
-import { User as AppUser, Page } from "@/lib/types";
-import { Role } from "@/lib/types";
+import type { BackendUser } from "@/lib/api";
+import type { User, Page } from "@/lib/types";
 
-export const mapUser = (user: ApiUser): AppUser => {
+export const mapUser = (user: BackendUser): User => {
   return {
-    id: user._id,
+    id: user.id || user._id || "",
     email: user.email,
-    password: "", // never store real password
-    name: user.name, // ✅ ADD THIS
-    role: user.role, // ✅ ADD THIS
+    password: "",
+    name: user.name,
+    role: user.role,
     initials: user.name
       ?.split(" ")
       .map((n) => n[0])
       .join("")
-      .toUpperCase(),
+      .toUpperCase() || "",
   };
 };
 
@@ -28,21 +27,19 @@ export const getCurrentPage = (path: string): Page => {
     "reports",
     "schedule",
     "notifications",
+    "branches",
+    "staff",
   ];
 
   if (validPages.includes(page as Page)) {
     return page as Page;
   }
 
-  return "dashboard"; // fallback
+  return "dashboard";
 };
 
-export const getUserRole = (role: string): Role => {
-  const validRoles: Role[] = ["owner", "manager", "staff"];
-
-  if (validRoles.includes(role as Role)) {
-    return role as Role;
-  }
-
-  return "staff"; // fallback (safe default)
+export const getUserRole = (role: string) => {
+  const validRoles = ["owner", "manager", "staff"];
+  if (validRoles.includes(role)) return role;
+  return "staff";
 };

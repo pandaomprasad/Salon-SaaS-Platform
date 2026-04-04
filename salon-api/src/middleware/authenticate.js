@@ -3,7 +3,7 @@ const Role = require('../models/role.model')
 const AppError = require('../utils/AppError')
 const { verifyAccessToken } = require('../utils/token')
 const logger = require('../utils/logger')
-
+const { setTenantContext } = require('../utils/tenantContext')
 // ================================
 // authenticate middleware
 // ================================

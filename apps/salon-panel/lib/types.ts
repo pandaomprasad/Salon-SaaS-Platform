@@ -9,7 +9,9 @@ export type Page =
   | "services"
   | "schedule"
   | "reports"
-  | "notifications";
+  | "notifications"
+  | "branches"
+  | "staff";
 
 // ─── Users ────────────────────────────────────────────────────
 
@@ -34,7 +36,7 @@ export interface Customer {
   phone: string;
   visits: number;
   totalSpent: number;
-  lastVisit: string; // YYYY-MM-DD
+  lastVisit: string;
   notes: string;
 }
 
@@ -52,16 +54,16 @@ export interface Service {
   id: string;
   name: string;
   category: ServiceCategory;
-  duration: number; // minutes
-  price: number; // INR
+  duration: number;
+  price: number;
   description: string;
 }
 
 // ─── Staff ────────────────────────────────────────────────────
 
 export interface WorkingHours {
-  start: string; // HH:MM
-  end: string; // HH:MM
+  start: string;
+  end: string;
 }
 
 export type WeekDay = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
@@ -74,7 +76,7 @@ export interface StaffMember {
   specialties: string[];
   rating: number;
   bookingsToday: number;
-  schedule: Record<WeekDay, WorkingHours | null>; // null = day off
+  schedule: Record<WeekDay, WorkingHours | null>;
 }
 
 // ─── Bookings ─────────────────────────────────────────────────
@@ -89,10 +91,10 @@ export interface Booking {
   staffName: string;
   serviceId: string;
   serviceName: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
-  duration: number; // minutes
-  price: number; // INR
+  date: string;
+  time: string;
+  duration: number;
+  price: number;
   status: BookingStatus;
   notes: string;
 }
@@ -109,6 +111,6 @@ export interface Notification {
   id: string;
   type: NotificationType;
   message: string;
-  time: string; // relative e.g. "2 min ago"
+  time: string;
   read: boolean;
 }

@@ -9,66 +9,39 @@ import {
   BarChart3,
   Bell,
   LogOut,
+  GitBranch,
+  UserCog,
 } from "lucide-react";
-import { NOTIFICATIONS } from "@/lib/data";
-import { Page, Role } from "@/lib/types";
+import type { UserRole } from "@/lib/api";
+import { type AppPage, PAGE_ACCESS } from "@/lib/rbac";
 
 interface NavItem {
-  page: Page;
+  page: AppPage;
   label: string;
   icon: React.ElementType;
-  roles: Role[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    page: "dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    roles: ["owner", "manager", "staff"],
-  },
-  {
-    page: "bookings",
-    label: "Bookings",
-    icon: CalendarDays,
-    roles: ["owner", "manager", "staff"],
-  },
-  {
-    page: "customers",
-    label: "Customers",
-    icon: Users,
-    roles: ["owner", "manager", "staff"],
-  },
-  {
-    page: "services",
-    label: "Services",
-    icon: Scissors,
-    roles: ["owner", "manager"],
-  },
-  {
-    page: "schedule",
-    label: "Schedule",
-    icon: CalendarClock,
-    roles: ["owner", "manager"],
-  },
-  { page: "reports", label: "Reports", icon: BarChart3, roles: ["owner"] },
-  {
-    page: "notifications",
-    label: "Notifications",
-    icon: Bell,
-    roles: ["owner", "manager", "staff"],
-  },
+  { page: "dashboard",     label: "Dashboard",      icon: LayoutDashboard },
+  { page: "bookings",      label: "Bookings",       icon: CalendarDays },
+  { page: "customers",     label: "Customers",      icon: Users },
+  { page: "services",      label: "Services",       icon: Scissors },
+  { page: "staff",         label: "Staff",          icon: UserCog },
+  { page: "schedule",      label: "Schedule",       icon: CalendarClock },
+  { page: "branches",      label: "Branches",       icon: GitBranch },
+  { page: "reports",       label: "Reports",        icon: BarChart3 },
+  { page: "notifications", label: "Notifications",  icon: Bell },
 ];
 
 interface SidebarProps {
-  currentPage: Page;
-  role: Role;
+  currentPage: AppPage;
+  role: UserRole;
   name: string;
   email: string;
   initials: string;
   isOpen: boolean;
   salonName: string;
-  onNavigate: (page: Page) => void;
+  onNavigate: (page: AppPage) => void;
   onLogout: () => void;
   onClose: () => void;
 }
@@ -85,12 +58,14 @@ export default function Sidebar({
   onLogout,
   onClose,
 }: SidebarProps) {
-  const unread = NOTIFICATIONS.filter((n) => !n.read).length;
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  // Filter nav items based on role — reads from the RBAC config
+  const visibleItems = NAV_ITEMS.filter((item) =>
+    PAGE_ACCESS[item.page]?.includes(role),
+  );
 
-  function handleNavigate(page: Page) {
+  function handleNavigate(page: AppPage) {
     onNavigate(page);
-    onClose(); // close sidebar on mobile after navigation
+    onClose();
   }
 
   return (
@@ -143,11 +118,6 @@ export default function Sidebar({
               >
                 <Icon size={14} strokeWidth={active ? 2 : 1.5} />
                 <span className="flex-1 text-left">{label}</span>
-                {page === "notifications" && unread > 0 && (
-                  <span className="text-[9px] font-bold min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-gold text-ink">
-                    {unread}
-                  </span>
-                )}
               </button>
             );
           })}

@@ -1,29 +1,24 @@
 "use client";
 
-import { BOOKINGS, STAFF } from "@/lib/data";
-import { User, Booking } from "@/lib/types";
-import StatCard from "@/components/ui/StatCard";
-import { StatusBadge } from "@/components/ui/Badge";
-import { formatCurrency, formatDuration } from "@/lib/utils";
-import { TrendingUp, CalendarDays, Users, Clock, Star } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import {useFetch} from "@/hooks/useApi";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
-const TODAY = "2026-03-22";
-import { browseBranches } from "@/api/services/browseService";
-interface DashboardPageProps {
-  user: User;
-}
-
-export default function DashboardPage({ user }: DashboardPageProps) {
+export default function DashboardPage() {
+  const { user } = useSelector((state: RootState) => state.auth);
 
   return (
-    <ProtectedRoute>
-     <ul>
-     
-     </ul>
+    <ProtectedRoute page="dashboard">
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <h2 className="font-display text-3xl text-ink">
+            Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.
+          </h2>
+          <p className="text-ash text-sm mt-1">
+            Logged in as <span className="font-medium capitalize">{user?.role}</span>
+          </p>
+        </div>
+      </div>
     </ProtectedRoute>
   );
 }
-
-
