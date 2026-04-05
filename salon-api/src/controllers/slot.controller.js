@@ -130,7 +130,12 @@ const getSlots = async (req, res, next) => {
     if (staffId) filter.staffId = staffId;
 
     // optionally filter by status — default to AVAILABLE for customers
-    filter.status = status || "AVAILABLE";
+// if status is "all", don't filter by status (for managers/owners)
+if (status && status !== "all") {
+  filter.status = status;
+} else if (!status) {
+  filter.status = "AVAILABLE";
+}
 
     const slots = await Slot.find(filter)
       .populate("staffId", "name")

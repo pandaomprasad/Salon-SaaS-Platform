@@ -135,6 +135,7 @@ const updateBranch = async (req, res, next) => {
       "slotDurationMinutes",
       "advanceBookingDays",
       "address",
+      "managerId",
     ];
 
     allowed.forEach((field) => {
