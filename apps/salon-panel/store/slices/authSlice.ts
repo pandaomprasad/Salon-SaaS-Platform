@@ -12,19 +12,35 @@ import type { BackendUser, Salon } from "@/lib/api";
 
 // ── State shape ──────────────────────────
 
+interface SelectedBranch {
+  _id: string;
+  name: string;
+}
+
 interface AuthState {
   user: User | null;
   token: string | null;
   salon: Salon | null;
+  selectedBranch: SelectedBranch | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+}
+
+function getPersistedBranch(): SelectedBranch | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("selectedBranch");
+    if (raw) return JSON.parse(raw);
+  } catch { }
+  return null;
 }
 
 const initialState: AuthState = {
   user: null,
   token: null,
   salon: null,
+  selectedBranch: getPersistedBranch(),
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -70,11 +86,18 @@ export const hydrateAuth = createAsyncThunk(
       if (!token) return rejectWithValue("No token");
 
       const res = await getMe();
-      const backendUser = res.data;
+      const backendUser = res.data as any;
+
+      // /auth/me returns salon as populated object inside user
+      const salon = backendUser?.user?.salon || backendUser?.salon || null;
+
+      // The user data might be nested under .user
+      const userData = backendUser?.user || backendUser;
 
       return {
-        user: mapUser(backendUser),
+        user: mapUser(userData),
         token,
+        salon,
       };
     } catch {
       tokenStorage.clearTokens();
@@ -113,14 +136,25 @@ const authSlice = createSlice({
     },
     logout: (state) => {
       tokenStorage.clearTokens();
+      localStorage.removeItem("selectedBranch");
       state.user = null;
       state.token = null;
       state.salon = null;
+      state.selectedBranch = null;
       state.isAuthenticated = false;
       state.error = null;
     },
     clearError: (state) => {
       state.error = null;
+    },
+    selectBranch: (state, action: PayloadAction<SelectedBranch | null>) => {
+      state.selectedBranch = action.payload;
+      // Persist to localStorage for page refresh survival
+      if (action.payload) {
+        localStorage.setItem("selectedBranch", JSON.stringify(action.payload));
+      } else {
+        localStorage.removeItem("selectedBranch");
+      }
     },
   },
   extraReducers: (builder) => {
@@ -170,5 +204,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginSuccess, logout, clearError } = authSlice.actions;
+export const { loginSuccess, logout, clearError, selectBranch } = authSlice.actions;
 export default authSlice.reducer;

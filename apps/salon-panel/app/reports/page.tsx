@@ -135,26 +135,30 @@ export default function ReportsPage() {
   const [dailyBookings, setDailyBookings] = useState<DailyBooking[]>([]);
 
   const fetchReports = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = { startDate: dates.startDate, endDate: dates.endDate };
-      const [o, p, s, d] = await Promise.all([
-        apiClient.get("/reports/overview", { params }),
-        apiClient.get("/reports/popular-services", { params }),
-        apiClient.get("/reports/staff-performance", { params }),
-        apiClient.get("/reports/daily-bookings", { params }),
-      ]);
-      setOverview(o.data.data);
-      setPopularServices(p.data.data?.popularServices || []);
-      setStaffPerf(s.data.data?.staffPerformance || []);
-      setDailyBookings(d.data.data?.dailyBookings || []);
-    } catch {
-      setError("Failed to load reports");
-    } finally {
-      setLoading(false);
-    }
-  }, [dates]);
+  setLoading(true);
+  setError(null);
+  try {
+    const params = { startDate: dates.startDate, endDate: dates.endDate };
+
+    // Priority 1 — overview (fast)
+    const overviewRes = await apiClient.get("/reports/overview", { params });
+    setOverview(overviewRes.data.data);
+    setLoading(false); // Show overview immediately
+
+    // Priority 2 — charts in background
+    const [popularRes, staffRes, dailyRes] = await Promise.all([
+      apiClient.get("/reports/popular-services", { params }),
+      apiClient.get("/reports/staff-performance", { params }),
+      apiClient.get("/reports/daily-bookings", { params }),
+    ]);
+    setPopularServices(popularRes.data.data?.popularServices || []);
+    setStaffPerf(staffRes.data.data?.staffPerformance || []);
+    setDailyBookings(dailyRes.data.data?.dailyBookings || []);
+  } catch {
+    setError("Failed to load reports");
+    setLoading(false);
+  }
+}, [dates]);
 
   useEffect(() => {
     fetchReports();
@@ -238,8 +242,28 @@ export default function ReportsPage() {
         )}
 
         {loading ? (
-          <div className="text-center text-ash py-20 text-sm">Loading reports...</div>
-        ) : (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <div className="bg-primary rounded-xl p-6 h-[160px]">
+        <div className="animate-pulse bg-white/10 rounded h-3 w-24 mb-3" />
+        <div className="animate-pulse bg-white/10 rounded h-10 w-28" />
+      </div>
+      <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="bg-white border border-border rounded-xl p-4">
+            <div className="animate-pulse bg-border/50 rounded w-6 h-6 mb-3" />
+            <div className="animate-pulse bg-border/50 rounded h-7 w-12 mb-1" />
+            <div className="animate-pulse bg-border/50 rounded h-3 w-16" />
+          </div>
+        ))}
+      </div>
+    </div>
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="xl:col-span-2 bg-white border border-border rounded-xl p-6 h-64" />
+      <div className="bg-white border border-border rounded-xl p-6 h-64" />
+    </div>
+  </div>
+) : (
           <>
             {/* Revenue Hero + Stats */}
             {overview && (

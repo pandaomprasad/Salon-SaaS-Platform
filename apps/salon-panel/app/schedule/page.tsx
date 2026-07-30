@@ -19,7 +19,8 @@ import {
   Calendar,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
-
+import { useBranch } from "@/hooks/useBranch";
+import { getCached, setCache, invalidateCache } from "@/lib/cache";
 // ── Types ──
 
 interface SlotItem {
@@ -101,17 +102,20 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 // ── Page ──
 
 export default function SchedulePage() {
-  const { user } = useSelector((state: RootState) => state.auth);
-  const role = (user?.role || "staff") as UserRole;
-  const canManage = role === "owner" || role === "manager";
+  // const { user } = useSelector((state: RootState) => state.auth);
+  // const role = (user?.role || "staff") as UserRole;
+  // const canManage = role === "owner" || role === "manager";
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const decoded = token ? JSON.parse(atob(token.split(".")[1])) : null;
-  const salonId = decoded?.salonId || "";
-  const userBranchId = decoded?.branchId || "";
+  // const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  // const decoded = token ? JSON.parse(atob(token.split(".")[1])) : null;
+  // const salonId = decoded?.salonId || "";
+  // const userBranchId = decoded?.branchId || "";
 
-  const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState("");
+  // const [branches, setBranches] = useState<BranchOption[]>([]);
+  // const [selectedBranch, setSelectedBranch] = useState("");
+
+  // Inside the component:
+  const { branchId, salonId, role, canManage } = useBranch();
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [staffFilter, setStaffFilter] = useState("all");
 
@@ -127,67 +131,85 @@ export default function SchedulePage() {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   // Fetch branches
-  useEffect(() => {
-    if (!salonId) return;
-    async function fetchBranches() {
-      try {
-        const { data } = await apiClient.get(`/salons/${salonId}/branches`);
-        const list = data.data?.branches || [];
-        setBranches(list);
-        if (role === "manager" && userBranchId) {
-          setSelectedBranch(userBranchId);
-        } else if (list.length > 0) {
-          setSelectedBranch(list[0]._id);
-        }
-      } catch {
-        setError("Failed to load branches");
-      }
-    }
-    fetchBranches();
-  }, [salonId, role, userBranchId]);
+  // useEffect(() => {
+  //   if (!salonId) return;
+  //   async function fetchBranches() {
+  //     try {
+  //       const { data } = await apiClient.get(`/salons/${salonId}/branches`);
+  //       const list = data.data?.branches || [];
+  //       setBranches(list);
+  //       if (role === "manager" && userBranchId) {
+  //         setSelectedBranch(userBranchId);
+  //       } else if (list.length > 0) {
+  //         setSelectedBranch(list[0]._id);
+  //       }
+  //     } catch {
+  //       setError("Failed to load branches");
+  //     }
+  //   }
+  //   fetchBranches();
+  // }, [salonId, role, userBranchId]);
 
   // Fetch staff
   useEffect(() => {
-    if (!selectedBranch) return;
+    if (!branchId) return;
     async function fetchStaff() {
       try {
-        const { data } = await apiClient.get(`/branches/${selectedBranch}/staff`);
+        const { data } = await apiClient.get(`/branches/${branchId}/staff`);
         const list = (data.data?.staff || []).filter((s: any) => s.isActive);
         setStaffList(list.map((s: any) => ({ _id: s._id, name: s.name })));
-      } catch {
-        // silent
-      }
+      } catch { }
     }
     fetchStaff();
-  }, [selectedBranch]);
+  }, [branchId]);
 
   // Clear slots when branch changes
   useEffect(() => {
     setSlots([]);
     setWeekSlots({});
-  }, [selectedBranch]);
+  }, [branchId]);
 
   // Fetch slots — day view
   const fetchDaySlots = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!branchId) return;
+
+    const cacheKey = `slots_${branchId}_${selectedDate}`;
+    const cached = getCached<SlotItem[]>(cacheKey, 30000); // 30s cache for slots
+
+    if (cached) {
+      setSlots(cached);
+      setLoading(false);
+      try {
+        const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
+          params: { date: selectedDate, status: "all" },
+        });
+        const list = data.data?.slots || [];
+        setSlots(list);
+        setCache(cacheKey, list);
+      } catch { }
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSlots([]);
     try {
-      const { data } = await apiClient.get(`/branches/${selectedBranch}/slots`, {
+      const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
         params: { date: selectedDate, status: "all" },
       });
-      setSlots(data.data?.slots || []);
+      const list = data.data?.slots || [];
+      setSlots(list);
+      setCache(cacheKey, list);
     } catch {
       setError("Failed to load slots");
     } finally {
       setLoading(false);
     }
-  }, [selectedBranch, selectedDate]);
+  }, [branchId, selectedDate]);
 
   // Fetch slots — week view
   const fetchWeekSlots = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!branchId) return;
     setLoading(true);
     setError(null);
     setWeekSlots({});
@@ -195,7 +217,7 @@ export default function SchedulePage() {
       const dates = getWeekDates(weekStart);
       const results = await Promise.all(
         dates.map((date) =>
-          apiClient.get(`/branches/${selectedBranch}/slots`, { params: { date, status: "all" } }),
+          apiClient.get(`/branches/${branchId}/slots`, { params: { date, status: "all" } }),
         ),
       );
       const map: Record<string, SlotItem[]> = {};
@@ -208,7 +230,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedBranch, weekStart]);
+  }, [branchId, weekStart]);
 
   useEffect(() => {
     if (viewMode === "day") fetchDaySlots();
@@ -245,9 +267,10 @@ export default function SchedulePage() {
       const action = slot.status === "BLOCKED" ? "unblock" : "block";
       const reason = `Blocked by ${role}`;
       await apiClient.patch(
-        `/branches/${selectedBranch}/slots/${slot._id}/${action}`,
+        `/branches/${branchId}/slots/${slot._id}/${action}`,
         action === "block" ? { reason } : {},
       );
+      invalidateCache("slots_");
       if (viewMode === "day") fetchDaySlots();
       else fetchWeekSlots();
     } catch (err: any) {
@@ -361,13 +384,13 @@ export default function SchedulePage() {
           )}
 
           {/* Branch selector */}
-          {role === "owner" && branches.length > 1 && (
+          {/* {role === "owner" && branches.length > 1 && (
             <Select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
               options={branches.map((b) => ({ value: b._id, label: b.name }))}
             />
-          )}
+          )} */}
 
           {/* Staff filter */}
           {staffList.length > 0 && (
@@ -401,7 +424,24 @@ export default function SchedulePage() {
         </div>
 
         {loading ? (
-          <div className="text-center text-ash py-16 text-sm">Loading schedule...</div>
+          <div className="space-y-6">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="bg-white border border-border rounded-xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-border bg-subtle flex items-center gap-3">
+                  <div className="animate-pulse bg-border/50 rounded-lg w-8 h-8" />
+                  <div className="space-y-1.5">
+                    <div className="animate-pulse bg-border/50 rounded h-3.5 w-24" />
+                    <div className="animate-pulse bg-border/50 rounded h-3 w-32" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5 p-4">
+                  {Array.from({ length: 12 }).map((_, j) => (
+                    <div key={j} className="animate-pulse bg-border/30 rounded-lg h-14" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : viewMode === "day" ? (
           /* ── Day View ── */
           Object.keys(grouped).length === 0 ? (
@@ -563,10 +603,11 @@ export default function SchedulePage() {
         {/* Generate Slots Modal */}
         {showGenerateModal && (
           <GenerateSlotsModal
-            branchId={selectedBranch}
+            branchId={branchId}
             staffList={staffList}
             onSuccess={() => {
               setShowGenerateModal(false);
+              invalidateCache("slots_");
               if (viewMode === "day") fetchDaySlots();
               else fetchWeekSlots();
             }}

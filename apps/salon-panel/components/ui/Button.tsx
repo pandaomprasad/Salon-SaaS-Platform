@@ -1,35 +1,35 @@
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from "lucide-react";
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
-type Size    = 'sm' | 'md' | 'lg'
+type Variant = "primary" | "secondary" | "danger" | "ghost";
+type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant
-  size?: Size
-  loading?: boolean
-  icon?: React.ReactNode
+  variant?: Variant;
+  size?: Size;
+  loading?: boolean;
+  icon?: React.ReactNode;
 }
 
 const variantStyles: Record<Variant, string> = {
-  primary:   'bg-ink text-white hover:bg-ink/85 shadow-sm',
-  secondary: 'bg-white border border-smoke text-ink hover:border-silver transition-colors',
-  danger:    'bg-red-50 text-red-500 hover:bg-red-100 border border-red-100',
-  ghost:     'text-ash hover:text-ink hover:bg-smoke',
-}
+  primary:   "bg-primary text-white hover:bg-charcoal shadow-sm shadow-primary/10",
+  secondary: "bg-white border border-border text-ink hover:bg-subtle hover:border-silver transition-colors",
+  danger:    "bg-danger/5 text-danger hover:bg-danger/10 border border-danger/20",
+  ghost:     "text-slate hover:text-ink hover:bg-subtle",
+};
 
 const sizeStyles: Record<Size, string> = {
-  sm: 'px-3 py-1.5 text-[11px] rounded-lg tracking-wide',
-  md: 'px-4 py-2.5 text-xs rounded-xl tracking-wide',
-  lg: 'px-5 py-3 text-xs rounded-xl tracking-wide',
-}
+  sm: "px-3 py-1.5 text-[12px] rounded-lg gap-1.5",
+  md: "px-4 py-2 text-[13px] rounded-lg gap-2",
+  lg: "px-5 py-2.5 text-[13px] rounded-lg gap-2",
+};
 
 export default function Button({
-  variant = 'primary',
-  size = 'md',
+  variant = "primary",
+  size = "md",
   loading = false,
   icon,
   children,
-  className = '',
+  className = "",
   disabled,
   ...props
 }: ButtonProps) {
@@ -37,7 +37,7 @@ export default function Button({
     <button
       disabled={disabled || loading}
       className={`
-        inline-flex items-center justify-center gap-2 font-medium uppercase
+        inline-flex items-center justify-center font-medium
         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
         ${variantStyles[variant]}
         ${sizeStyles[size]}
@@ -45,8 +45,8 @@ export default function Button({
       `}
       {...props}
     >
-      {loading ? <Loader2 size={13} className="animate-spin" /> : icon}
+      {loading ? <Loader2 size={14} className="animate-spin" /> : icon}
       {children}
     </button>
-  )
+  );
 }

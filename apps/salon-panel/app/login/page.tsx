@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -48,7 +49,6 @@ export default function LoginPage() {
         throw new Error("Invalid response from server");
       }
 
-      // Store BOTH tokens (enables auto-refresh)
       tokenStorage.setTokens(accessToken, refreshToken || "");
 
       const formattedUser = mapUser(backendUser);
@@ -79,118 +79,116 @@ export default function LoginPage() {
     if (e.key === "Enter") handleLogin();
   }
 
+  const demoAccounts = [
+    { role: "Owner", email: "aria@luxesalon.com", password: "owner123" },
+    { role: "Manager", email: "marco@luxesalon.com", password: "manager123" },
+    { role: "Staff", email: "jade@luxesalon.com", password: "staff123" },
+  ];
+
   return (
-    <div className="min-h-screen bg-paper flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex w-1/2 bg-ink flex-col justify-between p-12">
-        <div>
-          <p className="text-[11px] tracking-[0.3em] text-silver uppercase mb-2">
-            Management Platform
-          </p>
-          <h1 className="font-display text-4xl text-paper leading-tight">
-            Luxe Salon
-          </h1>
-        </div>
-
-        <div className="space-y-6">
-          {[
-            { role: "Owner", email: "aria@luxesalon.com", password: "owner123" },
-            { role: "Manager", email: "marco@luxesalon.com", password: "manager123" },
-            { role: "Staff", email: "jade@luxesalon.com", password: "staff123" },
-          ].map((c) => (
-            <div
-              key={c.role}
-              onClick={() => {
-                setEmail(c.email);
-                setPassword(c.password);
-                setError("");
-              }}
-              className="border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors group"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-silver uppercase tracking-wide">
-                  {c.role}
-                </span>
-                <span className="text-[10px] text-white/30 group-hover:text-white/50 transition-colors">
-                  Click to fill
-                </span>
-              </div>
-              <p className="text-sm text-paper/70">{c.email}</p>
-              <p className="text-xs text-silver mt-0.5">Password: {c.password}</p>
-            </div>
-          ))}
-        </div>
-
-        <p className="text-xs text-silver/40">© 2026 Luxe Salon. Internal use only.</p>
+    <div className="min-h-screen bg-surface flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Abstract Background Decoration */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-accent/5 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-accent/5 rounded-full blur-[120px]" />
       </div>
 
-      {/* Right panel — login form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden mb-8">
-            <p className="text-[11px] tracking-[0.3em] text-ash uppercase mb-1">
-              Management Platform
-            </p>
-            <h1 className="font-display text-3xl text-ink">Luxe Salon</h1>
+      <div className="w-full max-w-md relative animate-slide-up">
+        {/* Branding */}
+        <div className="text-center mb-10">
+          <p className="text-[11px] tracking-[0.4em] text-muted uppercase mb-3 animate-fade-in [animation-delay:100ms] opacity-0">
+            Premium Management
+          </p>
+          <h1 className="font-display text-5xl text-ink mb-2 animate-fade-in [animation-delay:200ms] opacity-0">
+            Luxe Salon
+          </h1>
+          <div className="h-0.5 w-12 bg-accent/20 mx-auto animate-fade-in [animation-delay:300ms] opacity-0" />
+        </div>
+
+        {/* Login Card */}
+        <div className="bg-white rounded-3xl p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.06)] border border-border/50 backdrop-blur-sm animate-fade-in [animation-delay:400ms] opacity-0">
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-ink">Welcome Back</h2>
+            <p className="text-[13px] text-slate mt-1">Please enter your credentials to access the panel.</p>
           </div>
 
-          <h2 className="text-2xl font-display mb-1">Welcome back</h2>
-          <p className="text-sm text-ash mb-8">Sign in to your account to continue.</p>
-
-          <div className="space-y-4" onKeyDown={handleKeyDown}>
-            <Input
-              label="Email"
-              type="email"
-              placeholder="you@luxesalon.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(""); }}
-              icon={<Mail size={14} />}
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              icon={<Lock size={14} />}
-            />
+          <div className="space-y-6" onKeyDown={handleKeyDown}>
+            <div className="space-y-4">
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="aria@luxesalon.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                icon={<Mail size={16} className="text-muted/60" />}
+                className="h-12 text-sm rounded-xl"
+              />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                icon={<Lock size={16} className="text-muted/60" />}
+                className="h-12 text-sm rounded-xl"
+              />
+            </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-red-500 bg-red-50 rounded-xl px-3 py-2.5">
-                <AlertCircle size={14} className="shrink-0" />
-                <p className="text-xs">{error}</p>
+              <div className="flex items-center gap-2.5 text-danger bg-danger/5 border border-danger/10 rounded-xl px-4 py-3 animate-slide-in">
+                <AlertCircle size={16} className="shrink-0" />
+                <p className="text-xs font-medium">{error}</p>
               </div>
             )}
 
             <Button
-              className="w-full"
+              className="w-full h-12 text-sm font-semibold rounded-xl"
               size="lg"
               onClick={handleLogin}
               loading={loading}
               disabled={loading}
             >
-              Sign In
+              Sign In to Dashboard
             </Button>
           </div>
 
-          <div className="lg:hidden mt-6 border border-smoke rounded-xl p-4 space-y-2">
-            <p className="text-xs font-semibold text-ash mb-2">Demo Credentials</p>
-            {[
-              { role: "Owner", email: "aria@luxesalon.com", password: "owner123" },
-              { role: "Manager", email: "marco@luxesalon.com", password: "manager123" },
-              { role: "Staff", email: "jade@luxesalon.com", password: "staff123" },
-            ].map((c) => (
-              <div
-                key={c.role}
-                onClick={() => { setEmail(c.email); setPassword(c.password); setError(""); }}
-                className="text-xs text-ash cursor-pointer hover:text-ink transition-colors"
-              >
-                <span className="font-medium">{c.role}:</span> {c.email} / {c.password}
+          {/* Subtle Demo Reveal */}
+          <div className="mt-8 pt-8 border-t border-border/50">
+            <button
+              onClick={() => setShowDemo(!showDemo)}
+              className="text-[11px] font-semibold text-muted hover:text-accent transition-colors flex items-center gap-1.5 mx-auto uppercase tracking-wider"
+            >
+              {showDemo ? "Hide Quick Access" : "Quick access credentials"}
+            </button>
+            
+            {showDemo && (
+              <div className="mt-4 grid grid-cols-1 gap-2 animate-slide-up">
+                {demoAccounts.map((c) => (
+                  <div
+                    key={c.role}
+                    onClick={() => {
+                      setEmail(c.email);
+                      setPassword(c.password);
+                      setError("");
+                    }}
+                    className="flex flex-col p-3 bg-subtle border border-border/30 rounded-xl cursor-pointer hover:border-accent/40 hover:bg-accent/[0.02] transition-all group"
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-bold text-slate uppercase">{c.role}</span>
+                      <span className="text-[9px] text-muted group-hover:text-accent font-medium">Auto-fill</span>
+                    </div>
+                    <span className="text-xs text-ink font-medium">{c.email}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
+
+        <p className="text-center mt-10 text-[11px] text-muted/60 font-medium">
+          © 2026 LUXE SALON PLATFORM. ALL RIGHTS RESERVED.
+        </p>
       </div>
     </div>
   );
-}
+}

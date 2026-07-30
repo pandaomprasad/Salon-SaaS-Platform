@@ -29,6 +29,9 @@ require("./models/branch.model");
 require("./models/service.model");
 require("./models/slot.model");
 require("./models/appointment.model");
+const adminRoutes = require('./routes/admin.routes')
+const adminController = require('./controllers/admin.controller')
+
 
 // Initialize cron jobs  ← add this
 const { initCronJobs } = require("./config/cron");
@@ -116,6 +119,7 @@ app.use((req, res, next) => {
 // API Routes — we'll add these next
 // ================================
 app.use("/api/v1/auth", require("./routes/auth.routes"));
+app.use('/api/v1/admin', adminRoutes)
 app.use("/api/v1/browse", require("./routes/browse.routes")); // ← add this
 app.use("/api/v1/salons", require("./routes/salon.routes"));
 app.use("/api/v1/salons/:salonId/branches", require("./routes/branch.routes"));
@@ -128,6 +132,7 @@ app.use("/api/v1/branches/:branchId/slots", require("./routes/slot.routes"));
 app.use("/api/v1/appointments", require("./routes/appointment.routes"));
 app.use("/api/v1/customers", require("./routes/customer.routes"));
 app.use("/api/v1/reports", require("./routes/report.routes"));
+app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus)
 
 // ================================
 // 404 Handler
@@ -158,6 +163,7 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
+
 
 // ================================
 // Start Server

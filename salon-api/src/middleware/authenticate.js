@@ -55,7 +55,7 @@ const authenticate = async (req, res, next) => {
     const user = await User.findById(decoded.userId)
       .select('_id name email role salonId branchId tokenVersion isActive')
       .lean() // .lean() returns plain JS object instead of mongoose document
-              // faster for reads — we don't need mongoose methods here
+    // faster for reads — we don't need mongoose methods here
 
     if (!user) {
       return next(new AppError('User no longer exists.', 401))
@@ -96,7 +96,7 @@ const authenticate = async (req, res, next) => {
     }
 
     logger.info(`Authenticated: ${user.email} [${role.name}]`)
-   // --------------------------------
+    // --------------------------------
     // Step 6 — wrap request in tenant context
     // --------------------------------
     // AsyncLocalStorage makes salonId/branchId available
@@ -106,10 +106,10 @@ const authenticate = async (req, res, next) => {
       {
         userId: user._id,
         role: role.name,
-        salonId: user.salonId,
-        branchId: user.branchId
+        salonId: user.salonId || null,
+        branchId: user.branchId || null
       },
-      () => next() // run the rest of the request inside this context
+      () => next()
     )
 
   } catch (error) {

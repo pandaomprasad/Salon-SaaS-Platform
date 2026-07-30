@@ -68,6 +68,17 @@ const PERMISSIONS = [
 const ROLE_PERMISSIONS = {
   // owner gets everything — but we still assign explicitly
   // so the permission check middleware works uniformly
+
+  superadmin: [
+    'salon:create', 'salon:read', 'salon:update', 'salon:delete',
+    'branch:create', 'branch:read', 'branch:update', 'branch:delete',
+    'manager:create', 'manager:read', 'manager:update', 'manager:delete',
+    'staff:create', 'staff:read', 'staff:update', 'staff:delete',
+    'service:read',
+    'report:read'
+  ],
+
+  // owner gets everything ...
   owner: [
     'salon:create', 'salon:read', 'salon:update', 'salon:delete',
     'branch:create', 'branch:read', 'branch:update', 'branch:delete',
@@ -260,16 +271,30 @@ const seed = async () => {
     console.log(`✅ Created customer: ${customerUser.email}`)
 
     // --------------------------------
+    // Create superadmin user
+    // --------------------------------
+    const superadminUser = await User.create({
+      name: 'Platform Admin',
+      email: 'admin@salonhq.com',
+      phone: '+91-9000000099',
+      password: 'Admin@123',
+      role: roleMap['superadmin'],
+      isActive: true
+    })
+    console.log(`✅ Created superadmin: ${superadminUser.email}`)
+
+    // --------------------------------
     // Summary
     // --------------------------------
     console.log('\n========================================')
     console.log('🎉 Seeding complete!')
     console.log('========================================')
-    console.log('Test accounts (password: Password@123):')
-    console.log('  Owner    → owner@salon.com')
-    console.log('  Manager  → manager@salon.com')
-    console.log('  Staff    → staff@salon.com')
-    console.log('  Customer → customer@salon.com')
+    console.log('Test accounts: Password@123 (except superadmin)')
+    console.log('  SuperAdmin → admin@salonhq.com (Admin@123)')
+    console.log('  Owner      → owner@salon.com (Password@123)')
+    console.log('  Manager    → manager@salon.com (Password@123)')
+    console.log('  Staff      → staff@salon.com (Password@123)')
+    console.log('  Customer   → customer@salon.com (Password@123)')
     console.log('========================================\n')
 
     process.exit(0)

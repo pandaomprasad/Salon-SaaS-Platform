@@ -75,39 +75,39 @@ const branchSchema = new mongoose.Schema(
     // Working Hours
     // ================================
     // stored as array of 7 days (0=Sunday ... 6=Saturday)
-   workingHours: {
-  type: [
-    {
-      day: {
-        type: Number,
-        min: 0,
-        max: 6,
-        required: true
-      },
-      isOpen: {
-        type: Boolean,
-        default: true
-      },
-      openTime: {
-        type: String,
-        default: '09:00'
-      },
-      closeTime: {
-        type: String,
-        default: '21:00'
-      }
-    }
-  ],
-  default: [
-    { day: 0, isOpen: true, openTime: '09:00', closeTime: '21:00' },
-    { day: 1, isOpen: true, openTime: '09:00', closeTime: '21:00' },
-    { day: 2, isOpen: true, openTime: '09:00', closeTime: '21:00' },
-    { day: 3, isOpen: true, openTime: '09:00', closeTime: '21:00' },
-    { day: 4, isOpen: true, openTime: '09:00', closeTime: '21:00' },
-    { day: 5, isOpen: true, openTime: '09:00', closeTime: '21:00' },
-    { day: 6, isOpen: true, openTime: '09:00', closeTime: '21:00' }
-  ]
-},
+    workingHours: {
+      type: [
+        {
+          day: {
+            type: Number,
+            min: 0,
+            max: 6,
+            required: true
+          },
+          isOpen: {
+            type: Boolean,
+            default: true
+          },
+          openTime: {
+            type: String,
+            default: '09:00'
+          },
+          closeTime: {
+            type: String,
+            default: '21:00'
+          }
+        }
+      ],
+      default: [
+        { day: 0, isOpen: true, openTime: '09:00', closeTime: '21:00' },
+        { day: 1, isOpen: true, openTime: '09:00', closeTime: '21:00' },
+        { day: 2, isOpen: true, openTime: '09:00', closeTime: '21:00' },
+        { day: 3, isOpen: true, openTime: '09:00', closeTime: '21:00' },
+        { day: 4, isOpen: true, openTime: '09:00', closeTime: '21:00' },
+        { day: 5, isOpen: true, openTime: '09:00', closeTime: '21:00' },
+        { day: 6, isOpen: true, openTime: '09:00', closeTime: '21:00' }
+      ]
+    },
 
     // ================================
     // Slot Configuration
@@ -137,6 +137,19 @@ const branchSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+    deactivatedByAdmin: {
+      type: Boolean,
+      default: false
+    },
+    adminDeactivationReason: {
+      type: String,
+      default: null,
+      trim: true
+    },
+    adminDeactivatedAt: {
+      type: Date,
+      default: null
     }
   },
   {

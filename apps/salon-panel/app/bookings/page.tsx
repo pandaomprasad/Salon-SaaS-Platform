@@ -11,10 +11,12 @@ import { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import BookingDrawer from "@/components/bookings/BookingDrawer";
-import { Search, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { paiseToINR } from "@/lib/api";
 import type { Appointment, AppointmentStatus, UserRole } from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { getCached, setCache, invalidateCache } from "@/lib/cache";
+
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -24,6 +26,12 @@ const STATUS_OPTIONS = [
   { value: "COMPLETED", label: "Completed" },
   { value: "CANCELLED", label: "Cancelled" },
   { value: "NO_SHOW", label: "No Show" },
+];
+
+const PAGE_SIZE_OPTIONS = [
+  { value: "10", label: "10 per page" },
+  { value: "20", label: "20 per page" },
+  { value: "50", label: "50 per page" },
 ];
 
 function getName(field: unknown, fallback = "—"): string {
@@ -54,6 +62,7 @@ function getPrice(a: any): string {
 
 
 export default function BookingsPage() {
+  const { selectedBranch: globalBranch } = useSelector((state: RootState) => state.auth);
   const { user } = useSelector((state: RootState) => state.auth);
   const role = (user?.role || "staff") as UserRole;
   const canManage = role === "owner" || role === "manager";
@@ -66,31 +75,91 @@ export default function BookingsPage() {
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const branchId = globalBranch?._id || null;
+
   const fetchAppointments = useCallback(async () => {
+    const cacheKey = `bookings_${statusFilter}_b${branchId || "all"}_p${currentPage}_l${pageSize}`;
+    const cached = getCached<{ list: any[]; total: number; pages: number }>(cacheKey);
+
+    if (cached) {
+      setAppointments(cached.list);
+      setTotalItems(cached.total);
+      setTotalPages(cached.pages);
+      setLoading(false);
+      // Refresh in background
+      try {
+        const params: { status?: string; branchId?: string; page?: number; limit?: number } = {
+          page: currentPage,
+          limit: pageSize,
+        };
+        if (statusFilter !== "all") params.status = statusFilter;
+        if (branchId) params.branchId = branchId;
+        const res = await getAppointments(params);
+        const resData = res.data as any;
+        const list = Array.isArray(resData) ? resData : resData?.appointments || [];
+        const pagination = (res as any).pagination;
+        setAppointments(list);
+        if (pagination) {
+          setTotalItems(pagination.total || 0);
+          setTotalPages(pagination.pages || 1);
+        }
+        setCache(cacheKey, {
+          list,
+          total: pagination?.total || list.length,
+          pages: pagination?.pages || 1,
+        });
+      } catch { }
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const params: { status?: string; limit?: number } = { limit: 100 };
-      if (statusFilter !== "all") {
-        params.status = statusFilter;
-      }
+      const params: { status?: string; branchId?: string; page?: number; limit?: number } = {
+        page: currentPage,
+        limit: pageSize,
+      };
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (branchId) params.branchId = branchId;
       const res = await getAppointments(params);
       const resData = res.data as any;
       const list = Array.isArray(resData) ? resData : resData?.appointments || [];
+      const pagination = (res as any).pagination;
       setAppointments(list);
-      setAppointments(list);
+      if (pagination) {
+        setTotalItems(pagination.total || 0);
+        setTotalPages(pagination.pages || 1);
+      } else {
+        setTotalItems(list.length);
+        setTotalPages(1);
+      }
+      setCache(cacheKey, {
+        list,
+        total: pagination?.total || list.length,
+        pages: pagination?.pages || 1,
+      });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load bookings";
+      const message = err instanceof Error ? err.message : "Failed to load bookings";
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, currentPage, pageSize, branchId]);
 
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
+
+  // Reset to page 1 when filters or branch change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, search, branchId]);
 
   const filtered = appointments.filter((a: any) => {
     if (!search) return true;
@@ -106,14 +175,12 @@ export default function BookingsPage() {
     setUpdatingId(id);
     try {
       const res = await updateAppointmentStatus(id, { status });
+      invalidateCache("bookings_");
       setAppointments((prev) =>
         prev.map((a: any) => (a._id === id ? { ...a, status } : a)),
       );
       setSelected((prev: any) =>
         prev?._id === id ? { ...prev, status } : prev,
-      );
-      setSelected((prev) =>
-        prev?._id === id ? { ...prev, ...res.data } : prev,
       );
     } catch (err: unknown) {
       const message =
@@ -124,6 +191,30 @@ export default function BookingsPage() {
     }
   }
 
+  // Pagination helpers
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  function goToPage(page: number) {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  }
+
+  // Generate visible page numbers (max 5 centered around current)
+  function getPageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
   return (
     <ProtectedRoute page="bookings">
       <div className="space-y-6 animate-fade-in">
@@ -132,7 +223,7 @@ export default function BookingsPage() {
           <div>
             <h2 className="text-3xl font-display">Bookings</h2>
             <p className="text-sm text-ash mt-1">
-              {loading ? "Loading..." : `${filtered.length} bookings found`}
+              {loading ? "Loading..." : `${totalItems} bookings found`}
             </p>
           </div>
           <Button
@@ -163,6 +254,16 @@ export default function BookingsPage() {
               options={STATUS_OPTIONS}
             />
           </div>
+          <div className="w-40">
+            <Select
+              value={String(pageSize)}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              options={PAGE_SIZE_OPTIONS}
+            />
+          </div>
         </div>
 
         {/* Error */}
@@ -191,11 +292,15 @@ export default function BookingsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={9} className="text-center text-ash py-12 text-sm">
-                      Loading bookings...
-                    </td>
-                  </tr>
+                  Array.from({ length: pageSize }).map((_, i) => (
+                    <tr key={i} className="border-b border-border/50">
+                      {Array.from({ length: 9 }).map((_, j) => (
+                        <td key={j} className="px-5 py-4">
+                          <div className="animate-pulse bg-border/50 rounded h-3.5 w-full" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
                 ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center text-ash py-12 text-sm">
@@ -247,6 +352,83 @@ export default function BookingsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Bar */}
+          {!loading && totalItems > 0 && (
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-smoke bg-smoke/20">
+              {/* Info */}
+              <p className="text-xs text-ash">
+                Showing <span className="font-semibold text-ink">{startItem}</span>–<span className="font-semibold text-ink">{endItem}</span> of{" "}
+                <span className="font-semibold text-ink">{totalItems}</span> bookings
+              </p>
+
+              {/* Page Controls */}
+              <div className="flex items-center gap-1">
+                {/* First Page */}
+                <button
+                  onClick={() => goToPage(1)}
+                  disabled={currentPage === 1}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ash hover:text-ink hover:bg-white transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  title="First page"
+                >
+                  <ChevronsLeft size={14} />
+                </button>
+
+                {/* Previous */}
+                <button
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ash hover:text-ink hover:bg-white transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  title="Previous page"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center gap-0.5 mx-1">
+                  {getPageNumbers()[0] > 1 && (
+                    <span className="w-8 h-8 inline-flex items-center justify-center text-xs text-ash">…</span>
+                  )}
+                  {getPageNumbers().map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => goToPage(p)}
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-semibold transition-all ${
+                        p === currentPage
+                          ? "bg-primary text-white shadow-sm"
+                          : "text-ash hover:text-ink hover:bg-white"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  {getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
+                    <span className="w-8 h-8 inline-flex items-center justify-center text-xs text-ash">…</span>
+                  )}
+                </div>
+
+                {/* Next */}
+                <button
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ash hover:text-ink hover:bg-white transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  title="Next page"
+                >
+                  <ChevronRight size={14} />
+                </button>
+
+                {/* Last Page */}
+                <button
+                  onClick={() => goToPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ash hover:text-ink hover:bg-white transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  title="Last page"
+                >
+                  <ChevronsRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Booking detail drawer */}

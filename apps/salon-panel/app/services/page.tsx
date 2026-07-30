@@ -20,6 +20,8 @@ import {
   X,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
+import { useBranch } from "@/hooks/useBranch";
+import { getCached, setCache, invalidateCache } from "@/lib/cache";
 
 // ── Types ──
 
@@ -78,17 +80,11 @@ function formatDuration(mins: number): string {
 // ── Page ──
 
 export default function ServicesPage() {
-  const { user } = useSelector((state: RootState) => state.auth);
-  const role = (user?.role || "staff") as UserRole;
-  const canManage = role === "owner" || role === "manager";
+  // const { user } = useSelector((state: RootState) => state.auth);
+  // const role = (user?.role || "staff") as UserRole;
+  // const canManage = role === "owner" || role === "manager";
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const decoded = token ? JSON.parse(atob(token.split(".")[1])) : null;
-  const salonId = decoded?.salonId || "";
-  const userBranchId = decoded?.branchId || "";
-
-  const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState("");
+  const { branchId, canManage } = useBranch();
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,41 +95,60 @@ export default function ServicesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch branches
-  useEffect(() => {
-    if (!salonId) return;
-    async function fetchBranches() {
-      try {
-        const { data } = await apiClient.get(`/salons/${salonId}/branches`);
-        const list = data.data?.branches || [];
-        setBranches(list);
-        if (role === "manager" && userBranchId) {
-          setSelectedBranch(userBranchId);
-        } else if (list.length > 0) {
-          setSelectedBranch(list[0]._id);
-        }
-      } catch {
-        setError("Failed to load branches");
-      }
-    }
-    fetchBranches();
-  }, [salonId, role, userBranchId]);
+  // useEffect(() => {
+  //   if (!salonId) return;
+  //   async function fetchBranches() {
+  //     try {
+  //       const { data } = await apiClient.get(`/salons/${salonId}/branches`);
+  //       const list = data.data?.branches || [];
+  //       setBranches(list);
+  //       if (role === "manager" && userBranchId) {
+  //         setSelectedBranch(userBranchId);
+  //       } else if (list.length > 0) {
+  //         setSelectedBranch(list[0]._id);
+  //       }
+  //     } catch {
+  //       setError("Failed to load branches");
+  //     }
+  //   }
+  //   fetchBranches();
+  // }, [salonId, role, userBranchId]);
 
   // Fetch services
   const fetchServices = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!branchId) return;
+
+    const cacheKey = `services_${branchId}`;
+    const cached = getCached<ServiceItem[]>(cacheKey);
+
+    if (cached) {
+      setServices(cached);
+      setLoading(false);
+      try {
+        const { data } = await apiClient.get(`/branches/${branchId}/services`);
+        const list = data.data?.services || [];
+        setServices(list);
+        setCache(cacheKey, list);
+      } catch { }
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const { data } = await apiClient.get(`/branches/${selectedBranch}/services`);
-      setServices(data.data?.services || []);
+      const { data } = await apiClient.get(`/branches/${branchId}/services`);
+      const list = data.data?.services || [];
+      setServices(list);
+      setCache(cacheKey, list);
     } catch {
       setError("Failed to load services");
     } finally {
       setLoading(false);
     }
-  }, [selectedBranch]);
+  }, [branchId]);
 
   useEffect(() => {
+    setServices([]);
     fetchServices();
   }, [fetchServices]);
 
@@ -151,7 +166,8 @@ export default function ServicesPage() {
     if (!confirm("Are you sure you want to delete this service?")) return;
     setDeletingId(serviceId);
     try {
-      await apiClient.delete(`/branches/${selectedBranch}/services/${serviceId}`);
+      await apiClient.delete(`/branches/${branchId}/services/${serviceId}`);
+      invalidateCache("services_");
       setServices((prev) => prev.filter((s) => s._id !== serviceId));
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to delete service");
@@ -199,7 +215,7 @@ export default function ServicesPage() {
               icon={<Search size={14} />}
             />
           </div>
-          {role === "owner" && branches.length > 1 && (
+          {/* {role === "owner" && branches.length > 1 && (
             <div className="w-48">
               <Select
                 value={selectedBranch}
@@ -207,7 +223,7 @@ export default function ServicesPage() {
                 options={branches.map((b) => ({ value: b._id, label: b.name }))}
               />
             </div>
-          )}
+          )} */}
           <div className="w-40">
             <Select
               value={categoryFilter}
@@ -228,7 +244,27 @@ export default function ServicesPage() {
 
         {/* Services Grid */}
         {loading ? (
-          <div className="text-center text-ash py-12 text-sm">Loading services...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white border border-border rounded-xl p-5 space-y-3">
+                <div className="flex justify-between">
+                  <div className="space-y-2 flex-1">
+                    <div className="animate-pulse bg-border/50 rounded h-3.5 w-1/2" />
+                    <div className="animate-pulse bg-border/50 rounded-full h-5 w-12" />
+                  </div>
+                  <div className="flex gap-1">
+                    <div className="animate-pulse bg-border/50 rounded w-6 h-6" />
+                    <div className="animate-pulse bg-border/50 rounded w-6 h-6" />
+                  </div>
+                </div>
+                <div className="animate-pulse bg-border/50 rounded h-3 w-3/4" />
+                <div className="pt-3 border-t border-border/50 flex gap-4">
+                  <div className="animate-pulse bg-border/50 rounded h-4 w-16" />
+                  <div className="animate-pulse bg-border/50 rounded h-4 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center text-ash py-12 text-sm">No services found.</div>
         ) : (
@@ -236,18 +272,16 @@ export default function ServicesPage() {
             {filtered.map((s) => (
               <div
                 key={s._id}
-                className={`bg-white border rounded-2xl p-5 transition-all hover:shadow-md ${
-                  s.isActive ? "border-smoke" : "border-red-200 opacity-60"
-                }`}
+                className={`bg-white border rounded-2xl p-5 transition-all hover:shadow-md ${s.isActive ? "border-smoke" : "border-red-200 opacity-60"
+                  }`}
               >
                 {/* Top row */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-sm truncate">{s.name}</h3>
                     <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize mt-1.5 inline-block ${
-                        CATEGORY_STYLES[s.category] || CATEGORY_STYLES.other
-                      }`}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize mt-1.5 inline-block ${CATEGORY_STYLES[s.category] || CATEGORY_STYLES.other
+                        }`}
                     >
                       {s.category}
                     </span>
@@ -295,9 +329,10 @@ export default function ServicesPage() {
         {/* Add Modal */}
         {showAddModal && (
           <ServiceFormModal
-            branchId={selectedBranch}
+            branchId={branchId}
             onSuccess={() => {
               setShowAddModal(false);
+              invalidateCache("services_");
               fetchServices();
             }}
             onClose={() => setShowAddModal(false)}
@@ -307,10 +342,11 @@ export default function ServicesPage() {
         {/* Edit Modal */}
         {editingService && (
           <ServiceFormModal
-            branchId={selectedBranch}
+            branchId={branchId}
             service={editingService}
             onSuccess={() => {
               setEditingService(null);
+              invalidateCache("services_");
               fetchServices();
             }}
             onClose={() => setEditingService(null)}

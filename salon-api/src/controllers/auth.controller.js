@@ -83,6 +83,7 @@ const register = async (req, res, next) => {
     next(error);
   }
 };
+const Salon = require("../models/salon.model");
 
 // ================================
 // POST /api/v1/auth/login
@@ -127,6 +128,12 @@ const login = async (req, res, next) => {
     user.lastLoginAt = new Date();
     await user.save();
 
+    // Fetch salon data if user belongs to one
+    let salon = null;
+    if (user.salonId) {
+      salon = await Salon.findById(user.salonId).select("_id name description logo isActive").lean();
+    }
+
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -140,6 +147,7 @@ const login = async (req, res, next) => {
           salonId: user.salonId,
           branchId: user.branchId,
         },
+        salon,
         accessToken,
         refreshToken,
       },

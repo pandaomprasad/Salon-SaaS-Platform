@@ -168,7 +168,7 @@ const bookAppointment = async (req, res, next) => {
 const getAppointments = async (req, res, next) => {
   try {
     const { userId, role, branchId, salonId } = req.user;
-    const { date, status, page = 1, limit = 20 } = req.query;
+    const { date, status, branchId: queryBranchId, page = 1, limit = 20 } = req.query;
 
     const filter = {};
 
@@ -183,6 +183,10 @@ const getAppointments = async (req, res, next) => {
       filter.branchId = branchId;
     } else if (role === "owner") {
       filter.salonId = salonId;
+      // owner can optionally filter by a specific branch
+      if (queryBranchId) {
+        filter.branchId = queryBranchId;
+      }
     }
 
     // optional filters

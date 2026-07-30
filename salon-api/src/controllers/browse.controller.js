@@ -14,7 +14,7 @@ const browseSalons = async (req, res, next) => {
   try {
     const { search, city, page = 1, limit = 10 } = req.query
 
-    const filter = { isActive: true }
+    const filter = { isActive: true, deactivatedByAdmin: { $ne: true } }
 
     // search by salon name — case insensitive
     if (search) {
@@ -92,7 +92,7 @@ const getSalonPublic = async (req, res, next) => {
   try {
     const { salonId } = req.params
 
-    const salon = await Salon.findOne({ _id: salonId, isActive: true })
+    const salon = await Salon.findOne({ _id: salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .select('name description contactEmail contactPhone logo')
       .lean()
 
@@ -101,7 +101,7 @@ const getSalonPublic = async (req, res, next) => {
     }
 
     // get all active branches for this salon
-    const branches = await Branch.find({ salonId, isActive: true })
+    const branches = await Branch.find({ salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .select('name address contactPhone contactEmail workingHours slotDurationMinutes')
       .lean()
 
@@ -128,7 +128,7 @@ const browseBranches = async (req, res, next) => {
   try {
     const { city, category, date, search, page = 1, limit = 10 } = req.query
 
-    const filter = { isActive: true }
+    const filter = { isActive: true, deactivatedByAdmin: { $ne: true } }
 
     // filter by city
     if (city) {
@@ -250,7 +250,7 @@ const getBranchPublic = async (req, res, next) => {
   try {
     const { branchId } = req.params
 
-    const branch = await Branch.findOne({ _id: branchId, isActive: true })
+    const branch = await Branch.findOne({ _id: branchId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .populate('salonId', 'name logo description')
       .populate('managerId', 'name')
       .lean()

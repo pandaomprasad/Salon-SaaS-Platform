@@ -36,7 +36,7 @@ export async function bookAppointment(payload: BookAppointmentPayload, idempoten
   return data;
 }
 
-export async function getAppointments(params?: { status?: string; page?: number; limit?: number }) {
+export async function getAppointments(params?: { status?: string; branchId?: string; page?: number; limit?: number }) {
   const { data } = await apiClient.get<PaginatedResponse<Appointment>>("/appointments", { params });
   return data;
 }

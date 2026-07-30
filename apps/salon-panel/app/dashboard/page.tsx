@@ -20,6 +20,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
+import { SkeletonDashboard } from "@/components/ui/Skeleton";
 
 // ── Types ──
 
@@ -129,46 +130,48 @@ export default function DashboardPage() {
   const [popularServices, setPopularServices] = useState<PopularServiceItem[]>([]);
 
   const fetchDashboard = useCallback(async () => {
-    setLoading(true);
-    try {
-      const today = getToday();
-      const monthStart = getMonthStart();
+  setLoading(true);
+  try {
+    const today = getToday();
+    const monthStart = getMonthStart();
 
-      const requests: Promise<any>[] = [
-        apiClient.get("/reports/overview", { params: { startDate: today, endDate: today } }),
-        apiClient.get("/reports/overview", { params: { startDate: monthStart, endDate: today } }),
-        apiClient.get("/appointments", { params: { limit: 50 } }),
-      ];
+    // Priority 1 — load stats first (fast, small response)
+    const [todayRes, monthRes] = await Promise.all([
+      apiClient.get("/reports/overview", { params: { startDate: today, endDate: today } }),
+      apiClient.get("/reports/overview", { params: { startDate: monthStart, endDate: today } }),
+    ]);
+    setTodayOverview(todayRes.data.data);
+    setMonthOverview(monthRes.data.data);
+    setLoading(false); // Show stats immediately
 
-      // Only fetch staff/services for owner and manager
-      if (role === "owner" || role === "manager") {
-        requests.push(
-          apiClient.get("/reports/staff-performance", {
-            params: { startDate: monthStart, endDate: today },
-          }),
-          apiClient.get("/reports/popular-services", {
-            params: { startDate: monthStart, endDate: today },
-          }),
-        );
-      }
+    // Priority 2 — load details in background (don't block UI)
+    const bgRequests: Promise<any>[] = [
+      apiClient.get("/appointments", { params: { limit: 50 } }),
+    ];
 
-      const results = await Promise.all(requests);
-
-      setTodayOverview(results[0].data.data);
-      setMonthOverview(results[1].data.data);
-
-      const apptData = results[2].data.data as any;
-      const apptList = Array.isArray(apptData) ? apptData : apptData?.appointments || [];
-      setAppointments(apptList);
-
-      if (results[3]) setStaffPerf(results[3].data.data?.staffPerformance || []);
-      if (results[4]) setPopularServices(results[4].data.data?.popularServices || []);
-    } catch {
-      // silent — individual sections handle empty states
-    } finally {
-      setLoading(false);
+    if (role === "owner" || role === "manager") {
+      bgRequests.push(
+        apiClient.get("/reports/staff-performance", {
+          params: { startDate: monthStart, endDate: today },
+        }),
+        apiClient.get("/reports/popular-services", {
+          params: { startDate: monthStart, endDate: today },
+        }),
+      );
     }
-  }, [role]);
+
+    const bgResults = await Promise.all(bgRequests);
+
+    const apptData = bgResults[0].data.data as any;
+    const apptList = Array.isArray(apptData) ? apptData : apptData?.appointments || [];
+    setAppointments(apptList);
+
+    if (bgResults[1]) setStaffPerf(bgResults[1].data.data?.staffPerformance || []);
+    if (bgResults[2]) setPopularServices(bgResults[2].data.data?.popularServices || []);
+  } catch {
+    setLoading(false);
+  }
+}, [role]);
 
   useEffect(() => {
     fetchDashboard();
@@ -187,12 +190,12 @@ export default function DashboardPage() {
   const pendingCount = appointments.filter((a) => a.status === "PENDING").length;
 
   if (loading) {
-    return (
-      <ProtectedRoute page="dashboard">
-        <div className="text-center text-ash py-20 text-sm">Loading dashboard...</div>
-      </ProtectedRoute>
-    );
-  }
+  return (
+    <ProtectedRoute page="dashboard">
+      <SkeletonDashboard />
+    </ProtectedRoute>
+  );
+}
 
   return (
     <ProtectedRoute page="dashboard">

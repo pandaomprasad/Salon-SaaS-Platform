@@ -47,6 +47,19 @@ const salonSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+    deactivatedByAdmin: {
+      type: Boolean,
+      default: false
+    },
+    adminDeactivationReason: {
+      type: String,
+      default: null,
+      trim: true
+    },
+    adminDeactivatedAt: {
+      type: Date,
+      default: null
     }
   },
   {
