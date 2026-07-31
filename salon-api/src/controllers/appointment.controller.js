@@ -5,6 +5,7 @@ const Service = require("../models/service.model");
 const User = require("../models/user.model");
 const AppError = require("../utils/AppError");
 const dayjs = require("dayjs");
+const { getIO } = require("../config/socket");
 
 // ================================
 // POST /api/v1/appointments
@@ -65,17 +66,31 @@ const bookAppointment = async (req, res, next) => {
     // --------------------------------
     // Step 3 — check customer conflict
     // --------------------------------
+    // Step 3 — check customer conflict
+    // --------------------------------
     const conflict = await Appointment.findOne({
       customerId: userId,
       date: slot.date,
       startTime: slot.startTime,
       status: { $in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
-    });
+    })
+      .populate("salonId", "name")
+      .populate("serviceId", "name")
+      .populate("staffId", "name");
 
     if (conflict) {
-      return next(
-        new AppError("You already have an appointment at this time", 400),
-      );
+      const err = new AppError("You already have an appointment at this time", 400);
+      err.conflictAppointment = {
+        _id: conflict._id,
+        salonName: conflict.salonId?.name || "Salon Luxe",
+        serviceName: conflict.serviceId?.name || "Service",
+        staffName: conflict.staffId?.name || "Specialist",
+        date: conflict.date,
+        startTime: conflict.startTime,
+        endTime: conflict.endTime,
+        status: conflict.status,
+      };
+      return next(err);
     }
 
     // --------------------------------
@@ -202,6 +217,7 @@ const getAppointments = async (req, res, next) => {
         .populate("staffId", "name")
         .populate("serviceId", "name price durationMinutes")
         .populate("branchId", "name address")
+        .populate("salonId", "name")
         .sort({ date: -1, startTime: 1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -377,6 +393,25 @@ const updateAppointmentStatus = async (req, res, next) => {
 
     await appointment.save();
 
+    // Emit real-time WebSocket event to customer and branch
+    try {
+      const io = getIO();
+      if (io) {
+        io.to(`customer_${appointment.customerId}`).emit("appointment_status_changed", {
+          appointmentId: appointment._id,
+          status: appointment.status,
+          appointment,
+        });
+        io.to(`branch_${appointment.branchId}`).emit("appointment_updated", {
+          appointmentId: appointment._id,
+          status: appointment.status,
+          appointment,
+        });
+      }
+    } catch (e) {
+      console.log("WebSocket emit error:", e.message);
+    }
+
     res.status(200).json({
       success: true,
       message: `Appointment ${status.toLowerCase()} successfully`,
@@ -442,8 +477,9 @@ const rateAppointment = async (req, res, next) => {
 // ================================
 const rescheduleAppointment = async (req, res, next) => {
   try {
-    const { appointmentId } = req.params;
-    const { newSlotId, newServiceId, newStaffId, reason } = req.body;
+    const appointmentId = req.params.appointmentId || req.params.id;
+    const { newSlotId, slotId, newServiceId, newStaffId, reason } = req.body;
+    const targetSlotId = newSlotId || slotId;
     const { userId, role, branchId } = req.user;
 
     // --------------------------------
@@ -497,18 +533,18 @@ const rescheduleAppointment = async (req, res, next) => {
     // --------------------------------
     // Step 4 — validate new slot
     // --------------------------------
-    if (!newSlotId) {
+    if (!targetSlotId) {
       return next(new AppError("New slot is required", 400));
     }
 
     // make sure new slot is different from current
-    if (newSlotId === appointment.slotId.toString()) {
+    if (targetSlotId === appointment.slotId.toString()) {
       return next(
         new AppError("New slot must be different from current slot", 400),
       );
     }
 
-    const newSlot = await Slot.findById(newSlotId);
+    const newSlot = await Slot.findById(targetSlotId);
     if (!newSlot) {
       return next(new AppError("New slot not found", 404));
     }
@@ -529,85 +565,42 @@ const rescheduleAppointment = async (req, res, next) => {
     }
 
     // --------------------------------
-    // Step 5 — customer restrictions
-    // customer can only use slots for same staff
-    // --------------------------------
-    if (role === "customer") {
-      if (newSlot.staffId.toString() !== appointment.staffId.toString()) {
-        return next(
-          new AppError(
-            "You can only reschedule to a slot with the same staff member. Contact the salon to change staff.",
-            400,
-          ),
-        );
-      }
-
-      // customer cannot change service or staff
-      if (newServiceId || newStaffId) {
-        return next(
-          new AppError(
-            "Customers can only change the time slot. Contact the salon to change service or staff.",
-            400,
-          ),
-        );
-      }
-    }
-
-    // --------------------------------
-    // Step 6 — manager can change service and staff
+    // Step 5 — determine final staff & service
     // --------------------------------
     let finalServiceId = appointment.serviceId;
-    let finalStaffId = appointment.staffId;
+    let finalStaffId = newSlot.staffId;
     let finalPrice = appointment.pricePaid;
 
-    if (role === "manager" || role === "owner") {
-      // changing service
-      if (newServiceId) {
-        const newService = await Service.findOne({
-          _id: newServiceId,
-          branchId: appointment.branchId,
-          isActive: true,
-        });
+    if ((role === "manager" || role === "owner") && newServiceId) {
+      const newService = await Service.findOne({
+        _id: newServiceId,
+        branchId: appointment.branchId,
+        isActive: true,
+      });
 
-        if (!newService) {
-          return next(
-            new AppError("New service not found in this branch", 404),
-          );
-        }
-
-        finalServiceId = newService._id;
-        finalPrice = newService.price;
-      }
-
-      // changing staff — must match new slot's staff
-      if (newStaffId) {
-        if (newSlot.staffId.toString() !== newStaffId.toString()) {
-          return next(
-            new AppError(
-              "New staff must match the staff assigned to the new slot",
-              400,
-            ),
-          );
-        }
-        finalStaffId = newStaffId;
-      } else {
-        // even if not explicitly changing staff
-        // new slot might be for a different staff — update it
-        finalStaffId = newSlot.staffId;
-      }
-
-      // verify new staff can perform the service
-      const serviceToCheck = await Service.findById(finalServiceId);
-      if (
-        serviceToCheck.eligibleStaff.length > 0 &&
-        !serviceToCheck.eligibleStaff
-          .map((id) => id.toString())
-          .includes(finalStaffId.toString())
-      ) {
+      if (!newService) {
         return next(
-          new AppError("Selected staff cannot perform this service", 400),
+          new AppError("New service not found in this branch", 404),
         );
       }
+
+      finalServiceId = newService._id;
+      finalPrice = newService.price;
+    }
+
+    // verify new staff can perform the service
+    const serviceToCheck = await Service.findById(finalServiceId);
+    if (
+      serviceToCheck &&
+      serviceToCheck.eligibleStaff &&
+      serviceToCheck.eligibleStaff.length > 0 &&
+      !serviceToCheck.eligibleStaff
+        .map((id) => id.toString())
+        .includes(finalStaffId.toString())
+    ) {
+      return next(
+        new AppError("Selected staff cannot perform this service", 400),
+      );
     }
 
     // --------------------------------
@@ -617,7 +610,7 @@ const rescheduleAppointment = async (req, res, next) => {
 
     // atomically book new slot — prevents double booking
     const bookedNewSlot = await Slot.findOneAndUpdate(
-      { _id: newSlotId, status: "AVAILABLE" },
+      { _id: targetSlotId, status: "AVAILABLE" },
       { status: "BOOKED", appointmentId: appointment._id },
       { new: true },
     );
@@ -647,7 +640,7 @@ const rescheduleAppointment = async (req, res, next) => {
       endTime: appointment.endTime,
     };
 
-    appointment.slotId = newSlotId;
+    appointment.slotId = targetSlotId;
     appointment.date = newSlot.date;
     appointment.startTime = newSlot.startTime;
     appointment.endTime = newSlot.endTime;

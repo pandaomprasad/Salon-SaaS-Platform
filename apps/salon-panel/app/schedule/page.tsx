@@ -246,12 +246,24 @@ export default function SchedulePage() {
   // Group slots by staff
   function groupByStaff(slotList: SlotItem[]): Record<string, { name: string; slots: SlotItem[] }> {
     const groups: Record<string, { name: string; slots: SlotItem[] }> = {};
+
+    // Pre-fill groups with staff members so staff with 0 slots are still visible
+    const relevantStaff =
+      staffFilter === "all"
+        ? staffList
+        : staffList.filter((s) => s._id === staffFilter);
+
+    relevantStaff.forEach((st) => {
+      groups[st._id] = { name: st.name, slots: [] };
+    });
+
     slotList.forEach((s) => {
       const id = getStaffId(s.staffId);
       const name = getStaffName(s.staffId);
       if (!groups[id]) groups[id] = { name, slots: [] };
       groups[id].slots.push(s);
     });
+
     // Sort slots by time within each group
     Object.values(groups).forEach((g) =>
       g.slots.sort((a, b) => a.startTime.localeCompare(b.startTime)),
@@ -470,38 +482,54 @@ export default function SchedulePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-1.5 p-4">
-                    {staffSlots.map((slot) => {
-                      const style = STATUS_STYLES[slot.status] || STATUS_STYLES.AVAILABLE;
-                      const isToggleable =
-                        canManage && (slot.status === "AVAILABLE" || slot.status === "BLOCKED");
-                      return (
-                        <button
-                          key={slot._id}
-                          onClick={() => isToggleable && toggleSlot(slot)}
-                          disabled={togglingId === slot._id || !isToggleable}
-                          className={`
-                            border rounded-lg px-2 py-2 text-center transition-all
-                            ${style.bg} ${style.text}
-                            ${isToggleable ? "cursor-pointer hover:shadow-md hover:scale-105" : "cursor-default"}
-                            ${togglingId === slot._id ? "opacity-50" : ""}
-                          `}
-                          title={
-                            slot.status === "BLOCKED"
-                              ? `Blocked: ${slot.blockReason || "No reason"}`
-                              : slot.status === "BOOKED"
-                                ? "Booked — cannot modify"
-                                : `${slot.startTime} - ${slot.endTime}`
-                          }
+                  {staffSlots.length === 0 ? (
+                    <div className="p-4 text-xs text-ash flex items-center justify-between bg-smoke/10">
+                      <span>No time slots generated for {name} on {formatDateShort(selectedDate)}</span>
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Plus size={13} />}
+                          onClick={() => setShowGenerateModal(true)}
                         >
-                          <p className="text-[11px] font-semibold">{slot.startTime}</p>
-                          <p className="text-[8px] uppercase tracking-wider mt-0.5 opacity-70">
-                            {style.label}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          Generate Slots
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-1.5 p-4">
+                      {staffSlots.map((slot) => {
+                        const style = STATUS_STYLES[slot.status] || STATUS_STYLES.AVAILABLE;
+                        const isToggleable =
+                          canManage && (slot.status === "AVAILABLE" || slot.status === "BLOCKED");
+                        return (
+                          <button
+                            key={slot._id}
+                            onClick={() => isToggleable && toggleSlot(slot)}
+                            disabled={togglingId === slot._id || !isToggleable}
+                            className={`
+                              border rounded-lg px-2 py-2 text-center transition-all
+                              ${style.bg} ${style.text}
+                              ${isToggleable ? "cursor-pointer hover:shadow-md hover:scale-105" : "cursor-default"}
+                              ${togglingId === slot._id ? "opacity-50" : ""}
+                            `}
+                            title={
+                              slot.status === "BLOCKED"
+                                ? `Blocked: ${slot.blockReason || "No reason"}`
+                                : slot.status === "BOOKED"
+                                  ? "Booked — cannot modify"
+                                  : `${slot.startTime} - ${slot.endTime}`
+                            }
+                          >
+                            <p className="text-[11px] font-semibold">{slot.startTime}</p>
+                            <p className="text-[8px] uppercase tracking-wider mt-0.5 opacity-70">
+                              {style.label}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -6,7 +6,9 @@ const {
   browseBranches,
   getBranchPublic,
   getBranchSlotsPublic,
-  getBranchServicesPublic
+  getBranchServicesPublic,
+  getBranchStaffPublic,
+  getBranchReviewsPublic,
 } = require('../controllers/browse.controller')
 
 // ================================
@@ -22,5 +24,7 @@ router.get('/branches',                          browseBranches)
 router.get('/branches/:branchId',                getBranchPublic)
 router.get('/branches/:branchId/slots',          getBranchSlotsPublic)
 router.get('/branches/:branchId/services',       getBranchServicesPublic)
+router.get('/branches/:branchId/staff',          getBranchStaffPublic)
+router.get('/branches/:branchId/reviews',        getBranchReviewsPublic)
 
 module.exports = router

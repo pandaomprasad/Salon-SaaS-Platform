@@ -50,11 +50,16 @@ const browseSalons = async (req, res, next) => {
       Salon.countDocuments(filter)
     ])
 
-    // attach branch count to each salon
+    // attach branch count + basic branch info to each salon
     const salonIds = salons.map((s) => s._id)
-    const branchCounts = await Branch.aggregate([
-      { $match: { salonId: { $in: salonIds }, isActive: true } },
-      { $group: { _id: '$salonId', count: { $sum: 1 } } }
+    const [branchCounts, branches] = await Promise.all([
+      Branch.aggregate([
+        { $match: { salonId: { $in: salonIds }, isActive: true } },
+        { $group: { _id: '$salonId', count: { $sum: 1 } } }
+      ]),
+      Branch.find({ salonId: { $in: salonIds }, isActive: true })
+        .select('salonId name address.city')
+        .lean()
     ])
 
     const branchCountMap = {}
@@ -62,15 +67,23 @@ const browseSalons = async (req, res, next) => {
       branchCountMap[b._id.toString()] = b.count
     })
 
-    const salonsWithCount = salons.map((s) => ({
+    const branchesBySalon = {}
+    branches.forEach((b) => {
+      const sid = b.salonId.toString()
+      if (!branchesBySalon[sid]) branchesBySalon[sid] = []
+      branchesBySalon[sid].push(b)
+    })
+
+    const salonsWithBranches = salons.map((s) => ({
       ...s,
-      branchCount: branchCountMap[s._id.toString()] || 0
+      branchCount: branchCountMap[s._id.toString()] || 0,
+      branches: branchesBySalon[s._id.toString()] || []
     }))
 
     res.status(200).json({
       success: true,
       data: {
-        salons: salonsWithCount,
+        salons: salonsWithBranches,
         pagination: {
           total,
           page: parseInt(page),
@@ -296,7 +309,7 @@ const getBranchPublic = async (req, res, next) => {
 const getBranchSlotsPublic = async (req, res, next) => {
   try {
     const { branchId } = req.params
-    const { date, serviceId } = req.query
+    const { date, serviceId, staffId } = req.query
 
     if (!date) {
       return next(new AppError('Date is required. Use ?date=YYYY-MM-DD', 400))
@@ -309,8 +322,12 @@ const getBranchSlotsPublic = async (req, res, next) => {
 
     const filter = {
       branchId,
-      date,
-      status: 'AVAILABLE'
+      date
+    }
+
+    // if customer selected a specific staff member
+    if (staffId) {
+      filter.staffId = staffId
     }
 
     // if serviceId provided — only show staff who can perform this service
@@ -322,7 +339,16 @@ const getBranchSlotsPublic = async (req, res, next) => {
 
       // filter slots to only eligible staff for this service
       if (service.eligibleStaff && service.eligibleStaff.length > 0) {
-        filter.staffId = { $in: service.eligibleStaff }
+        if (staffId) {
+          if (!service.eligibleStaff.map((id) => id.toString()).includes(staffId.toString())) {
+            return res.status(200).json({
+              success: true,
+              data: { date, branchId, availability: [] }
+            })
+          }
+        } else {
+          filter.staffId = { $in: service.eligibleStaff }
+        }
       }
     }
 
@@ -348,7 +374,8 @@ const getBranchSlotsPublic = async (req, res, next) => {
       acc[staffId].slots.push({
         slotId: slot._id,
         startTime: slot.startTime,
-        endTime: slot.endTime
+        endTime: slot.endTime,
+        status: slot.status || 'AVAILABLE'
       })
 
       return acc
@@ -398,11 +425,49 @@ const getBranchServicesPublic = async (req, res, next) => {
   }
 }
 
+// ================================
+// GET /api/v1/browse/branches/:branchId/staff
+// public — list specialists/staff for a branch
+// ================================
+const getBranchStaffPublic = async (req, res, next) => {
+  try {
+    const { branchId } = req.params
+    const User = require('../models/user.model')
+    const staff = await User.find({ branchId, isActive: { $ne: false } })
+      .select('name email phone avatar photoUrl role')
+      .lean()
+
+    res.status(200).json({
+      success: true,
+      data: { staff }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/browse/branches/:branchId/reviews
+// public — list reviews for a branch
+// ================================
+const getBranchReviewsPublic = async (req, res, next) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: { reviews: [] }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   browseSalons,
   getSalonPublic,
   browseBranches,
   getBranchPublic,
   getBranchSlotsPublic,
-  getBranchServicesPublic
+  getBranchServicesPublic,
+  getBranchStaffPublic,
+  getBranchReviewsPublic
 }

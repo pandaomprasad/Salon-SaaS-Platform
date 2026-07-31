@@ -1,18 +1,17 @@
 import { View, Text, Pressable } from "react-native";
 import { Entypo, FontAwesome, Ionicons, Feather } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import styles from "./styles";
 import { C } from "../../theme";
 
 export default function HeroTopBar({
-    city,
-    subCity,
+    city = "Mumbai",
+    subCity = "Bandra West",
     onLocation,
     onNotif,
     onProfile
 }) {
     return (
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.topBar}>
+        <View style={styles.topBar}>
             <Pressable style={styles.locationBtn} onPress={onLocation}>
                 <FontAwesome name="location-arrow" size={14} color={C.gold} />
                 <View>
@@ -33,6 +32,6 @@ export default function HeroTopBar({
                     <Feather name="user" size={18} color="#fff" />
                 </Pressable>
             </View>
-        </Animated.View>
+        </View>
     );
 }

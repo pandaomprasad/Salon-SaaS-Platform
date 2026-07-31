@@ -1,14 +1,14 @@
 // src/theme/index.js
 export const C = {
-  bg:        "#F7F5F0",
+  bg:        "#FAF9F5",
   surface:   "#FFFFFF",
-  dark:      "#0D0B18",
-  gold:      "#B49460",
+  dark:      "#1A1A1A",
+  gold:      "#E6CA65",
   goldMid:   "#D4AF78",
   goldLight: "#F0DEB4",
-  muted:     "#9E9589",
-  text:      "#1A1714",
-  green:     "#16a34a",
+  muted:     "#8E8880",
+  text:      "#1A1A1A",
+  green:     "#10B981",
 };
 
 export const S = {
@@ -20,22 +20,22 @@ export const SHADOWS = {
   sm: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
   md: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.08,
     shadowRadius: 14,
-    elevation: 9,
+    elevation: 6,
   },
   lg: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.12,
     shadowRadius: 20,
-    elevation: 14,
+    elevation: 10,
   },
 };

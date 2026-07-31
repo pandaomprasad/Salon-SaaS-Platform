@@ -8,7 +8,8 @@
     "start": "nodemon src/app.js",
     "dev": "nodemon src/app.js",
     "seed": "node src/utils/seeder.js",
-    "seed:sample": "node src/utils/seedSampleData.js"
+    "seed:sample": "node src/utils/seedSampleData.js",
+    "seed:master": "node src/utils/seedMasterData.js"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,7 @@
     "mongoose": "^9.3.2",
     "morgan": "^1.10.1",
     "node-cron": "^4.2.1",
+    "socket.io": "^4.8.3",
     "winston": "^3.19.0"
   },
   "devDependencies": {

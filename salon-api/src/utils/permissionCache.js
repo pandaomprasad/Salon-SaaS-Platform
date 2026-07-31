@@ -63,6 +63,11 @@ const getUserPermissions = async (roleName, userId) => {
     // get base role permissions
     const rolePermissions = await getRolePermissions(roleName);
 
+    // Customer role implicitly includes appointment:update for self-service status updates & cancellation
+    if (roleName === "customer" && !rolePermissions.includes("appointment:update")) {
+      rolePermissions.push("appointment:update");
+    }
+
     // get user specific overrides
     const user = await User.findById(userId)
       .select("extraPermissions deniedPermissions")

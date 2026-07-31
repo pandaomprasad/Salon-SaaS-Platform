@@ -111,7 +111,7 @@ const ROLE_PERMISSIONS = {
   customer: [
     'service:read',
     'slot:read',
-    'appointment:create', 'appointment:read', 'appointment:delete'
+    'appointment:create', 'appointment:read', 'appointment:update', 'appointment:delete'
   ]
 }
 

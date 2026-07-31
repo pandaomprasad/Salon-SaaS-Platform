@@ -1,27 +1,15 @@
-import { Image, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { View, StyleSheet } from "react-native";
+import { C } from "../../theme";
 
-export default function HeroBackground({ imageUri }) {
+export default function HeroBackground() {
     return (
-        <>
-            <Image source={{ uri: imageUri }} style={styles.bg} blurRadius={1} />
-
-            <LinearGradient
-                colors={["rgba(13,11,24,0.55)", "rgba(13,11,24,0.15)", "rgba(247,245,240,0)"]}
-                style={StyleSheet.absoluteFill}
-            />
-
-            <LinearGradient
-                colors={["rgba(247,245,240,0)", "rgba(247,245,240,0.6)", "#F7F5F0"]}
-                style={[StyleSheet.absoluteFill, { top: "40%" }]}
-            />
-        </>
+        <View style={styles.bgOverlay} />
     );
 }
 
 const styles = StyleSheet.create({
-    bg: {
+    bgOverlay: {
         ...StyleSheet.absoluteFillObject,
-        resizeMode: "cover"
+        backgroundColor: C.dark,
     }
 });

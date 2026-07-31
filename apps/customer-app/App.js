@@ -1,20 +1,24 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { AuthProvider } from "./src/context/AuthContext";
+import { SharedElementProvider } from "./src/context/SharedElementContext";
+import { ErrorProvider } from "./src/context/ErrorContext";
+import AppNavigator from "./src/navigation/AppNavigator";
+import SharedElementMorphOverlay from "./src/components/SharedElementMorphOverlay";
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <ErrorProvider>
+      <AuthProvider>
+        <SharedElementProvider>
+          <StatusBar style="light" />
+          <View style={{ flex: 1 }}>
+            <AppNavigator />
+            <SharedElementMorphOverlay />
+          </View>
+        </SharedElementProvider>
+      </AuthProvider>
+    </ErrorProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

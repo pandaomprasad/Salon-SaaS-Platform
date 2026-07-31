@@ -159,6 +159,7 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message: err.message || "Internal server error",
+    conflictAppointment: err.conflictAppointment || null,
     // only show stack trace in development
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
@@ -166,12 +167,19 @@ app.use((err, req, res, next) => {
 
 
 // ================================
-// Start Server
+// Start Server with WebSockets
 // ================================
-const PORT = process.env.PORT || 6969;
+const http = require("http");
+const { initSocket } = require("./config/socket");
 
-app.listen(PORT, () => {
-  logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+const PORT = process.env.PORT || 6969;
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+initSocket(server);
+
+server.listen(PORT, () => {
+  logger.info(`Server running in ${process.env.NODE_ENV} mode with WebSockets on port ${PORT}`);
 });
 
-module.exports = app;
+module.exports = { app, server };
