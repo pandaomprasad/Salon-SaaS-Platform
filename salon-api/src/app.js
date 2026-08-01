@@ -20,6 +20,12 @@ const app = express();
 // Trust proxy (required when behind tunnel/proxy like localtunnel, ngrok, NGINX)
 app.set("trust proxy", 1);
 
+// Immediate request logger
+app.use((req, res, next) => {
+  console.log(`📥 [INCOMING REQUEST] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // ================================
 // Connect to MongoDB
 // ================================
