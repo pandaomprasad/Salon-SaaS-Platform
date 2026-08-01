@@ -1,6 +1,8 @@
 // load .env file first before anything else
 require("dotenv").config();
 
+console.log("🚀 Starting Salon API Server...");
+
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -21,9 +23,11 @@ app.set("trust proxy", 1);
 // ================================
 // Connect to MongoDB
 // ================================
+console.log("📦 Initializing database connection...");
 connectDB();
 
 // Register all models
+console.log("📦 Registering Mongoose models...");
 require("./models/permission.model");
 require("./models/role.model");
 require("./models/user.model");
@@ -35,10 +39,11 @@ require("./models/appointment.model");
 const adminRoutes = require('./routes/admin.routes')
 const adminController = require('./controllers/admin.controller')
 
-
-// Initialize cron jobs  ← add this
+// Initialize cron jobs
+console.log("🕒 Initializing cron jobs...");
 const { initCronJobs } = require("./config/cron");
 initCronJobs();
+console.log("✅ Cron jobs initialized.");
 
 // TEMPORARY — remove after testing
 app.get("/test-cron", async (req, res) => {
@@ -186,6 +191,7 @@ const server = http.createServer(app);
 initSocket(server);
 
 server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
   logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode with WebSockets on port ${PORT}`);
 });
 
