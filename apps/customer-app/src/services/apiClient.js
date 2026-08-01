@@ -4,6 +4,10 @@ import Constants from "expo-constants";
 
 // Dynamically determine the host machine IP address when running via Expo Go / Metro
 const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
   try {
     const hostUri =
       Constants.expoConfig?.hostUri ||
@@ -30,7 +34,9 @@ const getBaseUrl = () => {
   }
 
   if (Platform.OS === "android") {
-    return "http://10.0.2.2:6969/api/v1";
+    // For standalone APK on physical phone connected to local Wi-Fi:
+    // Update to PC local Wi-Fi IP (192.168.1.39) or set EXPO_PUBLIC_API_URL
+    return "http://192.168.1.39:6969/api/v1";
   }
 
   return "http://localhost:6969/api/v1";
@@ -51,6 +57,8 @@ async function request(endpoint, options = {}) {
 
   const headers = {
     "Content-Type": "application/json",
+    "bypass-tunnel-reminder": "true",
+    "ngrok-skip-browser-warning": "true",
     ...(options.headers || {}),
   };
 

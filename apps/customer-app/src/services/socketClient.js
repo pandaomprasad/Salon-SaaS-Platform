@@ -19,6 +19,10 @@ export const socketClient = {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      extraHeaders: {
+        "bypass-tunnel-reminder": "true",
+        "ngrok-skip-browser-warning": "true",
+      },
     });
 
     socket.on("connect", () => {

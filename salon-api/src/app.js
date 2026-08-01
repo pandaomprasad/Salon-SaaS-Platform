@@ -56,16 +56,21 @@ app.use(helmet());
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS || "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "bypass-tunnel-reminder",
+      "ngrok-skip-browser-warning",
+      "X-Requested-With",
+    ],
   }),
 );
 
-// rate limiting — max 100 requests per 15 minutes per IP
-// this protects against brute force and abuse
+// rate limiting — max 500 requests per 15 minutes per IP
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 500,
   message: {
     success: false,
     message: "Too many requests, please try again later.",
@@ -78,8 +83,7 @@ app.use("/api", limiter);
 // ================================
 
 // tells express to parse incoming JSON bodies
-// without this req.body would be undefined
-app.use(express.json({ limit: "10kb" })); // 10kb limit prevents huge payloads
+app.use(express.json({ limit: "5mb" })); // 10kb limit prevents huge payloads
 
 // parse URL-encoded form data
 app.use(express.urlencoded({ extended: true }));
