@@ -57,6 +57,7 @@ function HomeScreen({ navigate, onScroll }) {
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [selectedCity, setSelectedCity] = useState("Mumbai");
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState(null);
@@ -66,6 +67,7 @@ function HomeScreen({ navigate, onScroll }) {
 
   const loadData = useCallback(async (silent = false) => {
     try {
+      setLoadError(null);
       if (!silent && salonsRef.current.length === 0) {
         setLoading(true);
       }
@@ -94,6 +96,7 @@ function HomeScreen({ navigate, onScroll }) {
       }
     } catch (err) {
       console.log("Failed to load salons", err.message);
+      setLoadError(err.message || "Unable to connect to server");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -198,6 +201,23 @@ function HomeScreen({ navigate, onScroll }) {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#1A1714" />
             <Text style={styles.loadingText}>Finding luxury studios in {selectedCity}...</Text>
+          </View>
+        ) : loadError && salons.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>Unable to connect to server</Text>
+            <Text style={styles.emptyText}>{loadError}. Make sure your device is on the same network as the server.</Text>
+            <TouchableOpacity
+              style={{
+                marginTop: 12,
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                backgroundColor: "#1A1714",
+                borderRadius: 16,
+              }}
+              onPress={() => loadData(false)}
+            >
+              <Text style={{ color: "#E6CA65", fontWeight: "800", fontSize: 13 }}>Retry Connection</Text>
+            </TouchableOpacity>
           </View>
         ) : salons.length === 0 ? (
           <View style={styles.emptyContainer}>

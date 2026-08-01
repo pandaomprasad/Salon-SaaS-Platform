@@ -4,10 +4,12 @@ import Constants from "expo-constants";
 
 // Dynamically determine the host machine IP address when running via Expo Go / Metro
 const getBaseUrl = () => {
+  // 1. In standalone built APKs or when configured, prioritize environment variable
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
+  // 2. In Metro / Expo Go dev mode, dynamically use host computer's IP
   try {
     const hostUri =
       Constants.expoConfig?.hostUri ||
@@ -20,22 +22,12 @@ const getBaseUrl = () => {
         return `http://${ip}:6969/api/v1`;
       }
     }
-
-    const linkingUri = Constants.linkingUri;
-    if (linkingUri && linkingUri.includes("://")) {
-      const parts = linkingUri.split("://")[1];
-      const ip = parts ? parts.split(":")[0] : null;
-      if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
-        return `http://${ip}:6969/api/v1`;
-      }
-    }
   } catch (e) {
     console.log("Could not extract hostUri from Constants", e);
   }
 
+  // 3. Fallback for standalone Android APK on local Wi-Fi
   if (Platform.OS === "android") {
-    // For standalone APK on physical phone connected to local Wi-Fi:
-    // Update to PC local Wi-Fi IP (192.168.1.39) or set EXPO_PUBLIC_API_URL
     return "http://192.168.1.39:6969/api/v1";
   }
 
@@ -43,6 +35,7 @@ const getBaseUrl = () => {
 };
 
 export const API_BASE_URL = getBaseUrl();
+console.log("API Base URL active:", API_BASE_URL);
 
 let userToken = null;
 
@@ -66,7 +59,7 @@ async function request(endpoint, options = {}) {
     headers["Authorization"] = `Bearer ${userToken}`;
   }
 
-    const method = options.method || "GET";
+  const method = options.method || "GET";
 
   try {
     const fetchOptions = {
@@ -77,13 +70,29 @@ async function request(endpoint, options = {}) {
     if (options.signal) fetchOptions.signal = options.signal;
 
     const response = await fetch(url, fetchOptions);
+    const rawText = await response.text();
 
-    const data = await response.json();
+    let data = {};
+    if (rawText && rawText.trim()) {
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        const cleanMessage = rawText.replace(/<[^>]*>/g, "").trim().slice(0, 120);
+        const err = new Error(
+          response.ok
+            ? "Invalid response format from server."
+            : `Server error (${response.status}): ${cleanMessage || "Unable to reach server."}`
+        );
+        err.status = response.status;
+        throw err;
+      }
+    }
 
     if (!response.ok) {
-      const err = new Error(data.message || "An unexpected error occurred.");
+      const msg = data?.message || data?.error || `Request failed with status ${response.status}`;
+      const err = new Error(msg);
       err.data = data;
-      err.conflictAppointment = data.conflictAppointment || null;
+      err.conflictAppointment = data?.conflictAppointment || null;
       throw err;
     }
 

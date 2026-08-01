@@ -117,6 +117,16 @@ export default function ProfileScreen({ navigate, onScroll }) {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigate && navigate("Onboarding")}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>✨</Text>
+            <Text style={styles.menuLabel}>View App Intro</Text>
+            <Text style={styles.menuArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuItem, { borderBottomWidth: 0 }]}
             onPress={() => navigate && navigate("Support")}
             activeOpacity={0.7}

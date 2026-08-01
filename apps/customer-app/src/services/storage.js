@@ -7,18 +7,26 @@ const memoryStore = new Map();
 export const storage = {
   getItem: async (key) => {
     try {
+      let val = null;
       if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
-        return window.localStorage.getItem(key);
+        val = window.localStorage.getItem(key);
+      } else {
+        val = await AsyncStorage.getItem(key);
       }
-      const val = await AsyncStorage.getItem(key);
-      return val !== null ? val : memoryStore.get(key) || null;
+      if (val === null || val === undefined) {
+        val = memoryStore.get(key) || null;
+      }
+      return val && val !== "undefined" && val !== "null" ? val : null;
     } catch (e) {
-      // Fallback silently to memory store when native module is unlinked in Expo Go
-      return memoryStore.get(key) || null;
+      const fallback = memoryStore.get(key) || null;
+      return fallback && fallback !== "undefined" && fallback !== "null" ? fallback : null;
     }
   },
 
   setItem: async (key, value) => {
+    if (value === undefined || value === null || value === "undefined" || value === "null") {
+      return storage.removeItem(key);
+    }
     memoryStore.set(key, value);
     try {
       if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
@@ -44,3 +52,4 @@ export const storage = {
     }
   },
 };
+

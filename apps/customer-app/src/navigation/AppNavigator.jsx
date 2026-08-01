@@ -14,9 +14,11 @@ import ProfileScreen from "../screen/ProfileScreen";
 import EditProfileScreen from "../screen/EditProfileScreen";
 import SavedAddressesScreen from "../screen/SavedAddressesScreen";
 import SupportScreen from "../screen/SupportScreen";
+import OnboardingScreen from "../screen/OnboardingScreen";
 import ScreenTransition from "../components/ScreenTransition";
 import AndroidExpandingTabBar from "../components/AndroidExpandingTabBar";
 import { FavoritesProvider } from "../context/FavoritesContext";
+import { storage } from "../services/storage";
 
 LogBox.ignoreLogs([
   "setLayoutAnimationEnabledExperimental",
@@ -35,6 +37,19 @@ const TABS = [
 export default function AppNavigator() {
   const [currentTab, setCurrentTab] = useState("Home");
   const [screenStack, setScreenStack] = useState([]); // Navigation stack: [{ name, params }]
+  const [hasOnboarded, setHasOnboarded] = useState(null);
+
+  React.useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const val = await storage.getItem("@salon_app_has_onboarded");
+        setHasOnboarded(val === "true" ? false : false); // Set to false to show onboarding preview
+      } catch (e) {
+        setHasOnboarded(false);
+      }
+    };
+    checkOnboarding();
+  }, []);
 
   // iOS Bottom Bar Squeeze Animation
   const squeezeAnim = useRef(new Animated.Value(0)).current;
@@ -95,6 +110,19 @@ export default function AppNavigator() {
 
   // Render current view
   const renderContent = () => {
+    if (hasOnboarded === false || activeScreen === "Onboarding") {
+      return (
+        <OnboardingScreen
+          onFinish={() => {
+            setHasOnboarded(true);
+            setScreenStack([]);
+            setCurrentTab("Home");
+          }}
+          navigate={navigate}
+        />
+      );
+    }
+
     if (activeScreen === "SalonDetail") {
       return (
         <SalonDetailScreen
@@ -186,8 +214,8 @@ export default function AppNavigator() {
           </ScreenTransition>
         </View>
 
-        {/* Show Bottom Tab Bar when not in a modal stack screen */}
-        {!activeScreen ? (
+        {/* Show Bottom Tab Bar when not in a modal stack screen or onboarding */}
+        {!activeScreen && hasOnboarded !== false ? (
           isIos ? (
             <Animated.View
               style={[

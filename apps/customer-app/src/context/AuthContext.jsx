@@ -22,11 +22,18 @@ export function AuthProvider({ children }) {
         const savedToken = await storage.getItem(AUTH_TOKEN_KEY);
         const savedUser = await storage.getItem(AUTH_USER_KEY);
 
-        if (savedToken && savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          setToken(savedToken);
-          setUser(parsedUser);
-          setAuthToken(savedToken);
+        if (savedToken && savedUser && savedUser !== "undefined" && savedUser !== "null") {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            if (parsedUser) {
+              setToken(savedToken);
+              setUser(parsedUser);
+              setAuthToken(savedToken);
+            }
+          } catch (e) {
+            console.warn("Invalid saved user JSON, clearing session:", e);
+            await storage.removeItem(AUTH_USER_KEY);
+          }
         }
       } catch (err) {
         console.warn("Failed to restore auth session:", err.message);
@@ -43,21 +50,23 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await authService.login(email, password);
-      const accessToken = res.data?.accessToken;
-      const userData = res.data?.user;
+      const accessToken = res?.data?.accessToken || res?.accessToken;
+      const userData = res?.data?.user || res?.user;
 
       if (accessToken) {
         setToken(accessToken);
-        setUser(userData);
+        setUser(userData || null);
         setAuthToken(accessToken);
 
         // Persist session across app restarts
         await storage.setItem(AUTH_TOKEN_KEY, accessToken);
-        await storage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+        if (userData) {
+          await storage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+        }
 
         return { success: true, user: userData };
       }
-      throw new Error("Invalid response from server");
+      throw new Error(res?.message || "Invalid response from server");
     } catch (err) {
       const msg = err.message || "Failed to log in";
       setError(msg);
@@ -72,21 +81,23 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await authService.register(name, email, password, phone);
-      const accessToken = res.data?.accessToken;
-      const userData = res.data?.user;
+      const accessToken = res?.data?.accessToken || res?.accessToken;
+      const userData = res?.data?.user || res?.user;
 
       if (accessToken) {
         setToken(accessToken);
-        setUser(userData);
+        setUser(userData || null);
         setAuthToken(accessToken);
 
         // Persist session across app restarts
         await storage.setItem(AUTH_TOKEN_KEY, accessToken);
-        await storage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+        if (userData) {
+          await storage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+        }
 
         return { success: true, user: userData };
       }
-      throw new Error("Registration failed");
+      throw new Error(res?.message || "Registration failed");
     } catch (err) {
       const msg = err.message || "Failed to register";
       setError(msg);

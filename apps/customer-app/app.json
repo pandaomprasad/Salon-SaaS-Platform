@@ -15,7 +15,6 @@
       "supportsTablet": true
     },
     "android": {
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,6 +31,7 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
             "extraProguardRules": "-keep class expo.modules.kotlin.** { *; }\n-keep interface expo.modules.kotlin.** { *; }\n-dontwarn expo.modules.kotlin.**"
           }
         }

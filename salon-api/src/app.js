@@ -15,6 +15,9 @@ const logger = require("./utils/logger");
 // ================================
 const app = express();
 
+// Trust proxy (required when behind tunnel/proxy like localtunnel, ngrok, NGINX)
+app.set("trust proxy", 1);
+
 // ================================
 // Connect to MongoDB
 // ================================
