@@ -185,8 +185,8 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 initSocket(server);
 
-server.listen(PORT, () => {
-  logger.info(`Server running in ${process.env.NODE_ENV} mode with WebSockets on port ${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode with WebSockets on port ${PORT}`);
 });
 
 module.exports = { app, server };
