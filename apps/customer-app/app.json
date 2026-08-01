@@ -20,10 +20,26 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.omprasad.customerapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class expo.modules.kotlin.** { *; }\n-keep interface expo.modules.kotlin.** { *; }\n-dontwarn expo.modules.kotlin.**"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bf7f0ea1-e380-497c-8403-14a8c1eb061d"
+      }
     }
   }
 }
