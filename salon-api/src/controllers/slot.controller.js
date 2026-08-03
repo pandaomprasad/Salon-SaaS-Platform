@@ -124,23 +124,103 @@ const getSlots = async (req, res, next) => {
       return next(new AppError("Date is required. Use ?date=YYYY-MM-DD", 400));
     }
 
-    const filter = { branchId, date };
+    const padTime = (t) => {
+      if (!t) return "00:00";
+      const parts = String(t).trim().split(":");
+      return `${parts[0].padStart(2, "0")}:${(parts[1] || "00").padStart(2, "0")}`;
+    };
 
-    // optionally filter by staff
-    if (staffId) filter.staffId = staffId;
+    // 1. Fetch active appointments for this branch and date
+    const apptFilter = {
+      branchId,
+      date,
+      status: { $in: ["PENDING", "CONFIRMED", "IN_PROGRESS", "pending", "confirmed", "in_progress"] },
+    };
+    if (staffId) apptFilter.staffId = staffId;
 
-    // optionally filter by status — default to AVAILABLE for customers
-// if status is "all", don't filter by status (for managers/owners)
-if (status && status !== "all") {
-  filter.status = status;
-} else if (!status) {
-  filter.status = "AVAILABLE";
-}
+    const activeAppointments = await Appointment.find(apptFilter).lean();
 
-    const slots = await Slot.find(filter)
+    // Map slotIds and time ranges for active appointments
+    const bookedSlotIdMap = new Map(); // slotId -> apptId
+    const bookedStaffTimeMap = []; // { staffId, startTime, endTime, apptId }
+
+    activeAppointments.forEach((appt) => {
+      if (appt.slotId) {
+        bookedSlotIdMap.set(String(appt.slotId), String(appt._id));
+      }
+      if (appt.staffId && appt.startTime) {
+        bookedStaffTimeMap.push({
+          staffId: String(appt.staffId),
+          startTime: padTime(appt.startTime),
+          endTime: padTime(appt.endTime || appt.startTime),
+          apptId: String(appt._id),
+        });
+      }
+    });
+
+    // 2. Fetch all slots matching base filter
+    const baseFilter = { branchId, date };
+    if (staffId) baseFilter.staffId = staffId;
+
+    let slots = await Slot.find(baseFilter)
       .populate("staffId", "name")
       .sort({ startTime: 1 })
       .lean();
+
+    // 3. Sync slot statuses with active appointments
+    const slotsToMarkBookedInDb = [];
+
+    slots = slots.map((slot) => {
+      const slotStaffId = String(
+        typeof slot.staffId === "object" && slot.staffId ? slot.staffId._id : slot.staffId
+      );
+      const isBookedById = bookedSlotIdMap.has(String(slot._id));
+
+      const slotStart = padTime(slot.startTime);
+      const slotEnd = padTime(slot.endTime || slot.startTime);
+
+      const matchingAppt = bookedStaffTimeMap.find(
+        (b) =>
+          b.staffId === slotStaffId &&
+          ((slotStart < b.endTime && b.startTime < slotEnd) || slotStart === b.startTime)
+      );
+
+      const isBookedByTime = Boolean(matchingAppt);
+
+      if (isBookedById || isBookedByTime) {
+        const apptId = isBookedById
+          ? bookedSlotIdMap.get(String(slot._id))
+          : matchingAppt?.apptId;
+
+        if (slot.status === "AVAILABLE") {
+          slotsToMarkBookedInDb.push(slot._id);
+        }
+
+        return {
+          ...slot,
+          status: "BOOKED",
+          appointmentId: slot.appointmentId || apptId || null,
+        };
+      }
+
+      return slot;
+    });
+
+    // Bulk update DB in background to stay in sync
+    if (slotsToMarkBookedInDb.length > 0) {
+      Slot.updateMany(
+        { _id: { $in: slotsToMarkBookedInDb } },
+        { status: "BOOKED" }
+      ).catch((err) => console.warn("Failed async slot status sync:", err));
+    }
+
+    // 4. Apply status filter if requested
+    if (status && status !== "all") {
+      slots = slots.filter((s) => s.status === status);
+    } else if (!status) {
+      // Default to AVAILABLE for customer app
+      slots = slots.filter((s) => s.status === "AVAILABLE");
+    }
 
     res.status(200).json({
       success: true,

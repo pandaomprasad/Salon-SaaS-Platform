@@ -98,7 +98,7 @@ async function request(endpoint, options = {}) {
 
     return data;
   } catch (error) {
-    console.error(`API Error [${method} ${endpoint}]:`, error.message);
+    console.warn(`API Error [${method} ${endpoint}]:`, error.message);
     throw error;
   }
 }

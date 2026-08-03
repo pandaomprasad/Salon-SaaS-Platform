@@ -158,10 +158,18 @@ export default function BookingDrawer({
           {a.status === "CANCELLED" && (
             <p className="text-xs text-red-400 text-center w-full">This booking was cancelled.</p>
           )}
-          {a.status === "NO_SHOW" && (
-            <p className="text-xs text-ash text-center w-full">Customer did not show up.</p>
-          )}
         </div>
+
+        {a2.date && (
+          <div className="mt-3 pt-3 border-t border-smoke text-center">
+            <a
+              href={`/schedule?date=${a2.date}`}
+              className="text-xs font-semibold text-gold hover:underline inline-flex items-center gap-1"
+            >
+              📅 View Schedule for {a2.date} →
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -27,8 +27,12 @@ const browseSalons = async (req, res, next) => {
     // find all branchIds in that city first
     let salonIdsInCity = null
     if (city) {
+      const cleanCity = city.split(',')[0].trim()
       const branchesInCity = await Branch.find({
-        'address.city': { $regex: new RegExp(city, 'i') },
+        $or: [
+          { 'address.city': { $regex: new RegExp(cleanCity, 'i') } },
+          { 'address.state': { $regex: new RegExp(cleanCity, 'i') } }
+        ],
         isActive: true
       })
         .select('salonId')

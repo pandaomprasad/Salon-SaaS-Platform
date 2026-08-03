@@ -1,5 +1,5 @@
 // src/components/LocationPickerModal.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Modal,
   View,
@@ -10,18 +10,23 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { S } from "../theme";
+import { getCurrentLocation, searchLocations, cleanCityName } from "../services/locationService";
+import { storage } from "../services/storage";
+
+const RECENT_KEY = "@recent_locations_v2";
 
 const POPULAR_CITIES = [
-  { id: "Mumbai", name: "Mumbai", area: "Bandra, Juhu, South Mumbai" },
-  { id: "Delhi", name: "Delhi NCR", area: "Connaught Place, Saket, Gurgaon" },
-  { id: "Bangalore", name: "Bangalore", area: "Indiranagar, Koramangala" },
-  { id: "Hyderabad", name: "Hyderabad", area: "Banjara Hills, Jubilee Hills" },
-  { id: "Pune", name: "Pune", area: "Koregaon Park, Viman Nagar" },
-  { id: "Kolkata", name: "Kolkata", area: "Park Street, Salt Lake" },
-  { id: "Chennai", name: "Chennai", area: "Nungambakkam, Anna Nagar" },
+  { id: "Mumbai", name: "Mumbai", area: "Bandra, Juhu, South Mumbai", lat: 19.076, lng: 72.8777 },
+  { id: "Delhi", name: "Delhi NCR", area: "Connaught Place, Saket, Gurgaon", lat: 28.6139, lng: 77.209 },
+  { id: "Bangalore", name: "Bangalore", area: "Indiranagar, Koramangala", lat: 12.9716, lng: 77.5946 },
+  { id: "Hyderabad", name: "Hyderabad", area: "Banjara Hills, Jubilee Hills", lat: 17.385, lng: 78.4867 },
+  { id: "Pune", name: "Pune", area: "Koregaon Park, Viman Nagar", lat: 18.5204, lng: 73.8567 },
+  { id: "Kolkata", name: "Kolkata", area: "Park Street, Salt Lake", lat: 22.5726, lng: 88.3639 },
+  { id: "Chennai", name: "Chennai", area: "Nungambakkam, Anna Nagar", lat: 13.0827, lng: 80.2707 },
 ];
 
 export default function LocationPickerModal({
@@ -31,12 +36,194 @@ export default function LocationPickerModal({
   onClose,
 }) {
   const [search, setSearch] = useState("");
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [detectStatus, setDetectStatus] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [detectedGps, setDetectedGps] = useState(null);
+  const [activeLocation, setActiveLocation] = useState(null);
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [isFocused, setIsFocused] = useState(false);
 
-  const filteredCities = POPULAR_CITIES.filter(
+  // Load recent searches from storage when modal opens
+  useEffect(() => {
+    if (visible) {
+      setSearch("");
+      setSearchResults([]);
+      setIsFocused(false);
+      storage.getItem(RECENT_KEY).then((raw) => {
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              setRecentSearches(parsed.slice(0, 3));
+            }
+          } catch (e) {
+            console.warn("Failed to parse recent locations", e);
+          }
+        }
+      });
+    }
+  }, [visible]);
+
+  // Auto-detect or restore cached location when modal opens
+  useEffect(() => {
+    if (visible && !detectedGps) {
+      storage.getItem("@cached_gps_loc").then((rawCache) => {
+        if (rawCache) {
+          try {
+            const cached = JSON.parse(rawCache);
+            if (cached && cached.city) {
+              setDetectedGps(cached);
+              if (!activeLocation) setActiveLocation(cached);
+              return;
+            }
+          } catch (e) {
+            console.warn("Error reading location cache", e);
+          }
+        }
+
+        // Only fetch via API if no cache exists
+        setIsDetecting(true);
+        getCurrentLocation()
+          .then((geoResult) => {
+            const city = cleanCityName(geoResult.city || "Delhi");
+            const state = geoResult.state || "Odisha";
+            const displayLabel = state && state.toLowerCase() !== city.toLowerCase()
+              ? `${city}, ${state}`
+              : city;
+
+            const locObj = {
+              city,
+              state,
+              area: geoResult.area || displayLabel,
+              label: displayLabel,
+            };
+
+            setDetectedGps(locObj);
+            if (!activeLocation) setActiveLocation(locObj);
+            storage.setItem("@cached_gps_loc", JSON.stringify(locObj));
+            setIsDetecting(false);
+          })
+          .catch((err) => {
+            console.warn("Auto-detect GPS error:", err);
+            setIsDetecting(false);
+          });
+      });
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!search || search.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      const results = await searchLocations(search);
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Save selected place into recent searches & update active current location card
+  const handleLocationSelect = useCallback((placeObj) => {
+    const cityName = cleanCityName(placeObj.name || placeObj.city || placeObj.id || "Mumbai");
+    const areaName = placeObj.area || placeObj.name || cityName;
+    const stateName = placeObj.state || (areaName.includes(",") ? areaName.split(",").slice(-2)[0].trim() : "");
+
+    const newLoc = {
+      id: placeObj.id || cityName,
+      city: cityName,
+      name: cityName,
+      area: areaName,
+      state: stateName,
+    };
+
+    // 1. Clear search bar input and results
+    setSearch("");
+    setSearchResults([]);
+
+    // 2. Update active current location card display
+    setActiveLocation(newLoc);
+
+    // 3. Add to recent searches array (max 3 items, newest first)
+    setRecentSearches((prev) => {
+      const filtered = prev.filter((item) => item.name.toLowerCase() !== cityName.toLowerCase());
+      const updated = [newLoc, ...filtered].slice(0, 3);
+      storage.setItem(RECENT_KEY, JSON.stringify(updated));
+      return updated;
+    });
+
+    // 4. Update Home Screen city selection
+    onSelectCity(cityName);
+    onClose();
+  }, [onSelectCity, onClose]);
+
+  const filteredPopular = POPULAR_CITIES.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.area.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleGpsClick = async () => {
+    console.log("👉 [BUTTON CLICK] 'Use Current GPS Location' button pressed");
+    
+    if (detectedGps) {
+      handleLocationSelect({
+        id: detectedGps.city,
+        name: detectedGps.city,
+        city: detectedGps.city,
+        area: detectedGps.label,
+        state: detectedGps.state,
+      });
+      return;
+    }
+
+    setIsDetecting(true);
+    setDetectStatus("Accessing GPS & Google Maps...");
+
+    try {
+      const geoResult = await getCurrentLocation();
+      const city = cleanCityName(geoResult.city || "Delhi");
+      const state = geoResult.state || "Odisha";
+      const displayLabel = (state && state.toLowerCase() !== city.toLowerCase())
+        ? `${city}, ${state}`
+        : city;
+
+      const locObj = {
+        id: city,
+        name: city,
+        city,
+        state,
+        area: displayLabel,
+        label: displayLabel,
+      };
+
+      setDetectedGps(locObj);
+      setDetectStatus(`Detected: ${displayLabel}`);
+
+      setTimeout(() => {
+        setIsDetecting(false);
+        setDetectStatus("");
+        handleLocationSelect(locObj);
+      }, 400);
+    } catch (err) {
+      console.error("❌ [BUTTON ERROR] GPS Detection Error:", err);
+      setDetectStatus("GPS location set to Delhi");
+      setTimeout(() => {
+        setIsDetecting(false);
+        setDetectStatus("");
+        handleLocationSelect({ id: "Delhi", name: "Delhi", city: "Delhi", area: "Delhi, India" });
+      }, 400);
+    }
+  };
+
+  const currentCardData = activeLocation || detectedGps || { city: selectedCity || "Bhubaneswar", state: "Odisha" };
 
   return (
     <Modal
@@ -51,41 +238,46 @@ export default function LocationPickerModal({
           <View style={styles.backdrop} />
         </TouchableWithoutFeedback>
 
-        <View style={styles.sheetContainer}>
-          {/* Bottom Solid Extension to prevent Android navigation bar gap */}
+        <View style={[styles.sheetContainer, (isFocused || search.length > 0) && styles.sheetContainerFullScreen]}>
+          {/* Bottom Solid Extension for Android safe area */}
           <View style={styles.bottomFill} />
+
           {/* Drag Handle Bar */}
           <View style={styles.handleBar} />
 
-          {/* Modal Header */}
+          {/* Header Row */}
           <View style={styles.header}>
-            <View>
+            <View style={styles.headerTextWrap}>
               <Text style={styles.title}>Select Location</Text>
               <Text style={styles.subtitle}>Discover top salons near your city</Text>
             </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Ionicons name="close" size={18} color="#1D1B20" />
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+              <Ionicons name="close" size={20} color="#111827" />
             </TouchableOpacity>
           </View>
 
-          {/* GPS Auto Detect Luxury Dark Card */}
+          {/* GPS Auto Detect Dark Card */}
           <TouchableOpacity
             style={styles.gpsBtn}
-            onPress={() => {
-              onSelectCity("Mumbai");
-              onClose();
-            }}
+            onPress={handleGpsClick}
+            disabled={isDetecting}
             activeOpacity={0.85}
           >
             <View style={styles.gpsIconBox}>
-              <Ionicons name="navigate" size={16} color="#FFFFFF" />
+              {isDetecting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="navigate" size={18} color="#FFFFFF" />
+              )}
             </View>
             <View style={styles.gpsTextInfo}>
               <Text style={styles.gpsTitle}>Use Current GPS Location</Text>
-              <Text style={styles.gpsSub}>Auto-detect nearest area</Text>
+              <Text style={styles.gpsSub} numberOfLines={1}>
+                {detectStatus || (detectedGps ? detectedGps.label : isDetecting ? "Detecting location..." : "Auto-detect nearest area")}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
+            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
           </TouchableOpacity>
 
           {/* Search Input Box */}
@@ -93,57 +285,164 @@ export default function LocationPickerModal({
             <Ionicons name="search" size={18} color="#9CA3AF" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search city or neighborhood..."
+              placeholder="Search city, area or pincode..."
               placeholderTextColor="#9CA3AF"
               value={search}
               onChangeText={setSearch}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                if (!search) setIsFocused(false);
+              }}
             />
-            {search ? (
-              <TouchableOpacity onPress={() => setSearch("")}>
+            {isSearching ? (
+              <ActivityIndicator size="small" color="#9CA3AF" />
+            ) : search ? (
+              <TouchableOpacity onPress={() => { setSearch(""); setIsFocused(false); }}>
                 <Ionicons name="close-circle" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             ) : null}
           </View>
 
-          {/* Popular Cities Section */}
-          <Text style={styles.sectionLabel}>POPULAR CITIES</Text>
-
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.cityList}>
-            {filteredCities.map((city) => {
-              const isSelected = selectedCity === city.id;
-              return (
+          <ScrollView showsVerticalScrollIndicator={false} style={[styles.cityList, (isFocused || search.length > 0) && { maxHeight: "78%" }]}>
+            {/* Current Location Card */}
+            {!search ? (
+              <View style={styles.currentLocSection}>
+                <Text style={styles.sectionLabel}>CURRENT LOCATION</Text>
                 <TouchableOpacity
-                  key={city.id}
-                  style={[styles.cityRow, isSelected && styles.cityRowSelected]}
-                  onPress={() => {
-                    onSelectCity(city.id);
-                    onClose();
-                  }}
-                  activeOpacity={0.7}
+                  style={[
+                    styles.currentLocCard,
+                    selectedCity === currentCardData.city && styles.currentLocCardSelected,
+                  ]}
+                  onPress={() => handleLocationSelect(currentCardData)}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.cityIconWrap}>
-                    <Ionicons
-                      name="location"
-                      size={18}
-                      color={isSelected ? "#1D1B20" : "#9CA3AF"}
-                    />
+                  <View style={styles.currentLocIconBox}>
+                    <Ionicons name="location" size={20} color="#1D1B20" />
                   </View>
-
-                  <View style={styles.cityInfo}>
-                    <Text style={[styles.cityName, isSelected && styles.cityNameSelected]}>
-                      {city.name}
+                  <View style={styles.currentLocTextWrap}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={styles.currentLocCity}>{currentCardData.city}</Text>
+                    </View>
+                    <Text style={styles.currentLocSub} numberOfLines={1}>
+                      {currentCardData.state ? `${currentCardData.state}, India` : "India"}
                     </Text>
-                    <Text style={styles.cityArea}>{city.area}</Text>
                   </View>
-
-                  {isSelected ? (
+                  {selectedCity === currentCardData.city ? (
                     <View style={styles.checkBadge}>
                       <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                     </View>
-                  ) : null}
+                  ) : (
+                    <View style={styles.selectPill}>
+                      <Text style={styles.selectPillText}>Select</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
-              );
-            })}
+              </View>
+            ) : null}
+
+            {/* Recent Searches Section (Max 3) */}
+            {!search && recentSearches.length > 0 ? (
+              <View style={styles.recentSection}>
+                <View style={styles.recentHeader}>
+                  <Text style={styles.sectionLabel}>RECENT SEARCHES</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setRecentSearches([]);
+                      storage.removeItem(RECENT_KEY);
+                    }}
+                  >
+                    <Text style={styles.clearText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+                {recentSearches.map((item) => {
+                  const isSelected = selectedCity === item.name || selectedCity === item.city;
+                  return (
+                    <TouchableOpacity
+                      key={`recent_${item.id || item.name}`}
+                      style={[styles.cityRow, isSelected && styles.cityRowSelected]}
+                      onPress={() => handleLocationSelect(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.cityIconWrap}>
+                        <Ionicons name="time-outline" size={18} color={isSelected ? "#1D1B20" : "#9CA3AF"} />
+                      </View>
+                      <View style={styles.cityInfo}>
+                        <Text style={[styles.cityName, isSelected && styles.cityNameSelected]}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.cityArea} numberOfLines={1}>
+                          {item.area || item.name}
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <View style={styles.checkBadge}>
+                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            {/* Location Results / Popular Cities */}
+            <Text style={styles.sectionLabel}>
+              {search.length >= 2 ? "SEARCH RESULTS" : "POPULAR CITIES"}
+            </Text>
+
+            {search.length >= 2 && searchResults.length > 0
+              ? searchResults.map((place) => (
+                  <TouchableOpacity
+                    key={place.id}
+                    style={styles.cityRow}
+                    onPress={() => handleLocationSelect(place)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cityIconWrap}>
+                      <Ionicons name="map-outline" size={18} color="#1D1B20" />
+                    </View>
+                    <View style={styles.cityInfo}>
+                      <Text style={styles.cityNameSelected}>{place.name}</Text>
+                      <Text style={styles.cityArea} numberOfLines={1}>
+                        {place.area}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              : filteredPopular.map((city) => {
+                  const isSelected =
+                    selectedCity &&
+                    selectedCity.toLowerCase().includes(city.id.toLowerCase());
+                  return (
+                    <TouchableOpacity
+                      key={city.id}
+                      style={[styles.cityRow, isSelected && styles.cityRowSelected]}
+                      onPress={() => handleLocationSelect(city)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.cityIconWrap}>
+                        <Ionicons
+                          name="location"
+                          size={18}
+                          color={isSelected ? "#1D1B20" : "#9CA3AF"}
+                        />
+                      </View>
+
+                      <View style={styles.cityInfo}>
+                        <Text style={[styles.cityName, isSelected && styles.cityNameSelected]}>
+                          {city.name}
+                        </Text>
+                        <Text style={styles.cityArea}>{city.area}</Text>
+                      </View>
+
+                      {isSelected ? (
+                        <View style={styles.checkBadge}>
+                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
           </ScrollView>
         </View>
       </View>
@@ -158,21 +457,28 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   sheetContainer: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingTop: 14,
+    paddingTop: 12,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 44 : 32,
+    paddingBottom: Platform.OS === "ios" ? 44 : 28,
     maxHeight: "82%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 20,
+  },
+  sheetContainerFullScreen: {
+    maxHeight: "100%",
+    height: "100%",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingTop: Platform.OS === "ios" ? 54 : 36,
   },
   bottomFill: {
     position: "absolute",
@@ -183,35 +489,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   handleBar: {
-    width: 40,
+    width: 42,
     height: 5,
     borderRadius: 3,
     backgroundColor: "#E5E7EB",
     alignSelf: "center",
-    marginBottom: S.md,
+    marginBottom: 16,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: S.lg,
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+  headerTextWrap: {
+    flex: 1,
+    paddingRight: 12,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#1D1B20",
-    letterSpacing: -0.3,
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
+    fontSize: 13,
     fontWeight: "500",
+    color: "#6B7280",
+    marginTop: 3,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
@@ -219,21 +529,22 @@ const styles = StyleSheet.create({
   gpsBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1D1B20",
-    padding: 16,
-    borderRadius: 20,
-    marginBottom: S.md,
+    backgroundColor: "#18181B",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 4,
   },
   gpsIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#27272A",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
@@ -242,13 +553,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gpsTitle: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#FFFFFF",
+    letterSpacing: -0.2,
   },
   gpsSub: {
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 12,
+    fontWeight: "400",
+    color: "#A1A1AA",
     marginTop: 2,
   },
   searchBox: {
@@ -275,6 +588,90 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     letterSpacing: 1,
     marginBottom: 10,
+  },
+  currentLocSection: {
+    marginBottom: 16,
+  },
+  currentLocCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  currentLocCardSelected: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#1D1B20",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  currentLocIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  currentLocTextWrap: {
+    flex: 1,
+  },
+  currentLocCity: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  gpsBadge: {
+    backgroundColor: "#1D1B20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  gpsBadgeText: {
+    color: "#E6CA65",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  currentLocSub: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  selectPill: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  selectPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  recentSection: {
+    marginBottom: 16,
+  },
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  clearText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9CA3AF",
   },
   cityList: {
     maxHeight: 280,
@@ -328,3 +725,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
+
+

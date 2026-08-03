@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -120,8 +121,11 @@ export default function SchedulePage() {
   const [staffFilter, setStaffFilter] = useState("all");
 
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
-  const [selectedDate, setSelectedDate] = useState(getToday());
-  const [weekStart, setWeekStart] = useState(getMonday(getToday()));
+  const searchParams = useSearchParams();
+  const dateParam = searchParams?.get("date");
+
+  const [selectedDate, setSelectedDate] = useState(dateParam || getToday());
+  const [weekStart, setWeekStart] = useState(getMonday(dateParam || getToday()));
 
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [weekSlots, setWeekSlots] = useState<Record<string, SlotItem[]>>({});
@@ -173,33 +177,14 @@ export default function SchedulePage() {
   const fetchDaySlots = useCallback(async () => {
     if (!branchId) return;
 
-    const cacheKey = `slots_${branchId}_${selectedDate}`;
-    const cached = getCached<SlotItem[]>(cacheKey, 30000); // 30s cache for slots
-
-    if (cached) {
-      setSlots(cached);
-      setLoading(false);
-      try {
-        const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
-          params: { date: selectedDate, status: "all" },
-        });
-        const list = data.data?.slots || [];
-        setSlots(list);
-        setCache(cacheKey, list);
-      } catch { }
-      return;
-    }
-
     setLoading(true);
     setError(null);
-    setSlots([]);
     try {
       const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
         params: { date: selectedDate, status: "all" },
       });
       const list = data.data?.slots || [];
       setSlots(list);
-      setCache(cacheKey, list);
     } catch {
       setError("Failed to load slots");
     } finally {

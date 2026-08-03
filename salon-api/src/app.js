@@ -150,7 +150,9 @@ app.use("/api/v1/branches/:branchId/slots", require("./routes/slot.routes"));
 app.use("/api/v1/appointments", require("./routes/appointment.routes"));
 app.use("/api/v1/customers", require("./routes/customer.routes"));
 app.use("/api/v1/reports", require("./routes/report.routes"));
+app.use("/api/v1/location", require("./routes/location.routes"));
 app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus)
+
 
 // ================================
 // 404 Handler

@@ -18,6 +18,9 @@ import LocationPickerModal from "../components/LocationPickerModal";
 import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { useAuth } from "../context/AuthContext";
+import { storage } from "../services/storage";
+import { cleanCityName } from "../services/locationService";
+import { socketClient } from "../services/socketClient";
 
 const SalonCarousel = memo(({ salons, onSalonPress }) => (
   <ScrollView
@@ -62,6 +65,15 @@ function HomeScreen({ navigate, onScroll }) {
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState(null);
 
+  // Restore user's saved city on app start
+  useEffect(() => {
+    storage.getItem("@user_selected_city").then((savedCity) => {
+      if (savedCity && savedCity.trim()) {
+        setSelectedCity(savedCity);
+      }
+    });
+  }, []);
+
   const salonsRef = React.useRef(salons);
   salonsRef.current = salons;
 
@@ -71,13 +83,11 @@ function HomeScreen({ navigate, onScroll }) {
       if (!silent && salonsRef.current.length === 0) {
         setLoading(true);
       }
-      const res = await browseService.getSalons({ city: selectedCity });
+      const cleanCity = cleanCityName(selectedCity);
+      const res = await browseService.getSalons({ city: cleanCity });
       const salonList = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
       
-      setSalons((prev) => {
-        if (JSON.stringify(prev) === JSON.stringify(salonList)) return prev;
-        return salonList;
-      });
+      setSalons(salonList);
 
       if (isAuthenticated) {
         try {
@@ -106,6 +116,30 @@ function HomeScreen({ navigate, onScroll }) {
   useEffect(() => {
     loadData(salonsRef.current.length > 0);
   }, [selectedCity, isAuthenticated, loadData]);
+
+  // Real-time socket & polling update for upcoming appointment status changes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const userId = user?._id || user?.id;
+    if (userId) {
+      socketClient.connect(userId);
+    }
+
+    const unsubscribe = socketClient.onAppointmentStatusChanged((data) => {
+      console.log("⚡ [HOME SCREEN] Appointment status updated via Socket:", data);
+      loadData(true);
+    });
+
+    // Fallback polling every 8 seconds for active status changes
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 8000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, user, loadData]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -138,6 +172,7 @@ function HomeScreen({ navigate, onScroll }) {
 
   const handleCitySelect = useCallback((city) => {
     setSelectedCity(city);
+    storage.setItem("@user_selected_city", city);
   }, []);
 
   const handleLocationClose = useCallback(() => {

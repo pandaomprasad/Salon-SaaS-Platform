@@ -368,18 +368,41 @@ const updateAppointmentStatus = async (req, res, next) => {
       return next(new AppError("Access denied", 403));
     }
 
-    // if cancelling — free up the slot
-    if (status === "CANCELLED") {
-      await Slot.findByIdAndUpdate(appointment.slotId, {
-        status: "AVAILABLE",
-        appointmentId: null,
-      });
-
-      appointment.cancellation = {
-        cancelledBy: userId,
-        reason: note || "No reason provided",
-        cancelledAt: new Date(),
-      };
+    // Update slot status in DB to match appointment status
+    if (appointment.slotId) {
+      if (status === "CANCELLED") {
+        await Slot.findByIdAndUpdate(appointment.slotId, {
+          status: "AVAILABLE",
+          appointmentId: null,
+        });
+        appointment.cancellation = {
+          cancelledBy: userId,
+          reason: note || "No reason provided",
+          cancelledAt: new Date(),
+        };
+      } else if (status === "COMPLETED") {
+        await Slot.findByIdAndUpdate(appointment.slotId, {
+          status: "COMPLETED",
+          appointmentId: appointment._id,
+        });
+      } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
+        await Slot.findByIdAndUpdate(appointment.slotId, {
+          status: "BOOKED",
+          appointmentId: appointment._id,
+        });
+      }
+    } else if (appointment.staffId && appointment.date && appointment.startTime) {
+      if (status === "CANCELLED") {
+        await Slot.updateMany(
+          { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
+          { status: "AVAILABLE", appointmentId: null }
+        );
+      } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
+        await Slot.updateMany(
+          { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
+          { status: "BOOKED", appointmentId: appointment._id }
+        );
+      }
     }
 
     // update status — pre-save hook records it in statusHistory
@@ -397,12 +420,17 @@ const updateAppointmentStatus = async (req, res, next) => {
     try {
       const io = getIO();
       if (io) {
-        io.to(`customer_${appointment.customerId}`).emit("appointment_status_changed", {
+        const customerIdStr = String(appointment.customerId?._id || appointment.customerId);
+        const branchIdStr = String(appointment.branchId?._id || appointment.branchId);
+
+        console.log(`⚡ [SOCKET EMIT] Emitting status change (${appointment.status}) to room customer_${customerIdStr}`);
+
+        io.to(`customer_${customerIdStr}`).emit("appointment_status_changed", {
           appointmentId: appointment._id,
           status: appointment.status,
           appointment,
         });
-        io.to(`branch_${appointment.branchId}`).emit("appointment_updated", {
+        io.to(`branch_${branchIdStr}`).emit("appointment_updated", {
           appointmentId: appointment._id,
           status: appointment.status,
           appointment,

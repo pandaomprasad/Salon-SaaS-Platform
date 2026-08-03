@@ -149,20 +149,27 @@ export default function BookingsScreen({ navigate, onScroll }) {
     fetchAppointments(false);
   }, [isAuthenticated]);
 
-  // Real-Time Event-Driven WebSockets (Zero Polling Overhead)
+  // Real-Time Event-Driven WebSockets + Automatic Polling Fallback
   useEffect(() => {
     if (!isAuthenticated) return;
     const userId = user?._id || user?.id;
-    socketClient.connect(userId);
+    if (userId) {
+      socketClient.connect(userId);
+    }
 
     const unsubscribe = socketClient.onAppointmentStatusChanged((data) => {
       fetchAppointments(true);
     });
 
+    const interval = setInterval(() => {
+      fetchAppointments(true);
+    }, 8000);
+
     return () => {
       unsubscribe();
+      clearInterval(interval);
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, fetchAppointments]);
 
   const onRefresh = () => {
     setRefreshing(true);
