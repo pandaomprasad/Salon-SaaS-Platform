@@ -9,12 +9,13 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C, S, FS, FW, R } from "../theme";
 
 const SAMPLE_SUGGESTIONS = [
-  { id: "1", query: "Haircut", prefix: "Popular: ", bold: "Haircut & Styling" },
-  { id: "2", query: "Facial", prefix: "Spa: ", bold: "Facials & Skin Care" },
-  { id: "3", query: "Bridal", prefix: "Luxury: ", bold: "Bridal Makeup Suite" },
-  { id: "4", query: "Pedicure", prefix: "Nails: ", bold: "Manicure & Pedicure" },
+  { id: "1", stage: "POPULAR", color: C.grep, query: "Haircut & Styling" },
+  { id: "2", stage: "SPA", color: C.read, query: "Facials & Skin Care" },
+  { id: "3", stage: "LUXURY", color: C.edit, query: "Bridal Makeup" },
+  { id: "4", stage: "NAILS", color: C.thinking, query: "Manicure & Pedicure" },
 ];
 
 export default function FloatingSearchCapsule({
@@ -27,24 +28,14 @@ export default function FloatingSearchCapsule({
   const [isFocused, setIsFocused] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState(value || "");
-
   const expandAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isFocused) {
       setIsMounted(true);
-      Animated.spring(expandAnim, {
-        toValue: 1,
-        friction: 8,
-        tension: 80,
-        useNativeDriver: false,
-      }).start();
+      Animated.spring(expandAnim, { toValue: 1, friction: 9, tension: 90, useNativeDriver: false }).start();
     } else {
-      Animated.timing(expandAnim, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: false,
-      }).start(() => setIsMounted(false));
+      Animated.timing(expandAnim, { toValue: 0, duration: 180, useNativeDriver: false }).start(() => setIsMounted(false));
     }
   }, [isFocused]);
 
@@ -54,83 +45,55 @@ export default function FloatingSearchCapsule({
   };
 
   const handleSelect = (item) => {
-    setQuery(item.bold);
-    if (onChangeText) onChangeText(item.bold);
-    if (onSelectSuggestion) onSelectSuggestion(item.bold);
+    setQuery(item.query);
+    if (onChangeText) onChangeText(item.query);
+    if (onSelectSuggestion) onSelectSuggestion(item.query);
     setIsFocused(false);
   };
 
-  const filteredSuggestions = SAMPLE_SUGGESTIONS.filter((s) =>
-    query ? s.bold.toLowerCase().includes(query.toLowerCase()) : true
+  const filtered = SAMPLE_SUGGESTIONS.filter((s) =>
+    query ? s.query.toLowerCase().includes(query.toLowerCase()) : true
   );
 
   const opacity = expandAnim;
-  const animHeight = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 195],
-  });
-  const animMarginTop = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 10],
-  });
-  const translateY = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-10, 0],
-  });
+  const animHeight = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 190] });
+  const animMarginTop = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 6] });
+  const translateY = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] });
 
   return (
-    <View style={styles.outerContainer}>
-      {/* Top Floating Pill Capsule */}
-      <View style={[styles.capsulePill, isFocused && styles.capsuleFocused]}>
-        <Ionicons name="search-outline" size={20} color="#71717A" style={styles.searchIcon} />
-
+    <View style={styles.outer}>
+      {/* text-input component spec from cursor/DESIGN.md */}
+      <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
+        <Ionicons name="search" size={16} color={C.muted} style={styles.searchIcon} />
         <TextInput
           style={styles.input}
           value={query}
           onChangeText={handleTextChange}
           placeholder={placeholder}
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={C.dustTaupe}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
           onSubmitEditing={() => onSearchSubmit && onSearchSubmit(query)}
         />
-
         {query ? (
-          <TouchableOpacity onPress={() => handleTextChange("")} style={styles.rightAction}>
-            <Ionicons name="close-circle" size={18} color="#A1A1AA" />
+          <TouchableOpacity onPress={() => handleTextChange("")} style={{ padding: 4 }}>
+            <Ionicons name="close-circle" size={16} color={C.muted} />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.rightAction}>
-            <Ionicons name="mic-outline" size={20} color="#18181B" />
-          </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
-      {/* Smooth Layout Height Expanding Autocomplete Card */}
+      {/* Autocomplete Card with Timeline Pastels */}
       {isMounted ? (
         <Animated.View
-          style={[
-            styles.dropdownCard,
-            {
-              height: animHeight,
-              marginTop: animMarginTop,
-              opacity: opacity,
-              transform: [{ translateY }],
-            },
-          ]}
+          style={[styles.dropdown, { height: animHeight, marginTop: animMarginTop, opacity, transform: [{ translateY }] }]}
         >
-          {filteredSuggestions.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.suggestionRow}
-              onPress={() => handleSelect(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="search-outline" size={16} color="#A1A1AA" style={styles.sugIcon} />
-              <Text style={styles.sugTextPrefix}>
-                {item.prefix}
-                <Text style={styles.sugTextBold}>{item.bold}</Text>
-              </Text>
+          {filtered.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.row} onPress={() => handleSelect(item)} activeOpacity={0.7}>
+              {/* Timeline action pill */}
+              <View style={[styles.timelinePill, { backgroundColor: item.color }]}>
+                <Text style={styles.timelinePillText}>{item.stage}</Text>
+              </View>
+              <Text style={styles.rowQuery}>{item.query}</Text>
             </TouchableOpacity>
           ))}
         </Animated.View>
@@ -140,75 +103,61 @@ export default function FloatingSearchCapsule({
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    position: "relative",
-    zIndex: 100,
-  },
-  capsulePill: {
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "#FFFFFF",
+  outer: { position: "relative", zIndex: 100 },
+  // text-input from cursor/DESIGN.md (height 44px, 8px radius, white surface, 1px hairline border)
+  inputContainer: {
+    height: 44,
+    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
+    backgroundColor: C.surface,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 6,
+    paddingHorizontal: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
+    borderColor: C.border,
   },
-  capsuleFocused: {
-    borderColor: "#18181B",
-    shadowOpacity: 0.12,
+  inputFocused: {
+    borderColor: C.main, // Cursor Orange focus border
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: S.xs,
   },
   input: {
     flex: 1,
-    fontSize: 14,
-    color: "#18181B",
-    fontWeight: "500",
+    fontSize: FS.bodySm,
+    color: C.ink,
+    fontWeight: FW.regular,
     paddingVertical: 0,
-    textAlignVertical: "center",
   },
-  rightAction: {
-    padding: 4,
-    marginLeft: 6,
-  },
-
-  // ──── Expanded Autocomplete Dropdown Card ────
-  dropdownCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 10,
+  dropdown: {
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
+    paddingVertical: S.xs,
+    paddingHorizontal: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    borderColor: C.border,
     overflow: "hidden",
   },
-  suggestionRow: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: S.sm,
+    gap: S.xs,
   },
-  sugIcon: {
-    marginRight: 12,
+  // Signature Timeline Pill styling per cursor/DESIGN.md
+  timelinePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
   },
-  sugTextPrefix: {
-    fontSize: 14,
-    color: "#A1A1AA",
-    fontWeight: "400",
+  timelinePillText: {
+    fontSize: 10,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0.88,
   },
-  sugTextBold: {
-    color: "#18181B",
-    fontWeight: "700",
+  rowQuery: {
+    fontSize: FS.bodySm,
+    color: C.ink,
+    fontWeight: FW.regular,
   },
 });

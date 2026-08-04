@@ -9,7 +9,7 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 
 const INITIAL_ADDRESSES = [
   {
@@ -62,14 +62,14 @@ export default function SavedAddressesScreen({ goBack }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={20} color="#1A1714" />
+          <Ionicons name="arrow-back" size={18} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Saved Locations</Text>
         <TouchableOpacity
           onPress={() => setShowAddForm(!showAddForm)}
           style={styles.addHeaderBtn}
         >
-          <Ionicons name={showAddForm ? "close" : "add"} size={22} color="#1A1714" />
+          <Ionicons name={showAddForm ? "close" : "add"} size={20} color={C.ink} />
         </TouchableOpacity>
       </View>
 
@@ -92,14 +92,14 @@ export default function SavedAddressesScreen({ goBack }) {
             <TextInput
               style={styles.input}
               placeholder="Street address / Building name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.dustTaupe}
               value={street}
               onChangeText={setStreet}
             />
             <TextInput
               style={styles.input}
               placeholder="City, State & Zip Code"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.dustTaupe}
               value={city}
               onChangeText={setCity}
             />
@@ -110,12 +110,12 @@ export default function SavedAddressesScreen({ goBack }) {
           </View>
         )}
 
-        {/* Address Cards */}
+        {/* Address Cards per cursor/DESIGN.md */}
         {addresses.map((item) => (
           <View key={item.id} style={styles.addressCard}>
             <View style={styles.cardHeader}>
               <View style={styles.iconBox}>
-                <Ionicons name={item.icon} size={18} color="#1A1714" />
+                <Ionicons name={item.icon} size={16} color={C.ink} />
               </View>
               <Text style={styles.tagLabel}>{item.tag}</Text>
               {item.isDefault && (
@@ -124,7 +124,7 @@ export default function SavedAddressesScreen({ goBack }) {
                 </View>
               )}
               <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-                <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
+                <Ionicons name="trash-outline" size={16} color={C.muted} />
               </TouchableOpacity>
             </View>
             <Text style={styles.streetText}>{item.address}</Text>
@@ -139,154 +139,166 @@ export default function SavedAddressesScreen({ goBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F5F0",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: S.lg,
-    paddingTop: 54,
+    paddingHorizontal: S.md,
+    paddingTop: 52,
     paddingBottom: S.md,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+    borderBottomColor: C.border,
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
+    borderRadius: R.md,
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   addHeaderBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
+    borderRadius: R.md,
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.titleSm,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.32,
   },
   content: {
-    padding: S.lg,
+    padding: S.md,
   },
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   addFormCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: S.lg,
-    marginBottom: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px radius
+    padding: S.md,
+    marginBottom: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
   },
   formTitle: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.1,
-    marginBottom: S.sm,
+    ...TYPO.eyebrow,
+    color: C.main,
+    marginBottom: S.xs,
   },
   tagRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: S.md,
+    gap: S.xs,
+    marginBottom: S.sm,
   },
   tagChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    paddingHorizontal: S.md,
+    paddingVertical: 7,
+    borderRadius: R.md,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   tagChipActive: {
-    backgroundColor: "#1A1714",
+    backgroundColor: C.ink,
+    borderColor: C.ink,
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#4B5563",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
   tagTextActive: {
     color: "#FFFFFF",
   },
+  // text-input per cursor/DESIGN.md: 8px radius, 44px height
   input: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: "#1A1714",
+    backgroundColor: C.surface,
+    borderRadius: R.md, // 8px radius
+    paddingHorizontal: S.sm,
+    height: 44,
+    fontSize: FS.bodySm,
+    color: C.ink,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginBottom: S.sm,
+    borderColor: C.border,
+    marginBottom: S.xs,
   },
+  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
   saveBtn: {
-    backgroundColor: "#1A1714",
-    paddingVertical: 14,
-    borderRadius: 14,
+    backgroundColor: C.main, // Cursor Orange
+    paddingVertical: 12,
+    borderRadius: R.md,
     alignItems: "center",
     marginTop: S.xs,
   },
   saveBtnText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   addressCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: S.lg,
-    marginBottom: S.md,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px radius
+    padding: S.md,
+    marginBottom: S.sm,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: S.xs,
   },
   iconBox: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
+    borderRadius: R.md,
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: S.xs,
+    borderWidth: 1,
+    borderColor: C.borderLight,
   },
   tagLabel: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
     flex: 1,
   },
   defaultBadge: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginRight: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
+    marginRight: S.xs,
   },
   defaultText: {
     fontSize: 9,
-    fontWeight: "800",
-    color: "#B45309",
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0.88,
   },
   deleteBtn: {
-    padding: 4,
+    padding: S.xxs,
   },
   streetText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: FS.bodySm,
+    fontWeight: FW.regular,
+    color: C.ink,
   },
   cityText: {
-    fontSize: 12,
-    color: "#9CA3AF",
+    fontSize: FS.bodySm - 1,
+    color: C.body,
     marginTop: 2,
   },
 });

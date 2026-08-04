@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, SHADOWS } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
 import BouncyButton from "../components/BouncyButton";
@@ -60,24 +60,23 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
         <View style={styles.topNav}>
           {goBack ? (
             <TouchableOpacity style={styles.backCircleBtn} onPress={goBack} activeOpacity={0.8}>
-              <Ionicons name="arrow-back" size={20} color="#1A1714" />
+              <Ionicons name="arrow-back" size={18} color={C.ink} />
             </TouchableOpacity>
-          ) : <View style={{ width: 40 }} />}
+          ) : <View style={{ width: 36 }} />}
         </View>
 
         {/* Brand Header */}
         <View style={styles.brandHeader}>
           <View style={styles.badgeTag}>
-            <Ionicons name="sparkles" size={12} color="#E6CA65" />
-            <Text style={styles.badgeTagText}>LUXE ACCESS</Text>
+            <Text style={styles.badgeTagText}>MEMBER ACCESS</Text>
           </View>
           <Text style={styles.brandTitle}>Welcome Back</Text>
           <Text style={styles.brandSub}>
-            Sign in to access your appointments & luxury spa privileges.
+            Sign in to access your appointments & luxury studio privileges.
           </Text>
         </View>
 
-        {/* Form Card */}
+        {/* Form Card per cursor/DESIGN.md */}
         <View style={styles.formCard}>
           <ErrorCardModal
             visible={!!error}
@@ -89,11 +88,11 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>EMAIL ADDRESS</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color="#8E877D" style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={16} color={C.muted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="customer@example.com"
-                placeholderTextColor="#A39E93"
+                placeholderTextColor={C.dustTaupe}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -105,11 +104,11 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>PASSWORD</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color="#8E877D" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={16} color={C.muted} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { flex: 1 }]}
                 placeholder="••••••••"
-                placeholderTextColor="#A39E93"
+                placeholderTextColor={C.dustTaupe}
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
@@ -121,20 +120,21 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={19}
-                  color="#8E877D"
+                  size={18}
+                  color={C.muted}
                 />
               </TouchableOpacity>
             </View>
           </View>
 
+          {/* button-primary: Cursor Orange #f54e00, 8px radius */}
           <BouncyButton
             style={styles.submitBtn}
             disabled={loading}
             onPress={handleLogin}
           >
             {loading ? (
-              <ActivityIndicator color="#E6CA65" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.submitBtnText}>Sign In</Text>
             )}
@@ -155,142 +155,122 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAF9F5",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   scrollContent: {
-    paddingHorizontal: S.lg,
-    paddingTop: Platform.OS === "android" ? 44 : 54,
+    paddingHorizontal: S.md,
+    paddingTop: Platform.OS === "android" ? 44 : 52,
     paddingBottom: 40,
   },
   topNav: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: S.lg,
+    marginBottom: S.md,
   },
   backCircleBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#FFFFFF",
+    width: 36,
+    height: 36,
+    borderRadius: R.md,
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: C.border,
   },
   brandHeader: {
-    marginBottom: S.xl,
+    marginBottom: S.lg,
   },
   badgeTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1A1714",
+    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
     alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 5,
-    marginBottom: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
+    marginBottom: S.xs,
   },
   badgeTagText: {
-    color: "#E6CA65",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.8,
+    color: C.ink,
+    fontSize: 10,
+    fontWeight: FW.semiBold,
+    letterSpacing: 0.88,
   },
   brandTitle: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#1A1714",
-    letterSpacing: -0.6,
+    fontSize: FS.hero,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.72,
   },
   brandSub: {
-    fontSize: 13,
-    color: "#78716C",
-    marginTop: 4,
-    lineHeight: 19,
-    fontWeight: "400",
+    fontSize: FS.bodySm,
+    color: C.body,
+    marginTop: S.xxs,
+    lineHeight: 20,
   },
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   formCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 28,
-    padding: 24,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
+    padding: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 4,
+    borderColor: C.border,
   },
   inputGroup: {
-    marginBottom: S.md,
+    marginBottom: S.sm + 2,
   },
   label: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#8E877D",
-    letterSpacing: 1.2,
-    marginBottom: 6,
+    ...TYPO.eyebrow,
+    marginBottom: S.xxs,
   },
+  // text-input per cursor/DESIGN.md: 8px radius, height 44px
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F7F5F0",
-    borderRadius: 16,
+    backgroundColor: C.surface,
+    borderRadius: R.md, // 8px radius
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
-    paddingHorizontal: 14,
-    height: 52,
+    borderColor: C.border,
+    paddingHorizontal: S.sm,
+    height: 44,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: S.xs,
   },
   input: {
     flex: 1,
     height: "100%",
-    fontSize: 14,
-    color: "#1A1714",
-    fontWeight: "500",
+    fontSize: FS.bodySm,
+    color: C.ink,
+    fontWeight: FW.regular,
   },
   eyeBtn: {
-    padding: 6,
+    padding: S.xxs,
   },
+  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
   submitBtn: {
-    backgroundColor: "#121016",
-    borderRadius: 26,
-    height: 52,
+    backgroundColor: C.main, // Cursor Orange
+    borderRadius: R.md, // 8px radius
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     marginTop: S.sm,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    elevation: 4,
   },
   submitBtnText: {
-    color: "#E6CA65",
-    fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: 0.3,
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   footerRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: S.lg,
+    marginTop: S.md,
   },
   footerText: {
-    color: "#8E877D",
-    fontSize: 13,
+    color: C.muted,
+    fontSize: FS.bodySm,
   },
   footerLink: {
-    color: "#1A1714",
-    fontWeight: "800",
-    fontSize: 13,
+    color: C.main,
+    fontWeight: FW.medium,
+    fontSize: FS.bodySm,
   },
 });

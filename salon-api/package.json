@@ -9,7 +9,8 @@
     "dev": "nodemon src/app.js",
     "seed": "node src/utils/seeder.js",
     "seed:sample": "node src/utils/seedSampleData.js",
-    "seed:master": "node src/utils/seedMasterData.js"
+    "seed:master": "node src/utils/seedMasterData.js",
+    "clean:db": "node src/utils/wipeAllDataExceptSuperadmin.js"
   },
   "keywords": [],
   "author": "",

@@ -34,10 +34,10 @@ export const appointmentService = {
     });
   },
 
-  rateAppointment: async (id, rating, comment) => {
+  rateAppointment: async (id, score, review) => {
     return await apiClient.patch(`/appointments/${id}/rate`, {
-      rating,
-      comment,
+      score,
+      review,
     });
   },
 };

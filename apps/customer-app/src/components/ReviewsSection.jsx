@@ -2,7 +2,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 
 const DUMMY_REVIEWS = [
   {
@@ -23,15 +23,6 @@ const DUMMY_REVIEWS = [
     serviceName: "Executive Beard & Cut",
     comment: "Clean lines, great espresso while waiting, and zero delay. Will definitely return!",
   },
-  {
-    id: "r3",
-    userName: "Emily Watson",
-    userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop",
-    rating: 4.8,
-    date: "2 weeks ago",
-    serviceName: "Gel Manicure Deluxe",
-    comment: "Super smooth nails and lovely relaxing hand massage. Highly recommend booking in advance.",
-  },
 ];
 
 export default function ReviewsSection({ reviews = [], overallRating = "4.9", totalReviews = 128, onOpenAddReview }) {
@@ -49,18 +40,18 @@ export default function ReviewsSection({ reviews = [], overallRating = "4.9", to
           onPress={onOpenAddReview}
           activeOpacity={0.8}
         >
-          <Ionicons name="create-outline" size={14} color="#1A1714" />
+          <Ionicons name="create-outline" size={14} color={C.ink} />
           <Text style={styles.addReviewText}>Write Review</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Overall Score Banner */}
+      {/* Overall Score Banner per cursor/DESIGN.md */}
       <View style={styles.scoreBanner}>
         <View style={styles.scoreLeft}>
           <Text style={styles.bigScore}>{overallRating}</Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons key={star} name="star" size={16} color="#D97706" />
+              <Ionicons key={star} name="star" size={14} color="#c08532" />
             ))}
           </View>
           <Text style={styles.totalText}>{totalReviews} verified reviews</Text>
@@ -89,24 +80,29 @@ export default function ReviewsSection({ reviews = [], overallRating = "4.9", to
         {displayReviews.map((rev) => (
           <View key={rev.id || rev._id} style={styles.reviewCard}>
             <View style={styles.cardHeader}>
-              <Image source={{ uri: rev.userAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop" }} style={styles.avatar} />
+              <Image source={{ uri: rev.userAvatar || rev.customerAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop" }} style={styles.avatar} />
               <View style={styles.headerMeta}>
-                <Text style={styles.userName}>{rev.userName || rev.user?.name || "Verified Client"}</Text>
-                <Text style={styles.reviewDate}>{rev.date || "Recent"}</Text>
+                <Text style={styles.userName}>{rev.userName || rev.customerName || rev.user?.name || "Verified Client"}</Text>
+                <Text style={styles.reviewDate}>{rev.date || rev.ratedAt ? "Recently rated" : "Recent"}</Text>
               </View>
               <View style={styles.ratingPill}>
-                <Ionicons name="star" size={11} color="#D97706" />
-                <Text style={styles.ratingNum}>{rev.rating}</Text>
+                <Ionicons name="star" size={11} color="#c08532" />
+                <Text style={styles.ratingNum}>{rev.rating || rev.score || 5}</Text>
               </View>
             </View>
 
-            {rev.serviceName && (
-              <View style={styles.serviceBadge}>
-                <Text style={styles.serviceBadgeText}>✂️ {rev.serviceName}</Text>
-              </View>
-            )}
-
-            <Text style={styles.commentText}>{rev.comment}</Text>
+            {(rev.serviceName || rev.comment) ? (
+              <>
+                {rev.serviceName ? (
+                  <View style={styles.serviceBadge}>
+                    <Text style={styles.serviceBadgeText}>✂️ {rev.serviceName}</Text>
+                  </View>
+                ) : null}
+                {rev.comment ? (
+                  <Text style={styles.commentText}>{rev.comment}</Text>
+                ) : null}
+              </>
+            ) : null}
           </View>
         ))}
       </View>
@@ -116,74 +112,73 @@ export default function ReviewsSection({ reviews = [], overallRating = "4.9", to
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: S.lg,
+    marginVertical: S.md,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: S.md,
+    marginBottom: S.sm,
   },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.1,
+    ...TYPO.eyebrow,
+    color: C.main,
   },
   reviewSub: {
-    fontSize: 12,
-    color: "#8E8880",
+    fontSize: FS.caption,
+    color: C.muted,
     marginTop: 2,
   },
+  // button-secondary spec per cursor/DESIGN.md: white surface, 1px hairline border, 8px radius
   addReviewBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3EFE6",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
+    backgroundColor: C.surface,
+    paddingHorizontal: S.sm,
+    paddingVertical: 6,
+    borderRadius: R.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: C.borderDark,
   },
   addReviewText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#1A1714",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
     marginLeft: 4,
   },
 
-  // Score Banner
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   scoreBanner: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
     padding: S.md,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
     marginBottom: S.md,
   },
   scoreLeft: {
     alignItems: "center",
     paddingRight: S.md,
     borderRightWidth: 1,
-    borderRightColor: "rgba(0, 0, 0, 0.06)",
-    minWidth: 110,
+    borderRightColor: C.borderLight,
+    minWidth: 100,
   },
   bigScore: {
-    fontSize: 34,
-    fontWeight: "900",
-    color: "#1A1714",
-    letterSpacing: -1,
+    fontSize: 32,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.72,
   },
   starsRow: {
     flexDirection: "row",
-    marginVertical: 4,
+    marginVertical: 2,
   },
   totalText: {
     fontSize: 10,
-    color: "#8E8880",
-    fontWeight: "600",
+    color: C.muted,
+    fontWeight: FW.medium,
   },
   scoreRight: {
     flex: 1,
@@ -192,101 +187,101 @@ const styles = StyleSheet.create({
   subScoreRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 3,
+    marginVertical: 2,
   },
   subLabel: {
-    width: 68,
+    width: 66,
     fontSize: 10,
-    fontWeight: "600",
-    color: "#5C564E",
+    fontWeight: FW.medium,
+    color: C.body,
   },
   barTrack: {
     flex: 1,
-    height: 5,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: C.lifted,
+    borderRadius: 2,
     marginHorizontal: 6,
     overflow: "hidden",
   },
   barFill: {
     height: "100%",
-    backgroundColor: "#D97706",
-    borderRadius: 3,
+    backgroundColor: "#c08532",
+    borderRadius: 2,
   },
   subVal: {
     fontSize: 10,
-    fontWeight: "800",
-    color: "#1A1714",
-    width: 22,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    width: 20,
     textAlign: "right",
   },
 
   // Cards
   reviewsList: {
-    gap: 10,
+    gap: S.xs,
   },
   reviewCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 14,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
+    padding: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.04)",
+    borderColor: C.border,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: S.xs,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#E5E7EB",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: C.bone,
   },
   headerMeta: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: S.xs,
   },
   userName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1A1714",
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   reviewDate: {
     fontSize: 10,
-    color: "#9CA3AF",
+    color: C.muted,
     marginTop: 1,
   },
   ratingPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
+    backgroundColor: C.lifted,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: R.pill,
+    gap: 3,
   },
   ratingNum: {
     fontSize: 11,
-    fontWeight: "800",
-    color: "#B45309",
-    marginLeft: 3,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   serviceBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginBottom: 8,
+    backgroundColor: C.lifted,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: R.pill,
+    marginBottom: S.xs,
   },
   serviceBadgeText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: "#4B5563",
+    fontWeight: FW.medium,
+    color: C.body,
   },
   commentText: {
-    fontSize: 13,
-    color: "#374151",
+    fontSize: FS.bodySm,
+    color: C.body,
     lineHeight: 18,
   },
 });

@@ -2,6 +2,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 
 export default function SlotPicker({ slots, selectedSlotId, onSelectSlot, selectedDate, onSelectDate }) {
   // Generate next 7 dates
@@ -31,18 +32,17 @@ export default function SlotPicker({ slots, selectedSlotId, onSelectSlot, select
             >
               <Text style={[styles.dayName, isSelected && styles.dayNameSelected]}>{d.dayName}</Text>
               <Text style={[styles.dayNum, isSelected && styles.dayNumSelected]}>{d.dayNum}</Text>
-              {isSelected ? <View style={styles.activeDot} /> : null}
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       {/* Time Slot Section */}
-      <Text style={[styles.sectionHeading, { marginTop: 22 }]}>SELECT AVAILABLE TIME</Text>
+      <Text style={[styles.sectionHeading, { marginTop: S.md }]}>SELECT AVAILABLE TIME</Text>
 
       {(!slots || slots.length === 0) ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="time-outline" size={24} color="#8E8880" />
+          <Ionicons name="time-outline" size={20} color={C.muted} />
           <Text style={styles.emptyText}>No available slots found for this date.</Text>
         </View>
       ) : (
@@ -92,135 +92,102 @@ export default function SlotPicker({ slots, selectedSlotId, onSelectSlot, select
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 12,
+    marginVertical: S.xs,
   },
   sectionHeading: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#8E8880",
-    letterSpacing: 1.5,
-    marginBottom: 10,
+    ...TYPO.eyebrow,
+    marginBottom: S.xs,
   },
   dateList: {
     flexDirection: "row",
   },
   dateCard: {
-    width: 62,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    width: 58,
+    height: 64,
+    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    marginRight: S.xs,
   },
   dateCardSelected: {
-    backgroundColor: "#1A1A1A",
-    borderColor: "#1A1A1A",
-    shadowColor: "#1A1A1A",
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: C.main, // Cursor Orange
+    borderColor: C.main,
   },
   dayName: {
     fontSize: 9,
-    color: "#8E8880",
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    color: C.muted,
+    fontWeight: FW.semiBold,
+    letterSpacing: 0.88,
   },
   dayNameSelected: {
-    color: "rgba(255, 255, 255, 0.65)",
+    color: "rgba(255, 255, 255, 0.8)",
   },
   dayNum: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#1A1A1A",
-    marginTop: 3,
+    fontSize: FS.bodyLg,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    marginTop: 2,
   },
   dayNumSelected: {
     color: "#FFFFFF",
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#E6CA65",
-    marginTop: 4,
-  },
   emptyContainer: {
-    padding: 24,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    padding: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.04)",
-    gap: 6,
+    borderColor: C.border,
+    gap: 4,
   },
   emptyText: {
-    color: "#8E8880",
-    fontSize: 12,
-    fontWeight: "500",
+    color: C.body,
+    fontSize: FS.bodySm,
   },
   slotGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: S.xs,
   },
   slotChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    paddingHorizontal: S.md,
+    paddingVertical: 10,
+    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-    minWidth: 80,
+    borderColor: C.border,
+    minWidth: 76,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
   },
   slotBooked: {
-    backgroundColor: "#FEE2E2",
-    borderColor: "#FCA5A5",
+    backgroundColor: C.errorBg,
+    borderColor: "rgba(207, 45, 86, 0.2)",
     opacity: 0.85,
-    elevation: 0,
-    shadowOpacity: 0,
   },
   slotSelected: {
-    backgroundColor: "#1A1A1A",
-    borderColor: "#1A1A1A",
-    shadowColor: "#1A1A1A",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: C.main, // Cursor Orange
+    borderColor: C.main,
   },
   slotTime: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#1A1A1A",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
   slotTimeBooked: {
-    color: "#DC2626",
+    color: C.error,
     textDecorationLine: "line-through",
-    fontWeight: "700",
   },
   slotTimeSelected: {
-    color: "#E6CA65",
-    fontWeight: "900",
+    color: "#FFFFFF",
   },
   bookedBadgeText: {
     fontSize: 9,
-    fontWeight: "800",
-    color: "#EF4444",
+    fontWeight: FW.semiBold,
+    color: C.error,
     marginTop: 2,
     letterSpacing: 0.5,
   },

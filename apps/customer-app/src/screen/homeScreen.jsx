@@ -9,12 +9,15 @@ import {
   StyleSheet,
   RefreshControl,
 } from "react-native";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
+import { Ionicons } from "@expo/vector-icons";
 import Ios26HomeHero from "../components/Ios26HomeHero";
 import TopPromoBanner from "../components/TopPromoBanner";
 import QuickRebookWidget from "../components/QuickRebookWidget";
 import SalonCard from "../components/SalonCard";
 import LocationPickerModal from "../components/LocationPickerModal";
+import InteractiveMapModal from "../components/InteractiveMapModal";
+import AddReviewModal from "../components/AddReviewModal";
 import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { useAuth } from "../context/AuthContext";
@@ -27,30 +30,18 @@ const SalonCarousel = memo(({ salons, onSalonPress }) => (
     horizontal
     showsHorizontalScrollIndicator={false}
     style={styles.horizontalCarousel}
-    contentContainerStyle={{ paddingLeft: S.lg, paddingRight: S.sm }}
+    contentContainerStyle={{ paddingLeft: S.md, paddingRight: S.xs }}
   >
     {salons.map((salon, idx) => (
-      <SalonCard
-        key={salon._id || salon.id}
-        salon={salon}
-        isHorizontal={true}
-        index={idx}
-        onPress={onSalonPress}
-      />
+      <SalonCard key={salon._id || salon.id} salon={salon} isHorizontal={true} index={idx} onPress={onSalonPress} />
     ))}
   </ScrollView>
 ));
 
 const SalonVerticalList = memo(({ salons, onSalonPress }) => (
-  <View style={styles.verticalListContainer}>
+  <View style={styles.verticalList}>
     {salons.map((salon, idx) => (
-      <SalonCard
-        key={`full_${salon._id || salon.id}`}
-        salon={salon}
-        isHorizontal={false}
-        index={idx + 2}
-        onPress={onSalonPress}
-      />
+      <SalonCard key={`full_${salon._id || salon.id}`} salon={salon} isHorizontal={false} index={idx + 2} onPress={onSalonPress} />
     ))}
   </View>
 ));
@@ -63,145 +54,123 @@ function HomeScreen({ navigate, onScroll }) {
   const [loadError, setLoadError] = useState(null);
   const [selectedCity, setSelectedCity] = useState("Mumbai");
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [mapModalVisible, setMapModalVisible] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState(null);
+  const [reviewModalAppt, setReviewModalAppt] = useState(null);
+  const promptedReviewIdsRef = React.useRef(new Set());
 
-  // Restore user's saved city on app start
+  const handleAddReviewSubmit = async ({ rating, comment }) => {
+    if (!reviewModalAppt) return;
+    const apptId = reviewModalAppt._id || reviewModalAppt.id;
+    try {
+      await appointmentService.rateAppointment(apptId, rating, comment);
+      setReviewModalAppt(null);
+    } catch (e) {
+      console.warn("Failed to submit review", e);
+    }
+  };
+
   useEffect(() => {
     storage.getItem("@user_selected_city").then((savedCity) => {
-      if (savedCity && savedCity.trim()) {
-        setSelectedCity(savedCity);
-      }
+      if (savedCity && savedCity.trim()) setSelectedCity(savedCity);
     });
   }, []);
 
   const salonsRef = React.useRef(salons);
   salonsRef.current = salons;
+  const upcomingApptRef = React.useRef(upcomingAppt);
+  upcomingApptRef.current = upcomingAppt;
+  const salonCacheRef = React.useRef({});
+  const prevCityRef = React.useRef(selectedCity);
+
+  useEffect(() => {
+    if (prevCityRef.current !== selectedCity) {
+      prevCityRef.current = selectedCity;
+      const cleanCity = cleanCityName(selectedCity);
+      const cached = salonCacheRef.current[cleanCity];
+      if (cached && cached.length > 0) { setSalons(cached); setLoading(false); }
+      else { setSalons([]); setLoading(true); }
+      setLoadError(null);
+    }
+  }, [selectedCity]);
 
   const loadData = useCallback(async (silent = false) => {
+    const cleanCity = cleanCityName(selectedCity);
+    const hasCachedData = (salonCacheRef.current[cleanCity]?.length || 0) > 0 || salonsRef.current.length > 0;
     try {
       setLoadError(null);
-      if (!silent && salonsRef.current.length === 0) {
-        setLoading(true);
-      }
-      const cleanCity = cleanCityName(selectedCity);
+      if (!silent && !hasCachedData) setLoading(true);
       const res = await browseService.getSalons({ city: cleanCity });
       const salonList = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
-      
-      setSalons(salonList);
-
+      salonCacheRef.current[cleanCity] = salonList;
+      if (JSON.stringify(salonList) !== JSON.stringify(salonsRef.current)) setSalons(salonList);
       if (isAuthenticated) {
         try {
           const apptRes = await appointmentService.getAppointments();
           const list = apptRes.data?.appointments || (Array.isArray(apptRes.data) ? apptRes.data : []);
-          const active = list.find((app) => {
-            const status = (app.status || "").toUpperCase();
-            return status === "PENDING" || status === "CONFIRMED" || status === "IN_PROGRESS";
-          });
-          setUpcomingAppt(active || (list.length > 0 ? list[0] : null));
-        } catch (e) {
-          setUpcomingAppt(null);
-        }
-      } else {
-        setUpcomingAppt(null);
-      }
+          const active = list.find((a) => ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes((a.status || "").toUpperCase()));
+          const target = active || (list.length > 0 ? list[0] : null);
+          if (JSON.stringify(target) !== JSON.stringify(upcomingApptRef.current)) setUpcomingAppt(target);
+
+          // Auto-popup review modal for the last completed appointment
+          const lastUnratedCompleted = list
+            .filter(
+              (a) =>
+                (a.status || "").toUpperCase() === "COMPLETED" &&
+                (!a.rating || !a.rating.score) &&
+                !promptedReviewIdsRef.current.has(a._id || a.id)
+            )
+            .sort((a, b) => new Date(b.updatedAt || b.appointmentDate || b.createdAt || 0) - new Date(a.updatedAt || a.appointmentDate || a.createdAt || 0))[0];
+
+          if (lastUnratedCompleted) {
+            promptedReviewIdsRef.current.add(lastUnratedCompleted._id || lastUnratedCompleted.id);
+            setReviewModalAppt(lastUnratedCompleted);
+          }
+        } catch (e) { if (upcomingApptRef.current !== null) setUpcomingAppt(null); }
+      } else { if (upcomingApptRef.current !== null) setUpcomingAppt(null); }
     } catch (err) {
-      console.log("Failed to load salons", err.message);
-      setLoadError(err.message || "Unable to connect to server");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      if (!hasCachedData) { setSalons([]); setLoadError(err.message || "Unable to connect"); }
+    } finally { setLoading(false); setRefreshing(false); }
   }, [selectedCity, isAuthenticated]);
 
   useEffect(() => {
-    loadData(salonsRef.current.length > 0);
+    const cleanCity = cleanCityName(selectedCity);
+    loadData((salonCacheRef.current[cleanCity]?.length || 0) > 0);
   }, [selectedCity, isAuthenticated, loadData]);
 
-  // Real-time socket & polling update for upcoming appointment status changes
   useEffect(() => {
     if (!isAuthenticated) return;
     const userId = user?._id || user?.id;
-    if (userId) {
-      socketClient.connect(userId);
-    }
-
-    const unsubscribe = socketClient.onAppointmentStatusChanged((data) => {
-      console.log("⚡ [HOME SCREEN] Appointment status updated via Socket:", data);
-      loadData(true);
-    });
-
-    // Fallback polling every 8 seconds for active status changes
-    const interval = setInterval(() => {
-      loadData(true);
-    }, 8000);
-
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
+    if (userId) socketClient.connect(userId);
+    const unsubscribe = socketClient.onAppointmentStatusChanged(() => loadData(true));
+    const interval = setInterval(() => loadData(true), 8000);
+    return () => { unsubscribe(); clearInterval(interval); };
   }, [isAuthenticated, user, loadData]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadData(false);
-  }, [loadData]);
-
-  const handleSalonPress = useCallback((salon) => {
-    if (navigate) navigate("SalonDetail", { salon });
-  }, [navigate]);
-
-  const handleSearchClick = useCallback(() => {
-    if (navigate) navigate("Explore");
-  }, [navigate]);
-
-  const handleBannerPress = useCallback(() => {
-    if (navigate) navigate("Explore");
-  }, [navigate]);
-
+  const onRefresh = useCallback(() => { setRefreshing(true); loadData(false); }, [loadData]);
+  const handleSalonPress = useCallback((salon) => { if (navigate) navigate("SalonDetail", { salon }); }, [navigate]);
+  const handleSearchClick = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
+  const handleBannerPress = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
   const handleRebook = useCallback(() => {
-    if (salons.length > 0 && navigate) {
-      navigate("SalonDetail", { salon: salons[0] });
-    } else if (navigate) {
-      navigate("Explore");
-    }
+    if (salons.length > 0 && navigate) navigate("SalonDetail", { salon: salons[0] });
+    else if (navigate) navigate("Explore");
   }, [salons, navigate]);
-
-  const handleExplore = useCallback(() => {
-    if (navigate) navigate("Explore");
-  }, [navigate]);
-
-  const handleCitySelect = useCallback((city) => {
-    setSelectedCity(city);
-    storage.setItem("@user_selected_city", city);
-  }, []);
-
-  const handleLocationClose = useCallback(() => {
-    setLocationModalVisible(false);
-  }, []);
-
-  const handleLocationClick = useCallback(() => {
-    setLocationModalVisible(true);
-  }, []);
-
-  const handleSeeAll = useCallback(() => {
-    if (navigate) navigate("Explore");
-  }, [navigate]);
-
-  const handleSearchSubmit = useCallback((term) => {
-    if (navigate) navigate("Explore", { search: term });
-  }, [navigate]);
+  const handleExplore = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
+  const handleCitySelect = useCallback((city) => { setSelectedCity(city); storage.setItem("@user_selected_city", city); }, []);
+  const handleLocationClose = useCallback(() => setLocationModalVisible(false), []);
+  const handleLocationClick = useCallback(() => setLocationModalVisible(true), []);
+  const handleSeeAll = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
+  const handleSearchSubmit = useCallback((term) => { if (navigate) navigate("Explore", { search: term }); }, [navigate]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FAF9F5" }}>
+    <View style={styles.screen}>
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        style={styles.scroller}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1A1714" />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.main} />}
       >
         <Ios26HomeHero
           userName={user?.name}
@@ -222,65 +191,73 @@ function HomeScreen({ navigate, onScroll }) {
           onExplore={handleExplore}
         />
 
+        {/* Section: Featured Studios */}
         <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionSubTitle}>HANDPICKED STUDIOS</Text>
-            <Text style={styles.sectionTitle}>Featured Studios in {selectedCity}</Text>
+          <View style={styles.sectionTitleBlock}>
+            <Text style={styles.sectionTag}>FEATURED PARTNERS</Text>
+            <Text style={styles.sectionTitle}>Featured in {selectedCity}</Text>
           </View>
-          <TouchableOpacity onPress={handleSeeAll} style={styles.seeAllBtn}>
-            <Text style={styles.seeAllText}>See All →</Text>
-          </TouchableOpacity>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => setMapModalVisible(true)} style={styles.buttonSecondary}>
+              <Ionicons name="map-outline" size={13} color={C.ink} />
+              <Text style={styles.buttonSecondaryText}>Map</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSeeAll} style={styles.buttonSecondary}>
+              <Text style={styles.buttonSecondaryText}>All</Text>
+              <Ionicons name="arrow-forward" size={13} color={C.ink} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#1A1714" />
-            <Text style={styles.loadingText}>Finding luxury studios in {selectedCity}...</Text>
+          <View style={styles.emptyBlock}>
+            <ActivityIndicator size="small" color={C.main} />
+            <Text style={styles.emptyText}>Fetching studios…</Text>
           </View>
         ) : loadError && salons.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>Unable to connect to server</Text>
-            <Text style={styles.emptyText}>{loadError}. Make sure your device is on the same network as the server.</Text>
-            <TouchableOpacity
-              style={{
-                marginTop: 12,
-                paddingHorizontal: 20,
-                paddingVertical: 10,
-                backgroundColor: "#1A1714",
-                borderRadius: 16,
-              }}
-              onPress={() => loadData(false)}
-            >
-              <Text style={{ color: "#E6CA65", fontWeight: "800", fontSize: 13 }}>Retry Connection</Text>
+          <View style={styles.emptyBlock}>
+            <Ionicons name="wifi-outline" size={24} color={C.muted} />
+            <Text style={styles.emptyTitle}>Unable to connect</Text>
+            <Text style={styles.emptyText}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(false)}>
+              <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : salons.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No salons found in {selectedCity}</Text>
-            <Text style={styles.emptyText}>Check back soon for new partner studios in this city.</Text>
+          <View style={styles.emptyBlock}>
+            <Ionicons name="storefront-outline" size={24} color={C.muted} />
+            <Text style={styles.emptyTitle}>No studios in {selectedCity}</Text>
+            <Text style={styles.emptyText}>Check back soon for new partner salons.</Text>
           </View>
         ) : (
           <SalonCarousel salons={salons} onSalonPress={handleSalonPress} />
         )}
 
+        {/* Section: All Studios */}
         {salons.length > 0 ? (
           <>
             <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionSubTitle}>HIGHEST RATED</Text>
-                <Text style={styles.sectionTitle}>Top Rated In {selectedCity}</Text>
+              <View style={styles.sectionTitleBlock}>
+                <Text style={styles.sectionTag}>ALL STUDIOS</Text>
+                <Text style={styles.sectionTitle}>Explore all partners</Text>
               </View>
             </View>
             <SalonVerticalList salons={salons} onSalonPress={handleSalonPress} />
           </>
         ) : null}
+
+        {/* 80px Section rhythm bottom padding per cursor/DESIGN.md */}
+        <View style={{ height: S.section }} />
       </ScrollView>
 
-      <LocationPickerModal
-        visible={locationModalVisible}
-        selectedCity={selectedCity}
-        onSelectCity={handleCitySelect}
-        onClose={handleLocationClose}
+      <LocationPickerModal visible={locationModalVisible} selectedCity={selectedCity} onSelectCity={handleCitySelect} onClose={handleLocationClose} />
+      <InteractiveMapModal visible={mapModalVisible} onClose={() => setMapModalVisible(false)} salons={salons} onSelectSalon={handleSalonPress} />
+      <AddReviewModal
+        visible={!!reviewModalAppt}
+        onClose={() => setReviewModalAppt(null)}
+        onSubmit={handleAddReviewSubmit}
+        appointment={reviewModalAppt}
       />
     </View>
   );
@@ -289,85 +266,102 @@ function HomeScreen({ navigate, onScroll }) {
 export default memo(HomeScreen);
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#FAF9F5",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4 per cursor/DESIGN.md
   },
-  contentContainer: {
+  scroller: {
+    flex: 1,
+  },
+  content: {
     paddingBottom: 110,
   },
+
+  // Section Headers per cursor/DESIGN.md
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    paddingHorizontal: S.lg,
-    marginTop: S.lg,
+    paddingHorizontal: S.md,
+    marginTop: S.xl,
     marginBottom: S.sm,
   },
-  sectionSubTitle: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#8E877D",
-    letterSpacing: 1.5,
+  sectionTitleBlock: {
+    flex: 1,
+  },
+  sectionTag: {
+    ...TYPO.eyebrow,
+    color: C.muted,
     marginBottom: 2,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1A1714",
-    letterSpacing: -0.5,
+    fontSize: FS.titleLg,
+    fontWeight: "400", // Weight 400 per cursor/DESIGN.md
+    color: C.ink,
+    letterSpacing: -0.32,
   },
-  seeAllBtn: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+  headerActions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  // button-secondary spec per cursor/DESIGN.md (white bg, 1px hairline border, 8px radius)
+  buttonSecondary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.surface,
+    paddingHorizontal: S.sm,
+    paddingVertical: 6,
+    borderRadius: R.md, // 8px radius
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    borderColor: C.borderDark,
   },
-  seeAllText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#1A1714",
+  buttonSecondaryText: {
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
+
   horizontalCarousel: {
-    marginBottom: S.md,
+    marginBottom: S.sm,
   },
-  verticalListContainer: {
-    paddingHorizontal: S.lg,
+  verticalList: {
+    paddingHorizontal: S.md,
   },
-  loadingContainer: {
-    padding: S.xxl,
+
+  // Empty / Loading states
+  emptyBlock: {
+    paddingVertical: S.xxl,
     alignItems: "center",
-  },
-  loadingText: {
-    marginTop: S.sm,
-    color: "#8E877D",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  emptyContainer: {
-    padding: S.xxl,
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: S.lg,
-    borderRadius: 24,
+    marginHorizontal: S.md,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
+    padding: S.lg,
+    gap: S.xs,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.body,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   emptyText: {
-    fontSize: 13,
-    color: "#8E877D",
+    fontSize: FS.bodySm,
+    color: C.body,
     textAlign: "center",
-    marginTop: 4,
+  },
+  retryBtn: {
+    marginTop: S.xs,
+    paddingHorizontal: S.md,
+    paddingVertical: 8,
+    backgroundColor: C.main, // Cursor Orange
+    borderRadius: R.md,
+  },
+  retryText: {
+    color: "#FFFFFF",
+    fontWeight: FW.medium,
+    fontSize: FS.bodySm,
   },
 });

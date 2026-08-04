@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import SalonCard from "../components/SalonCard";
 import FloatingSearchCapsule from "../components/FloatingSearchCapsule";
 import { browseService } from "../services/browseService";
@@ -32,7 +32,6 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef(null);
 
-  // Debounce search input
   const handleSearchChange = useCallback((text) => {
     setSearch(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -79,16 +78,13 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
 
   return (
     <View style={styles.container}>
-      {/* Aesthetic Minimal Light Header */}
+      {/* Aesthetic Light Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <View style={{ flex: 1, paddingRight: S.sm }}>
             <Text style={styles.eyebrow}>SEARCH & EXPLORE</Text>
             <Text style={styles.title}>Search Salons</Text>
             <Text style={styles.subtitle}>Find luxury hair, beauty & spa studios near you</Text>
-          </View>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeIcon}>✨</Text>
           </View>
         </View>
 
@@ -98,7 +94,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
           placeholder="Search by salon name or service..."
         />
 
-        {/* Category Filter Pill Chips */}
+        {/* Category Filter Pill Chips per cursor/DESIGN.md */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -132,7 +128,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
       >
         {loading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="small" color={C.dark} />
+            <ActivityIndicator size="small" color={C.main} />
           </View>
         ) : salons.length === 0 ? (
           <View style={styles.centerContainer}>
@@ -159,61 +155,40 @@ export default memo(ExploreScreen);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F5F0",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   header: {
-    backgroundColor: "#F7F5F0",
-    paddingTop: 54,
-    paddingHorizontal: S.lg,
+    backgroundColor: C.bg,
+    paddingTop: 48,
+    paddingHorizontal: S.md,
     paddingBottom: S.md,
   },
   headerTitleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: S.lg,
+    marginBottom: S.md,
   },
   eyebrow: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.6,
+    ...TYPO.eyebrow,
+    color: C.main,
     marginBottom: 2,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#1A1714",
-    letterSpacing: -0.6,
+    fontSize: FS.hero,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.72,
   },
   subtitle: {
-    fontSize: 13,
-    color: "#78716C",
-    marginTop: 3,
-    fontWeight: "500",
-  },
-  headerBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(180, 148, 96, 0.2)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  headerBadgeIcon: {
-    fontSize: 18,
+    fontSize: FS.bodySm,
+    color: C.body,
+    marginTop: 2,
   },
 
   // Category Filter Row
   categoryRow: {
-    marginTop: 14,
+    marginTop: S.sm,
   },
   categoryContent: {
     paddingRight: S.sm,
@@ -221,57 +196,56 @@ const styles = StyleSheet.create({
   catPill: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 24,
-    marginRight: 8,
+    paddingHorizontal: S.md,
+    paddingVertical: 7,
+    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
+    marginRight: 6,
   },
   catPillSelected: {
-    backgroundColor: "#121016",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: C.ink,
   },
   catPillUnselected: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: C.border,
   },
   catIcon: {
-    fontSize: 14,
+    fontSize: 13,
     marginRight: 6,
   },
   catLabel: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   catLabelSelected: {
-    color: "#E6CA65",
-    fontWeight: "800",
+    color: "#FFFFFF",
   },
   catLabelUnselected: {
-    color: "#1A1714",
+    color: C.ink,
   },
 
   listContainer: {
-    paddingHorizontal: S.lg,
+    paddingHorizontal: S.md,
     paddingTop: S.xs,
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   centerContainer: {
-    padding: S.xxl,
+    padding: S.xl,
     alignItems: "center",
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    marginHorizontal: S.md,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1A1714",
+    fontSize: FS.titleSm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   emptySub: {
-    fontSize: 13,
-    color: "#8E877D",
+    fontSize: FS.bodySm,
+    color: C.body,
     textAlign: "center",
     marginTop: 4,
   },

@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, SHADOWS } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import { appointmentService } from "../services/appointmentService";
 import { paiseToINR } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +20,7 @@ import ErrorCardModal from "../components/ErrorCardModal";
 import AppointmentDetailModal from "../components/AppointmentDetailModal";
 import RescheduleModal from "../components/RescheduleModal";
 import CancelBookingModal from "../components/CancelBookingModal";
+import AddReviewModal from "../components/AddReviewModal";
 
 const TABS = ["Active", "Completed", "Cancelled"];
 
@@ -71,7 +72,37 @@ export default function BookingsScreen({ navigate, onScroll }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedAppt, setSelectedAppt] = useState(null);
+  const [rescheduleAppt, setRescheduleAppt] = useState(null);
+  const [cancelApptModal, setCancelApptModal] = useState(null);
+  const [reviewModalAppt, setReviewModalAppt] = useState(null);
   const [statusToast, setStatusToast] = useState(null);
+
+  const promptedReviewIdsRef = React.useRef(new Set());
+
+  const handleAddReviewSubmit = async ({ rating, comment }) => {
+    if (!reviewModalAppt) return;
+    const apptId = reviewModalAppt._id || reviewModalAppt.id;
+    try {
+      await appointmentService.rateAppointment(apptId, rating, comment);
+      setAppointments((prev) =>
+        prev.map((a) => {
+          if ((a._id || a.id) === apptId) {
+            return {
+              ...a,
+              rating: { score: rating, review: comment, ratedAt: new Date().toISOString() },
+            };
+          }
+          return a;
+        })
+      );
+      setStatusToast({
+        title: "Review Submitted",
+        message: "Thank you for reviewing your visit!",
+      });
+    } catch (err) {
+      setError(err.message || "Failed to submit review");
+    }
+  };
 
   const appointmentsRef = React.useRef(appointments);
   appointmentsRef.current = appointments;
@@ -123,6 +154,10 @@ export default function BookingsScreen({ navigate, onScroll }) {
                 title: "🌟 Service Completed!",
                 message: `Thank you for visiting ${salonName}.`,
               });
+              if (!newAppt.rating || !newAppt.rating.score) {
+                promptedReviewIdsRef.current.add(newAppt._id || newAppt.id);
+                setReviewModalAppt(newAppt);
+              }
             } else if (newAppt.status === "CANCELLED") {
               setStatusToast({
                 type: "warning",
@@ -135,6 +170,21 @@ export default function BookingsScreen({ navigate, onScroll }) {
       }
 
       setAppointments(newApptList);
+
+      // Auto-popup review modal for the last completed appointment
+      const lastUnratedCompleted = newApptList
+        .filter(
+          (a) =>
+            (a.status || "").toUpperCase() === "COMPLETED" &&
+            (!a.rating || !a.rating.score) &&
+            !promptedReviewIdsRef.current.has(a._id || a.id)
+        )
+        .sort((a, b) => new Date(b.updatedAt || b.appointmentDate || b.createdAt || 0) - new Date(a.updatedAt || a.appointmentDate || a.createdAt || 0))[0];
+
+      if (lastUnratedCompleted) {
+        promptedReviewIdsRef.current.add(lastUnratedCompleted._id || lastUnratedCompleted.id);
+        setReviewModalAppt(lastUnratedCompleted);
+      }
     } catch (err) {
       console.log("Error loading appointments:", err.message);
     } finally {
@@ -184,9 +234,6 @@ export default function BookingsScreen({ navigate, onScroll }) {
       setError(err.message || "Failed to cancel appointment");
     }
   };
-
-  const [rescheduleAppt, setRescheduleAppt] = useState(null);
-  const [cancelApptModal, setCancelApptModal] = useState(null);
 
   const handleConfirmCancel = async (id, reason) => {
     try {
@@ -268,6 +315,13 @@ export default function BookingsScreen({ navigate, onScroll }) {
         booking={cancelApptModal}
         onClose={() => setCancelApptModal(null)}
         onConfirm={handleConfirmCancel}
+      />
+
+      <AddReviewModal
+        visible={!!reviewModalAppt}
+        onClose={() => setReviewModalAppt(null)}
+        onSubmit={handleAddReviewSubmit}
+        appointment={reviewModalAppt}
       />
 
       {/* Real-time Status Change Toast Notification */}
@@ -428,6 +482,29 @@ export default function BookingsScreen({ navigate, onScroll }) {
                       <Text style={styles.cancelBtnText}>Cancel Booking</Text>
                     </TouchableOpacity>
                   </View>
+                ) : status === "COMPLETED" ? (
+                  <View style={styles.cardActionsRow}>
+                    {appt.rating && appt.rating.score ? (
+                      <View style={styles.ratedChip}>
+                        <Ionicons name="star" size={13} color="#c08532" />
+                        <Text style={styles.ratedChipText}>
+                          {appt.rating.score}/5 {appt.rating.review ? `· "${appt.rating.review}"` : ""}
+                        </Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.rateBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setReviewModalAppt(appt);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="star" size={13} color="#FFFFFF" />
+                        <Text style={styles.rateBtnText}>Rate Visit</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 ) : null}
               </TouchableOpacity>
             );
@@ -439,36 +516,30 @@ export default function BookingsScreen({ navigate, onScroll }) {
 }
 
 function getStatusStyle(status) {
-  switch (status.toUpperCase()) {
+  switch ((status || "").toUpperCase()) {
     case "CONFIRMED":
+      return { backgroundColor: C.grep };       // Mint timeline pill
     case "PENDING":
-      return { backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "rgba(16, 185, 129, 0.25)" };
+      return { backgroundColor: C.thinking };   // Peach timeline pill
     case "IN_PROGRESS":
-      return { backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "rgba(59, 130, 246, 0.25)" };
+      return { backgroundColor: C.read };       // Blue timeline pill
     case "COMPLETED":
-      return { backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "rgba(217, 119, 6, 0.25)" };
+      return { backgroundColor: C.edit };       // Lavender timeline pill
     case "CANCELLED":
     case "NO_SHOW":
-      return { backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "rgba(239, 68, 68, 0.2)" };
+      return { backgroundColor: C.errorBg, borderWidth: 1, borderColor: "rgba(207, 45, 86, 0.2)" };
     default:
-      return { backgroundColor: "rgba(0,0,0,0.04)" };
+      return { backgroundColor: C.lifted };
   }
 }
 
 function getStatusTextStyle(status) {
-  switch (status.toUpperCase()) {
-    case "CONFIRMED":
-    case "PENDING":
-      return { color: "#047857" };
-    case "IN_PROGRESS":
-      return { color: "#1D4ED8" };
-    case "COMPLETED":
-      return { color: "#B45309" };
+  switch ((status || "").toUpperCase()) {
     case "CANCELLED":
     case "NO_SHOW":
-      return { color: "#B91C1C" };
+      return { color: C.error };
     default:
-      return { color: C.dark };
+      return { color: C.ink, fontWeight: FW.semiBold };
   }
 }
 
@@ -533,65 +604,66 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    marginTop: S.sm,
-    color: "#8E877D",
-    fontSize: 13,
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
-  noApptTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1A1714",
+  tabTextActive: {
+    color: "#FFFFFF",
   },
-  noApptSub: {
-    fontSize: 13,
-    color: "#8E877D",
-    textAlign: "center",
-    marginTop: 4,
+  contentContainer: {
+    paddingHorizontal: S.md,
+    paddingBottom: 110,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyContainer: {
     flex: 1,
-    backgroundColor: "#F7F5F0",
+    backgroundColor: C.bg,
     alignItems: "center",
     justifyContent: "center",
-    padding: S.xxl,
+    padding: S.xl,
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: S.md,
+    fontSize: 40,
+    marginBottom: S.sm,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.title,
+    fontWeight: "400",
+    color: C.ink,
     textAlign: "center",
+    letterSpacing: -0.32,
   },
   emptySub: {
-    fontSize: 13,
-    color: "#8E877D",
+    fontSize: FS.bodySm,
+    color: C.body,
     textAlign: "center",
-    marginTop: 6,
+    marginTop: S.xs,
     marginBottom: S.lg,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   signInBtn: {
-    backgroundColor: "#121016",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
+    backgroundColor: C.main,
+    paddingHorizontal: S.xl,
+    paddingVertical: 10,
+    borderRadius: R.md,
   },
   signInBtnText: {
-    color: C.gold,
-    fontSize: 14,
-    fontWeight: "800",
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    padding: S.md,
     marginBottom: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
-    ...SHADOWS.sm,
+    borderColor: C.border,
   },
   cardHeader: {
     flexDirection: "row",
@@ -599,38 +671,35 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   salonName: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.2,
+    ...TYPO.eyebrow,
+    color: C.main,
   },
   serviceName: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#1A1714",
-    marginTop: 3,
-    letterSpacing: -0.3,
+    fontSize: FS.titleSm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    marginTop: 2,
   },
   staffText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#8E877D",
-    marginTop: 4,
+    fontSize: FS.bodySm,
+    color: C.muted,
+    marginTop: 2,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
   },
   statusText: {
     fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0.88,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: "rgba(0,0,0,0.04)",
-    marginVertical: S.md,
+    backgroundColor: C.borderLight,
+    marginVertical: S.sm,
   },
   cardDetails: {
     flexDirection: "row",
@@ -638,87 +707,110 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   metaRow: {
-    gap: 4,
+    gap: 2,
   },
   detailText: {
-    fontSize: 13,
-    color: "#44403C",
-    fontWeight: "600",
+    fontSize: FS.bodySm,
+    color: C.body,
   },
   detailPrice: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.titleSm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   cardActions: {
-    marginTop: S.md,
+    marginTop: S.sm,
     alignItems: "flex-end",
   },
   cardActionsRow: {
-    marginTop: S.md,
+    marginTop: S.sm,
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: 8,
+    gap: S.xs,
   },
   rescheduleBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: "#F3F4F6",
+    paddingHorizontal: S.md,
+    paddingVertical: 6,
+    borderRadius: R.md,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.08)",
+    borderColor: C.borderDark,
   },
   rescheduleBtnText: {
-    color: "#1A1714",
-    fontSize: 12,
-    fontWeight: "700",
+    color: C.ink,
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: "#FEF2F2",
+    paddingHorizontal: S.md,
+    paddingVertical: 6,
+    borderRadius: R.md,
+    backgroundColor: C.errorBg,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.15)",
+    borderColor: "rgba(207, 45, 86, 0.2)",
   },
   cancelBtnText: {
-    color: "#EF4444",
-    fontSize: 12,
-    fontWeight: "700",
+    color: C.error,
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+  },
+  rateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: S.md,
+    paddingVertical: 6,
+    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
+    backgroundColor: C.main, // Cursor Orange #f54e00
+  },
+  rateBtnText: {
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+  },
+  ratedChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: S.sm,
+    paddingVertical: 4,
+    borderRadius: R.pill,
+    backgroundColor: C.lifted,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  ratedChipText: {
+    color: C.ink,
+    fontSize: FS.bodySm - 1,
+    fontWeight: FW.medium,
   },
   toastBanner: {
     position: "absolute",
-    top: 50,
+    top: 48,
     left: 16,
     right: 16,
     zIndex: 9999,
-    backgroundColor: "#1A1714",
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: C.ink,
+    borderRadius: R.md,
+    paddingHorizontal: S.md,
+    paddingVertical: S.sm,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 10,
     borderWidth: 1,
-    borderColor: "#D97706",
+    borderColor: C.main,
   },
   toastTitle: {
-    color: "#D97706",
-    fontSize: 13,
-    fontWeight: "800",
+    color: C.main,
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
   },
   toastMessage: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: FS.bodySm - 1,
     marginTop: 2,
   },
   toastCloseBtn: {
-    padding: 6,
-    marginLeft: 8,
+    padding: 4,
+    marginLeft: S.xs,
   },
 });

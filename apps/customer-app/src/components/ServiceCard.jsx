@@ -2,6 +2,7 @@
 import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import { paiseToINR } from "../services/apiClient";
 
 function ServiceCard({ service, selected, onSelect }) {
@@ -25,9 +26,9 @@ function ServiceCard({ service, selected, onSelect }) {
           <Text style={styles.duration}>{duration} mins</Text>
         </View>
 
-        {/* Radio Check Indicator */}
+        {/* Radio Indicator */}
         <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
-          {selected ? <Ionicons name="checkmark" size={13} color="#FFFFFF" /> : null}
+          {selected ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
         </View>
       </View>
 
@@ -43,9 +44,7 @@ function ServiceCard({ service, selected, onSelect }) {
         </View>
 
         <View style={styles.priceCol}>
-          <Text style={[styles.price, selected && styles.priceSelected]}>
-            {paiseToINR(service.price)}
-          </Text>
+          <Text style={styles.price}>{paiseToINR(service.price)}</Text>
           {selected ? (
             <View style={styles.selectedBadge}>
               <Text style={styles.selectedBadgeText}>SELECTED</Text>
@@ -62,33 +61,24 @@ function ServiceCard({ service, selected, onSelect }) {
 export default memo(ServiceCard);
 
 const styles = StyleSheet.create({
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border, no shadows
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px radius per cursor/DESIGN.md
+    padding: S.md,
+    marginBottom: S.sm,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   cardSelected: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D4AF37",
-    shadowColor: "#D4AF37",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    borderColor: C.main, // Cursor Orange border
+    backgroundColor: C.surface,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: S.xs,
   },
   categoryRow: {
     flexDirection: "row",
@@ -96,33 +86,33 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   category: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#8E8880",
-    letterSpacing: 1.2,
+    fontSize: 10,
+    fontWeight: FW.semiBold,
+    color: C.muted,
+    letterSpacing: 0.88,
   },
   dot: {
     fontSize: 10,
-    color: "#D4AF37",
+    color: C.main,
   },
   duration: {
     fontSize: 10,
-    fontWeight: "700",
-    color: "#8E8880",
+    fontWeight: FW.medium,
+    color: C.muted,
   },
   radioCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 0, 0, 0.15)",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.borderDark,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.lifted,
   },
   radioCircleSelected: {
-    backgroundColor: "#D4AF37",
-    borderColor: "#D4AF37",
+    backgroundColor: C.main,
+    borderColor: C.main,
   },
   mainRow: {
     flexDirection: "row",
@@ -131,53 +121,46 @@ const styles = StyleSheet.create({
   },
   infoArea: {
     flex: 1,
-    paddingRight: 14,
+    paddingRight: S.sm,
   },
   name: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#1A1A1A",
-    letterSpacing: -0.2,
+    fontSize: FS.titleSm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0,
   },
   description: {
-    fontSize: 12,
-    color: "#77726A",
+    fontSize: FS.bodySm,
+    color: C.body,
     marginTop: 4,
-    lineHeight: 17,
-    fontWeight: "400",
+    lineHeight: 18,
   },
   priceCol: {
     alignItems: "flex-end",
     gap: 4,
   },
   price: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#1A1A1A",
-    letterSpacing: -0.3,
-  },
-  priceSelected: {
-    color: "#1A1A1A",
+    fontSize: FS.titleSm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   selectedBadge: {
-    backgroundColor: "rgba(212, 175, 55, 0.12)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(212, 175, 55, 0.3)",
+    backgroundColor: C.mainLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
     marginTop: 2,
   },
   selectedBadgeText: {
     fontSize: 9,
-    fontWeight: "900",
-    color: "#B58C1B",
-    letterSpacing: 0.8,
+    fontWeight: FW.semiBold,
+    color: C.main,
+    letterSpacing: 0.88,
   },
   addBtnText: {
     fontSize: 11,
-    fontWeight: "800",
-    color: "#8E8880",
-    marginTop: 4,
+    fontWeight: FW.medium,
+    color: C.muted,
+    marginTop: 2,
   },
 });

@@ -2,6 +2,7 @@ const Salon = require('../models/salon.model')
 const Branch = require('../models/branch.model')
 const Service = require('../models/service.model')
 const Slot = require('../models/slot.model')
+const Appointment = require('../models/appointment.model')
 const AppError = require('../utils/AppError')
 const dayjs = require('dayjs')
 
@@ -23,16 +24,13 @@ const browseSalons = async (req, res, next) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
-    // if city filter — we need to look inside branches
-    // find all branchIds in that city first
+    // if city filter — look inside branches matching exact/partial city name
     let salonIdsInCity = null
     if (city) {
       const cleanCity = city.split(',')[0].trim()
+      // Match address.city strictly (e.g. "Mumbai", "Bhubaneswar", "Bangalore")
       const branchesInCity = await Branch.find({
-        $or: [
-          { 'address.city': { $regex: new RegExp(cleanCity, 'i') } },
-          { 'address.state': { $regex: new RegExp(cleanCity, 'i') } }
-        ],
+        'address.city': { $regex: new RegExp(cleanCity, 'i') },
         isActive: true
       })
         .select('salonId')
@@ -56,13 +54,20 @@ const browseSalons = async (req, res, next) => {
 
     // attach branch count + basic branch info to each salon
     const salonIds = salons.map((s) => s._id)
+
+    const branchFilter = { salonId: { $in: salonIds }, isActive: true }
+    if (city) {
+      const cleanCity = city.split(',')[0].trim()
+      branchFilter['address.city'] = { $regex: new RegExp(cleanCity, 'i') }
+    }
+
     const [branchCounts, branches] = await Promise.all([
       Branch.aggregate([
-        { $match: { salonId: { $in: salonIds }, isActive: true } },
+        { $match: branchFilter },
         { $group: { _id: '$salonId', count: { $sum: 1 } } }
       ]),
-      Branch.find({ salonId: { $in: salonIds }, isActive: true })
-        .select('salonId name address.city')
+      Branch.find(branchFilter)
+        .select('salonId name address.city address.street address.coordinates')
         .lean()
     ])
 
@@ -456,14 +461,69 @@ const getBranchStaffPublic = async (req, res, next) => {
 // ================================
 const getBranchReviewsPublic = async (req, res, next) => {
   try {
+    const { branchId } = req.params;
+    const appointments = await Appointment.find({
+      branchId,
+      'rating.score': { $ne: null }
+    })
+      .populate('customerId', 'name avatar')
+      .populate('serviceId', 'name')
+      .sort({ 'rating.ratedAt': -1 })
+      .limit(30);
+
+    const reviews = appointments.map((appt) => ({
+      _id: appt._id,
+      customerName: appt.customerId?.name || 'Verified Client',
+      customerAvatar: appt.customerId?.avatar || null,
+      serviceName: appt.serviceId?.name || 'Service',
+      score: appt.rating.score,
+      comment: appt.rating.review,
+      ratedAt: appt.rating.ratedAt,
+    }));
+
     res.status(200).json({
       success: true,
-      data: { reviews: [] }
-    })
+      data: { reviews }
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
+
+// ================================
+// GET /api/v1/browse/salons/:salonId/reviews
+// public — list reviews for a salon
+// ================================
+const getSalonReviewsPublic = async (req, res, next) => {
+  try {
+    const { salonId } = req.params;
+    const appointments = await Appointment.find({
+      salonId,
+      'rating.score': { $ne: null }
+    })
+      .populate('customerId', 'name avatar')
+      .populate('serviceId', 'name')
+      .sort({ 'rating.ratedAt': -1 })
+      .limit(30);
+
+    const reviews = appointments.map((appt) => ({
+      _id: appt._id,
+      customerName: appt.customerId?.name || 'Verified Client',
+      customerAvatar: appt.customerId?.avatar || null,
+      serviceName: appt.serviceId?.name || 'Service',
+      score: appt.rating.score,
+      comment: appt.rating.review,
+      ratedAt: appt.rating.ratedAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: { reviews }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   browseSalons,
@@ -473,5 +533,6 @@ module.exports = {
   getBranchSlotsPublic,
   getBranchServicesPublic,
   getBranchStaffPublic,
-  getBranchReviewsPublic
+  getBranchReviewsPublic,
+  getSalonReviewsPublic,
 }

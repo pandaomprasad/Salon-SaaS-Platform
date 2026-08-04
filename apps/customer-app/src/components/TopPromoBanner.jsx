@@ -1,163 +1,137 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions, ScrollView } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { S } from "../theme";
+import { View, Text, Image, StyleSheet, Dimensions, ScrollView } from "react-native";
+import { C, S, FS, FW, R } from "../theme";
 import BouncyButton from "./BouncyButton";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - 32;
+const CARD_WIDTH = SCREEN_WIDTH - 32;
 
 const BANNERS = [
   {
     id: "1",
-    tag: "SPECIAL WELCOME PERK",
-    title: "20% Off First Booking",
-    subtitle: "Use promo code LUXE20 at checkout",
-    buttonText: "Claim Offer →",
+    tag: "SPECIAL OFFER",
+    tagColor: C.grep,
+    title: "20% off your first luxury salon session",
+    subtitle: "Use code FIRST20 on checkout",
+    cta: "Claim discount",
     image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop",
   },
   {
     id: "2",
-    tag: "BRIDAL & EVENT SPECIAL",
-    title: "VIP Bridal Glam Suite",
-    subtitle: "Exclusive package with top makeup artists",
-    buttonText: "Explore Package →",
+    tag: "BRIDAL EDITION",
+    tagColor: C.edit,
+    title: "Curated bridal makeup & spa packages",
+    subtitle: "Book verified master artists",
+    cta: "Explore packages",
     image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "3",
-    tag: "SEASONAL SPA PERK",
-    title: "Organic Hair & Scalp Spa",
-    subtitle: "Complimentary head massage with haircut",
-    buttonText: "Book Now →",
-    image: "https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop",
   },
 ];
 
 export default function TopPromoBanner({ onPressBanner }) {
   return (
-    <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={BANNER_WIDTH + 16}
-        decelerationRate="fast"
-        snapToAlignment="start"
-        contentContainerStyle={styles.scrollContent}
-      >
-        {BANNERS.map((banner, index) => (
-          <TouchableOpacity
-            key={banner.id}
-            style={[
-              styles.bannerCard,
-              index === BANNERS.length - 1 && { marginRight: 0 },
-            ]}
-            onPress={() => onPressBanner && onPressBanner(banner)}
-            activeOpacity={0.9}
-          >
-            {/* Background Cover Image */}
-            <Image source={{ uri: banner.image }} style={styles.bannerImage} resizeMode="cover" />
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={CARD_WIDTH + 12}
+      decelerationRate="fast"
+      snapToAlignment="start"
+      contentContainerStyle={{ paddingHorizontal: S.md }}
+      style={styles.container}
+    >
+      {BANNERS.map((banner, index) => (
+        <BouncyButton
+          key={banner.id}
+          style={[styles.card, index === BANNERS.length - 1 && { marginRight: 0 }]}
+          onPress={() => onPressBanner && onPressBanner(banner)}
+        >
+          {/* Card Image */}
+          <Image source={{ uri: banner.image }} style={styles.image} resizeMode="cover" />
 
-            {/* Dark Gradient Overlay */}
-            <LinearGradient
-              colors={["rgba(10, 8, 15, 0.1)", "rgba(10, 8, 15, 0.65)", "rgba(8, 6, 12, 0.92)"]}
-              locations={[0, 0.45, 0.88]}
-              style={styles.overlay}
-            >
-              <View style={styles.tagBadge}>
-                <Text style={styles.tagText}>{banner.tag}</Text>
-              </View>
+          {/* Card Overlay Content */}
+          <View style={styles.overlay}>
+            {/* Timeline Tag Pill per cursor/DESIGN.md */}
+            <View style={[styles.tagPill, { backgroundColor: banner.tagColor }]}>
+              <Text style={styles.tagText}>{banner.tag}</Text>
+            </View>
 
-              <Text style={styles.title}>{banner.title}</Text>
-              <Text style={styles.subtitle}>{banner.subtitle}</Text>
+            <Text style={styles.title}>{banner.title}</Text>
+            <Text style={styles.sub}>{banner.subtitle}</Text>
 
-              <BouncyButton
-                style={styles.actionBtn}
-                onPress={() => onPressBanner && onPressBanner(banner)}
-              >
-                <Text style={styles.actionBtnText}>{banner.buttonText}</Text>
-              </BouncyButton>
-            </LinearGradient>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
+            {/* button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius */}
+            <View style={styles.primaryCta}>
+              <Text style={styles.primaryCtaText}>{banner.cta}</Text>
+            </View>
+          </View>
+        </BouncyButton>
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: S.md,
+    marginTop: S.sm,
+    marginBottom: S.md,
   },
-  scrollContent: {
-    paddingHorizontal: 16,
-  },
-  bannerCard: {
-    width: BANNER_WIDTH,
-    height: 195,
-    borderRadius: 28,
+  // feature-card per cursor/DESIGN.md: 12px radius, hairline border, no shadows
+  card: {
+    width: CARD_WIDTH,
+    height: 175,
+    borderRadius: R.lg, // 12px radius
     overflow: "hidden",
-    marginRight: 16,
-    backgroundColor: "#1A1A1A",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 5,
+    marginRight: S.sm,
+    backgroundColor: C.ink,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  bannerImage: {
+  image: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
+    opacity: 0.4,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    padding: 20,
+    flex: 1,
+    padding: S.md,
     justifyContent: "flex-end",
   },
-  tagBadge: {
-    backgroundColor: "#1A1A1A",
+  tagPill: {
     alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
+    marginBottom: S.xs,
   },
   tagText: {
-    color: "#E6CA65",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0.88,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: FS.title,
+    fontWeight: "400", // Display 400
     color: "#FFFFFF",
-    letterSpacing: -0.4,
+    letterSpacing: -0.32,
+    lineHeight: 22,
   },
-  subtitle: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.8)",
+  sub: {
+    fontSize: FS.bodySm,
+    color: "rgba(255,255,255,0.75)",
     marginTop: 2,
-    marginBottom: 12,
-    fontWeight: "400",
+    marginBottom: S.sm,
   },
-  actionBtn: {
-    backgroundColor: "#FFFFFF",
+  // button-primary: Cursor Orange #f54e00, 8px radius, 40px height
+  primaryCta: {
     alignSelf: "flex-start",
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    backgroundColor: C.main, // Cursor Orange
+    paddingHorizontal: S.md,
+    paddingVertical: 8,
+    borderRadius: R.md, // 8px radius
   },
-  actionBtnText: {
-    color: "#1A1A1A",
-    fontSize: 12,
-    fontWeight: "800",
+  primaryCtaText: {
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
 });

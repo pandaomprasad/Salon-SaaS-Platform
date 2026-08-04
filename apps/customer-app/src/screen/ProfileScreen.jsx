@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { C, S, SHADOWS } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProfileScreen({ navigate, onScroll }) {
@@ -19,7 +19,7 @@ export default function ProfileScreen({ navigate, onScroll }) {
         <View style={styles.guestIconBox}>
           <Text style={styles.guestIcon}>👤</Text>
         </View>
-        <Text style={styles.guestTitle}>Welcome to Salon Luxe</Text>
+        <Text style={styles.guestTitle}>Welcome to Salon Platform</Text>
         <Text style={styles.guestSub}>
           Sign in or create an account to manage your profile, view appointments, and receive special offers.
         </Text>
@@ -59,7 +59,7 @@ export default function ProfileScreen({ navigate, onScroll }) {
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        {/* Aesthetic Minimal Profile Header Card */}
+        {/* Profile Header Card */}
         <View style={styles.headerCard}>
           <View style={styles.avatarBox}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -137,10 +137,12 @@ export default function ProfileScreen({ navigate, onScroll }) {
           </TouchableOpacity>
         </View>
 
-        {/* Gentle Sign Out Button */}
+        {/* Sign Out Button */}
         <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.8}>
           <Text style={styles.logoutBtnText}>Sign Out</Text>
         </TouchableOpacity>
+
+        <View style={{ height: S.section }} />
       </ScrollView>
     </View>
   );
@@ -149,186 +151,177 @@ export default function ProfileScreen({ navigate, onScroll }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F5F0",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   content: {
-    paddingHorizontal: S.lg,
-    paddingTop: 54,
-    paddingBottom: 40,
+    paddingHorizontal: S.md,
+    paddingTop: 52,
+    paddingBottom: 110,
   },
 
-  // Profile Header Card
+  // Profile Header Card per cursor/DESIGN.md
   headerCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 26,
-    paddingVertical: S.xl,
-    paddingHorizontal: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px radius per cursor/DESIGN.md
+    paddingVertical: S.lg,
+    paddingHorizontal: S.md,
     alignItems: "center",
-    marginBottom: S.lg,
+    marginBottom: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-    ...SHADOWS.sm,
+    borderColor: C.border,
   },
   avatarBox: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "#B49460",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: C.main, // Cursor Orange
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: S.md,
-    shadowColor: "#B49460",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: S.sm,
   },
   avatarText: {
-    fontSize: 26,
-    fontWeight: "900",
+    fontSize: 22,
+    fontWeight: FW.semiBold,
     color: "#FFFFFF",
   },
   userName: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1A1714",
-    letterSpacing: -0.4,
+    fontSize: FS.title,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.32,
   },
   userEmail: {
-    fontSize: 13,
-    color: "#8E877D",
-    marginTop: 3,
+    fontSize: FS.bodySm,
+    color: C.body,
+    marginTop: 2,
   },
   badge: {
-    backgroundColor: "#FEF3C7",
-    borderWidth: 1,
-    borderColor: "rgba(217, 119, 6, 0.2)",
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 18,
-    marginTop: S.md,
+    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
+    paddingHorizontal: S.sm,
+    paddingVertical: 3,
+    borderRadius: R.pill,
+    marginTop: S.sm,
   },
   badgeText: {
-    color: "#B45309",
+    color: C.ink,
     fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    fontWeight: FW.semiBold,
+    letterSpacing: 0.88,
   },
 
-  // Account Actions Card
+  // Account Actions Card per cursor/DESIGN.md
   cardSection: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: S.lg,
-    marginBottom: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
+    padding: S.md,
+    marginBottom: S.md,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-    ...SHADOWS.sm,
+    borderColor: C.border,
   },
   sectionTitle: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.2,
-    marginBottom: S.sm,
+    ...TYPO.eyebrow,
+    color: C.main,
+    marginBottom: S.xs,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: S.sm + 2,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.04)",
+    borderBottomColor: C.borderLight,
   },
   menuIcon: {
-    fontSize: 18,
-    marginRight: 14,
+    fontSize: 16,
+    marginRight: S.sm,
   },
   menuLabel: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1A1714",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
   menuArrow: {
-    color: "#A8A29E",
-    fontSize: 15,
-    fontWeight: "700",
+    color: C.muted,
+    fontSize: FS.bodySm,
   },
 
   // Sign Out Button
   logoutBtn: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: C.errorBg,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.18)",
-    paddingVertical: 15,
-    borderRadius: 18,
+    borderColor: "rgba(207, 45, 86, 0.2)",
+    paddingVertical: 12,
+    borderRadius: R.md, // 8px radius
     alignItems: "center",
   },
   logoutBtnText: {
-    color: "#EF4444",
-    fontSize: 14,
-    fontWeight: "800",
+    color: C.error,
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
 
   // Guest State
   guestContainer: {
     flex: 1,
-    backgroundColor: "#F7F5F0",
+    backgroundColor: C.bg,
     alignItems: "center",
     justifyContent: "center",
-    padding: S.xxl,
+    padding: S.xl,
   },
   guestIconBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#121016",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: S.lg,
+    marginBottom: S.md,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   guestIcon: {
-    fontSize: 32,
+    fontSize: 28,
   },
   guestTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.titleLg,
+    fontWeight: "400", // Display 400
+    color: C.ink,
     textAlign: "center",
+    letterSpacing: -0.32,
   },
   guestSub: {
-    fontSize: 13,
-    color: "#8E877D",
+    fontSize: FS.bodySm,
+    color: C.body,
     textAlign: "center",
-    marginTop: S.sm,
-    marginBottom: S.xxl,
-    lineHeight: 18,
+    marginTop: S.xs,
+    marginBottom: S.xl,
+    lineHeight: 20,
   },
   primaryBtn: {
     width: "100%",
-    backgroundColor: "#121016",
-    paddingVertical: 14,
-    borderRadius: 14,
+    backgroundColor: C.main, // Cursor Orange
+    paddingVertical: 12,
+    borderRadius: R.md, // 8px radius
     alignItems: "center",
-    marginBottom: S.sm,
+    marginBottom: S.xs,
   },
   primaryBtnText: {
-    color: C.gold,
-    fontSize: 15,
-    fontWeight: "800",
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   secondaryBtn: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.08)",
-    paddingVertical: 14,
-    borderRadius: 14,
+    borderColor: C.border,
+    paddingVertical: 12,
+    borderRadius: R.md, // 8px radius
     alignItems: "center",
   },
   secondaryBtnText: {
-    color: "#1A1714",
-    fontSize: 14,
-    fontWeight: "800",
+    color: C.ink,
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
 });

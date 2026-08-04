@@ -43,6 +43,10 @@ export const browseService = {
     return await apiClient.get(`/browse/branches/${branchId}/reviews`);
   },
 
+  getSalonReviews: async (salonId) => {
+    return await apiClient.get(`/browse/salons/${salonId}/reviews`);
+  },
+
   addBranchReview: async (branchId, rating, comment, serviceName) => {
     return await apiClient.post(`/browse/branches/${branchId}/reviews`, {
       rating,

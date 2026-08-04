@@ -11,7 +11,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 
 export default function EditProfileScreen({ goBack }) {
@@ -41,7 +41,7 @@ export default function EditProfileScreen({ goBack }) {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={20} color="#1A1714" />
+          <Ionicons name="arrow-back" size={18} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Personal Info</Text>
         <View style={{ width: 36 }} />
@@ -70,7 +70,7 @@ export default function EditProfileScreen({ goBack }) {
             value={name}
             onChangeText={setName}
             placeholder="Enter full name"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.dustTaupe}
           />
 
           <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
@@ -80,7 +80,7 @@ export default function EditProfileScreen({ goBack }) {
             onChangeText={setEmail}
             keyboardType="email-address"
             placeholder="Enter email"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.dustTaupe}
           />
 
           <Text style={styles.inputLabel}>PHONE NUMBER</Text>
@@ -90,7 +90,7 @@ export default function EditProfileScreen({ goBack }) {
             onChangeText={setPhone}
             keyboardType="phone-pad"
             placeholder="Enter phone number"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.dustTaupe}
           />
 
           <Text style={styles.inputLabel}>GENDER PREFERENCE</Text>
@@ -136,34 +136,37 @@ export default function EditProfileScreen({ goBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F5F0",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: S.lg,
-    paddingTop: 54,
+    paddingHorizontal: S.md,
+    paddingTop: 52,
     paddingBottom: S.md,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+    borderBottomColor: C.border,
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
+    borderRadius: R.md,
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#1A1714",
+    fontSize: FS.titleSm,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.32,
   },
   content: {
-    padding: S.lg,
+    padding: S.md,
   },
   avatarSection: {
     alignItems: "center",
@@ -173,16 +176,16 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#E5E7EB",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: C.bone,
   },
   editBadge: {
     position: "absolute",
     bottom: 0,
     right: 0,
-    backgroundColor: "#1A1714",
+    backgroundColor: C.main, // Cursor Orange
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -192,73 +195,78 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   avatarHint: {
-    fontSize: 11,
-    color: "#8E8880",
-    marginTop: 8,
+    fontSize: FS.caption,
+    color: C.muted,
+    marginTop: S.xs,
   },
+
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   formGroup: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: S.lg,
-    marginVertical: S.md,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
+    padding: S.md,
+    marginVertical: S.sm,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
   },
   inputLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.1,
-    marginBottom: 6,
-    marginTop: 10,
+    ...TYPO.eyebrow,
+    color: C.main,
+    marginBottom: S.xxs,
+    marginTop: S.xs,
   },
+  // text-input per cursor/DESIGN.md: 8px radius, height 44px
   input: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: "#1A1714",
+    backgroundColor: C.surface,
+    borderRadius: R.md, // 8px radius
+    paddingHorizontal: S.sm,
+    height: 44,
+    fontSize: FS.bodySm,
+    color: C.ink,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginBottom: 6,
+    borderColor: C.border,
+    marginBottom: S.xs,
   },
   genderRow: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 6,
+    gap: S.xs,
+    marginTop: S.xxs,
   },
   genderChip: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    paddingVertical: 8,
+    borderRadius: R.md,
+    backgroundColor: C.surface,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   genderChipSelected: {
-    backgroundColor: "#1A1714",
+    backgroundColor: C.ink,
+    borderColor: C.ink,
   },
   genderText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#4B5563",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
   genderTextSelected: {
     color: "#FFFFFF",
   },
+  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
   saveBtn: {
-    backgroundColor: "#1A1714",
-    paddingVertical: 16,
-    borderRadius: 18,
+    backgroundColor: C.main, // Cursor Orange
+    paddingVertical: 12,
+    borderRadius: R.md, // 8px radius
     alignItems: "center",
     marginTop: S.md,
   },
   successBtn: {
-    backgroundColor: "#10B981",
+    backgroundColor: C.success,
   },
   saveBtnText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
 });

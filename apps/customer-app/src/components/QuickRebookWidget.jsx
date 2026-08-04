@@ -2,8 +2,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { S } from "../theme";
-import { paiseToINR } from "../services/apiClient";
+import { C, S, FS, FW, R } from "../theme";
 import BouncyButton from "./BouncyButton";
 
 function formatDate(dateStr) {
@@ -11,14 +10,8 @@ function formatDate(dateStr) {
   try {
     const d = new Date(dateStr + "T00:00:00");
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  } catch (e) {
-    return dateStr;
-  }
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  } catch (e) { return dateStr; }
 }
 
 function formatTime(timeStr) {
@@ -29,234 +22,159 @@ function formatTime(timeStr) {
     let hours = parseInt(parts[0], 10);
     const minutes = parts[1];
     const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12;
+    hours = hours % 12 || 12;
     return `${hours}:${minutes} ${ampm}`;
-  } catch (e) {
-    return timeStr;
-  }
+  } catch (e) { return timeStr; }
 }
 
-export default function QuickRebookWidget({
-  isAuthenticated = true,
-  appointment,
-  onRebook,
-  onViewDetails,
-  onLogin,
-}) {
-  // 1. Guest Unauthenticated State
+export default function QuickRebookWidget({ isAuthenticated = true, appointment, onRebook, onViewDetails, onLogin }) {
   if (!isAuthenticated) {
     return (
-      <View style={[styles.widgetCard, styles.guestWidgetCard]}>
-        <View style={styles.headerRow}>
-          <View style={[styles.titleBadge, styles.guestBadge]}>
-            <Ionicons name="lock-closed" size={12} color="#E6CA65" />
-            <Text style={styles.badgeText}>UPCOMING APPOINTMENTS</Text>
-          </View>
-          <Text style={styles.lastVisitText}>Guest Mode</Text>
+      <BouncyButton style={styles.card} onPress={onLogin || onRebook}>
+        <View style={styles.iconBox}>
+          <Ionicons name="calendar-outline" size={18} color={C.ink} />
         </View>
-
-        <View style={styles.bodyRow}>
-          <View style={styles.salonInfo}>
-            <Text style={styles.salonName} numberOfLines={1}>
-              Track your salon bookings
-            </Text>
-            <Text style={styles.serviceName}>
-              Login to check your upcoming visits & history
-            </Text>
-          </View>
-
-          <BouncyButton style={styles.rebookBtn} onPress={onLogin || onRebook}>
-            <Text style={styles.rebookText}>Login to Check</Text>
-            <Ionicons name="arrow-forward" size={13} color="#1A1A1A" />
-          </BouncyButton>
+        <View style={styles.textBlock}>
+          <Text style={styles.cardTitle}>Track your appointments</Text>
+          <Text style={styles.cardSub}>Sign in to view active bookings</Text>
         </View>
-      </View>
+        <View style={styles.primaryBtn}>
+          <Text style={styles.primaryBtnText}>Sign in</Text>
+        </View>
+      </BouncyButton>
     );
   }
 
-  // 2. Authenticated State (Active Upcoming or Past Appointment)
-  const isUpcoming =
-    appointment &&
-    ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes((appointment.status || "").toUpperCase());
+  const isUpcoming = appointment && ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes((appointment.status || "").toUpperCase());
 
   const salonName =
     appointment?.salon?.name ||
     (typeof appointment?.salonId === "object" ? appointment.salonId?.name : null) ||
     (typeof appointment?.branchId === "object" ? appointment.branchId?.name : null) ||
-    "Enrich Hair & Skin Studio";
+    "Your studio";
 
   const serviceName =
     appointment?.service?.name ||
     (typeof appointment?.serviceId === "object" ? appointment.serviceId?.name : null) ||
-    "Haircut & Scalp Spa";
+    "Service";
 
-  const price =
-    appointment?.pricePaid ??
-    (typeof appointment?.serviceId === "object" ? appointment.serviceId?.price : null) ??
-    120000;
-
-  const rawDate =
-    appointment?.date ||
-    (typeof appointment?.slotId === "object" ? appointment.slotId?.date : null);
-
-  const rawTime =
-    appointment?.startTime ||
-    (typeof appointment?.slotId === "object" ? appointment.slotId?.startTime : null);
-
+  const rawDate = appointment?.date || (typeof appointment?.slotId === "object" ? appointment.slotId?.date : null);
+  const rawTime = appointment?.startTime || (typeof appointment?.slotId === "object" ? appointment.slotId?.startTime : null);
   const formattedDate = formatDate(rawDate);
   const formattedTime = formatTime(rawTime);
 
-  const badgeTitle = isUpcoming
-    ? "UPCOMING VISIT"
-    : appointment
-    ? "PAST VISIT"
-    : "QUICK REBOOK";
-
-  const subDateText = isUpcoming && formattedDate
-    ? `📅 ${formattedDate}${formattedTime ? ` • ${formattedTime}` : ""}`
-    : "12 days ago";
-
-  const btnText = isUpcoming ? "View Visit" : "Book Again";
   const handlePress = isUpcoming ? (onViewDetails || onRebook) : onRebook;
 
   return (
-    <View style={[styles.widgetCard, isUpcoming && styles.upcomingWidgetCard]}>
-      <View style={styles.headerRow}>
-        <View style={[styles.titleBadge, isUpcoming && styles.upcomingBadge]}>
-          <Ionicons
-            name={isUpcoming ? "calendar" : "sparkles"}
-            size={12}
-            color={isUpcoming ? "#34D399" : "#E6CA65"}
-          />
-          <Text style={[styles.badgeText, isUpcoming && styles.upcomingBadgeText]}>
-            {badgeTitle}
-          </Text>
-        </View>
-        <Text style={styles.lastVisitText}>{subDateText}</Text>
+    <BouncyButton style={[styles.card, isUpcoming && styles.cardActive]} onPress={handlePress}>
+      {/* Timeline pill for status */}
+      <View style={[styles.iconBox, { backgroundColor: isUpcoming ? C.grep : C.lifted }]}>
+        <Ionicons name={isUpcoming ? "calendar" : "refresh-outline"} size={16} color={C.ink} />
       </View>
 
-      <View style={styles.bodyRow}>
-        <View style={styles.salonInfo}>
-          <Text style={styles.salonName} numberOfLines={1}>
-            {salonName}
-          </Text>
-          <Text style={styles.serviceName}>
-            {serviceName} • {paiseToINR(price)}
-          </Text>
+      <View style={styles.textBlock}>
+        <View style={styles.titleRow}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{salonName}</Text>
+          {isUpcoming ? (
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>CONFIRMED</Text>
+            </View>
+          ) : null}
         </View>
-
-        <BouncyButton style={styles.rebookBtn} onPress={handlePress}>
-          <Text style={styles.rebookText}>{btnText}</Text>
-          <Ionicons name="arrow-forward" size={13} color="#1A1A1A" />
-        </BouncyButton>
+        <Text style={styles.cardSub} numberOfLines={1}>
+          {isUpcoming && formattedDate ? `${formattedDate}${formattedTime ? ` · ${formattedTime}` : ""}` : serviceName}
+        </Text>
       </View>
-    </View>
+
+      {/* Primary button per cursor/DESIGN.md: 8px radius, Cursor Orange or Ink */}
+      <View style={[styles.primaryBtn, isUpcoming && styles.secondaryBtn]}>
+        <Text style={[styles.primaryBtnText, isUpcoming && styles.secondaryBtnText]}>
+          {isUpcoming ? "View" : "Rebook"}
+        </Text>
+      </View>
+    </BouncyButton>
   );
 }
 
 const styles = StyleSheet.create({
-  widgetCard: {
-    marginHorizontal: S.lg,
-    marginTop: S.sm,
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border, no shadow
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: S.md,
     marginBottom: S.md,
-    padding: 20,
-    borderRadius: 28,
-    backgroundColor: "#1A1A1A",
+    padding: S.md,
+    borderRadius: R.lg, // 12px card radius
+    backgroundColor: C.surface, // White card surface
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 5,
+    borderColor: C.border, // 1px hairline divider
   },
-  upcomingWidgetCard: {
-    borderColor: "rgba(52, 211, 153, 0.35)",
-    backgroundColor: "#121C18",
+  cardActive: {
+    backgroundColor: C.surface,
+    borderColor: C.borderDark,
   },
-  guestWidgetCard: {
-    borderColor: "rgba(230, 202, 101, 0.3)",
-    backgroundColor: "#1A1A1A",
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: R.md,
+    backgroundColor: C.lifted,
     alignItems: "center",
-    marginBottom: 10,
-  },
-  titleBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 5,
+    justifyContent: "center",
+    marginRight: S.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: C.borderLight,
   },
-  guestBadge: {
-    backgroundColor: "rgba(230, 202, 101, 0.12)",
-    borderColor: "rgba(230, 202, 101, 0.3)",
+  textBlock: {
+    flex: 1,
+    marginRight: S.xs,
   },
-  upcomingBadge: {
-    backgroundColor: "rgba(52, 211, 153, 0.15)",
-    borderColor: "rgba(52, 211, 153, 0.3)",
-  },
-  badgeText: {
-    color: "#E6CA65",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-  },
-  upcomingBadgeText: {
-    color: "#6EE7B7",
-  },
-  lastVisitText: {
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.75)",
-    fontWeight: "600",
-  },
-  bodyRow: {
+  titleRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 6,
+  },
+  cardTitle: {
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    flexShrink: 1,
+  },
+  statusPill: {
+    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: R.pill,
+  },
+  statusPillText: {
+    fontSize: 9,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0.88,
+  },
+  cardSub: {
+    fontSize: FS.bodySm - 1,
+    color: C.body,
     marginTop: 2,
   },
-  salonInfo: {
-    flex: 1,
-    marginRight: 12,
+  // button-primary: Cursor Orange #f54e00, 8px radius
+  primaryBtn: {
+    backgroundColor: C.main, // Cursor Orange
+    paddingHorizontal: S.md,
+    paddingVertical: 8,
+    borderRadius: R.md, // 8px button radius per cursor/DESIGN.md
   },
-  salonName: {
-    fontSize: 16,
-    fontWeight: "800",
+  primaryBtnText: {
     color: "#FFFFFF",
-    letterSpacing: -0.2,
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
-  serviceName: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.75)",
-    marginTop: 3,
-    fontWeight: "400",
+  // button-secondary: White bg + 1px hairline border
+  secondaryBtn: {
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.borderDark,
   },
-  rebookBtn: {
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  rebookText: {
-    color: "#1A1A1A",
-    fontWeight: "900",
-    fontSize: 12,
+  secondaryBtnText: {
+    color: C.ink,
   },
 });

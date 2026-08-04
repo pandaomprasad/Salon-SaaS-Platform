@@ -38,9 +38,14 @@ export const API_BASE_URL = getBaseUrl();
 console.log("API Base URL active:", API_BASE_URL);
 
 let userToken = null;
+let unauthorizedHandler = null;
 
 export const setAuthToken = (token) => {
   userToken = token;
+};
+
+export const setUnauthorizedHandler = (handler) => {
+  unauthorizedHandler = handler;
 };
 
 export const getAuthToken = () => userToken;
@@ -92,7 +97,14 @@ async function request(endpoint, options = {}) {
       const msg = data?.message || data?.error || `Request failed with status ${response.status}`;
       const err = new Error(msg);
       err.data = data;
+      err.status = response.status;
       err.conflictAppointment = data?.conflictAppointment || null;
+
+      // Handle 401 Unauthorized or Token Expiry automatically
+      if ((response.status === 401 || msg.toLowerCase().includes("token expired")) && unauthorizedHandler) {
+        unauthorizedHandler();
+      }
+
       throw err;
     }
 

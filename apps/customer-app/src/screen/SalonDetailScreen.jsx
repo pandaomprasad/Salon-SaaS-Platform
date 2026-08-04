@@ -9,8 +9,10 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import ServiceCard from "../components/ServiceCard";
 import ErrorCardModal from "../components/ErrorCardModal";
 import ReviewsSection from "../components/ReviewsSection";
@@ -360,47 +362,45 @@ export default memo(SalonDetailScreen);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
-  scrollContent: {
-    paddingBottom: 130,
+  scroller: {
+    flex: 1,
   },
-
-  // Minimal Cover Hero Card
+  contentContainer: {
+    paddingBottom: 110,
+  },
   heroCardContainer: {
     height: 240,
-    marginHorizontal: 16,
-    marginTop: 52,
-    borderRadius: 24,
+    marginHorizontal: S.md,
+    marginTop: Platform.OS === "android" ? 44 : 52,
+    borderRadius: R.lg, // 12px radius per cursor/DESIGN.md
     overflow: "hidden",
     position: "relative",
-    backgroundColor: "#EFECE6",
+    backgroundColor: C.ink,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   heroImage: {
-    ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-  },
-  heroGradient: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.18)",
   },
   backPill: {
     position: "absolute",
     top: 14,
     left: 14,
+    backgroundColor: "rgba(38, 37, 30, 0.75)",
+    paddingHorizontal: S.md,
+    paddingVertical: 6,
+    borderRadius: R.md,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(26, 26, 26, 0.65)",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    gap: 5,
+    gap: 4,
   },
   backText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   heartPill: {
     position: "absolute",
@@ -408,30 +408,28 @@ const styles = StyleSheet.create({
     right: 14,
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(26, 26, 26, 0.65)",
+    borderRadius: R.md,
+    backgroundColor: "rgba(38, 37, 30, 0.75)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   // Header Title Block
   headerTitleBlock: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 24,
+    marginHorizontal: S.md,
+    marginTop: S.md,
+    marginBottom: S.lg,
   },
   studioLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#8E8880",
-    letterSpacing: 1.5,
+    ...TYPO.eyebrow,
+    color: C.main,
     marginBottom: 4,
   },
   salonTitle: {
     fontSize: 26,
-    fontWeight: "800",
-    color: "#1A1A1A",
-    letterSpacing: -0.5,
+    fontWeight: "400", // Display 400 per cursor/DESIGN.md
+    color: C.ink,
+    letterSpacing: -0.52,
   },
   metaRow: {
     flexDirection: "row",
@@ -445,43 +443,38 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   starText: {
-    color: "#D4AF37",
+    color: "#c08532",
     fontSize: 13,
-    fontWeight: "900",
+    fontWeight: FW.semiBold,
   },
   ratingNumber: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#1A1A1A",
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   metaSub: {
-    fontSize: 12,
-    color: "#77726A",
-    fontWeight: "500",
+    fontSize: FS.bodySm,
+    color: C.body,
   },
   dotSeparator: {
     fontSize: 12,
-    color: "#B5AF0",
+    color: C.muted,
   },
   salonDescription: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: "#77726A",
-    marginTop: 10,
-    fontWeight: "400",
+    fontSize: FS.bodySm,
+    lineHeight: 20,
+    color: C.body,
+    marginTop: S.xs,
   },
 
   // Sections
   section: {
-    marginHorizontal: 20,
-    marginBottom: 24,
+    marginHorizontal: S.md,
+    marginBottom: S.lg,
   },
   sectionHeading: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#8E8880",
-    letterSpacing: 1.5,
-    marginBottom: 12,
+    ...TYPO.eyebrow,
+    marginBottom: S.sm,
   },
 
   // Branch Selector
@@ -489,59 +482,58 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   branchPill: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginRight: 10,
+    backgroundColor: C.surface,
+    paddingHorizontal: S.md,
+    paddingVertical: S.sm,
+    borderRadius: R.md, // 8px radius
+    marginRight: S.xs,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
   },
   branchPillSelected: {
-    backgroundColor: "#1A1A1A",
-    borderColor: "#1A1A1A",
+    backgroundColor: C.main,
+    borderColor: C.main,
   },
   branchTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#1A1A1A",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
   },
   branchTitleSelected: {
     color: "#FFFFFF",
   },
   branchCity: {
-    fontSize: 11,
-    color: "#8E8880",
+    fontSize: FS.caption,
+    color: C.muted,
     marginTop: 2,
-    fontWeight: "500",
   },
   branchCitySelected: {
-    color: "rgba(255, 255, 255, 0.65)",
+    color: "rgba(255, 255, 255, 0.8)",
   },
 
   // Category Filter Tabs
   catTabRow: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: S.md,
   },
   catTab: {
-    paddingHorizontal: 14,
+    paddingHorizontal: S.md,
     paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    marginRight: 8,
+    borderRadius: R.md,
+    backgroundColor: C.surface,
+    marginRight: S.xs,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.border,
   },
   catTabSelected: {
-    backgroundColor: "#1A1A1A",
-    borderColor: "#1A1A1A",
+    backgroundColor: C.ink,
+    borderColor: C.ink,
   },
   catTabText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#1A1A1A",
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    letterSpacing: 0.88,
   },
   catTabTextSelected: {
     color: "#FFFFFF",
@@ -549,66 +541,61 @@ const styles = StyleSheet.create({
 
   // Loading & Empty States
   loadingBox: {
-    padding: 32,
+    padding: S.xl,
     alignItems: "center",
   },
   emptyCard: {
-    padding: 24,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    padding: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.04)",
+    borderColor: C.border,
   },
   emptyText: {
-    color: "#8E8880",
-    fontSize: 12,
-    fontWeight: "500",
+    color: C.muted,
+    fontSize: FS.bodySm,
   },
 
-  // Ultra-Sleek Floating Bottom Action Pill
+  // Floating Bottom Action Pill (cursor/DESIGN.md spec: 8px radius button)
   floatingActionCapsule: {
     position: "absolute",
-    bottom: 24,
+    bottom: 20,
     left: 16,
     right: 16,
-    backgroundColor: "#1A1A1A",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
+    backgroundColor: C.ink,
+    paddingHorizontal: S.md,
+    paddingVertical: S.sm + 2,
+    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 10,
+    borderWidth: 1,
+    borderColor: C.borderDark,
   },
   barInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: S.sm,
   },
   barServiceName: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   barMetaText: {
-    color: "rgba(255, 255, 255, 0.65)",
-    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: FS.caption,
     marginTop: 2,
-    fontWeight: "500",
   },
   proceedBtn: {
-    backgroundColor: "#E6CA65",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: C.main, // Cursor Orange
+    paddingHorizontal: S.md,
+    paddingVertical: 8,
+    borderRadius: R.md,
   },
   proceedBtnText: {
-    color: "#1A1A1A",
-    fontSize: 12,
-    fontWeight: "900",
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
 });

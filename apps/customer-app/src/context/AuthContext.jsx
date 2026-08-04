@@ -1,6 +1,6 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useState, useEffect, useContext } from "react";
-import { setAuthToken } from "../services/apiClient";
+import { setAuthToken, setUnauthorizedHandler } from "../services/apiClient";
 import { authService } from "../services/authService";
 import { storage } from "../services/storage";
 
@@ -14,6 +14,18 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const logout = async () => {
+    setUser(null);
+    setToken(null);
+    setAuthToken(null);
+    await storage.removeItem(AUTH_TOKEN_KEY);
+    await storage.removeItem(AUTH_USER_KEY);
+  };
+
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+  }, []);
 
   // Restore user session automatically on app startup
   useEffect(() => {
@@ -105,14 +117,6 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const logout = async () => {
-    setUser(null);
-    setToken(null);
-    setAuthToken(null);
-    await storage.removeItem(AUTH_TOKEN_KEY);
-    await storage.removeItem(AUTH_USER_KEY);
   };
 
   return (

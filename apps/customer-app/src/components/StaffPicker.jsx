@@ -2,7 +2,7 @@
 import React from "react";
 import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 
 const DEFAULT_STAFF = [
   {
@@ -16,10 +16,9 @@ const DEFAULT_STAFF = [
   {
     id: "st_1",
     name: "Alexander Wright",
-    title: "Master Stylist & Director",
+    title: "Master Stylist",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop",
     rating: "4.95",
-    specialty: "Precision Cuts & Color",
   },
   {
     id: "st_2",
@@ -27,7 +26,6 @@ const DEFAULT_STAFF = [
     title: "Senior Colorist",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop",
     rating: "4.92",
-    specialty: "Balayage & Highlights",
   },
   {
     id: "st_3",
@@ -35,7 +33,6 @@ const DEFAULT_STAFF = [
     title: "Barber Specialist",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop",
     rating: "4.88",
-    specialty: "Beard Sculpting & Fades",
   },
 ];
 
@@ -63,12 +60,12 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
               key={staffId}
               style={[styles.staffCard, isSelected && styles.staffCardSelected]}
               onPress={() => onSelectStaff(staff.isAny ? null : staff)}
-              activeOpacity={0.82}
+              activeOpacity={0.85}
             >
               <View style={styles.avatarWrapper}>
                 {staff.isAny ? (
                   <View style={[styles.avatar, styles.anyAvatar]}>
-                    <Ionicons name="sparkles" size={22} color="#D97706" />
+                    <Ionicons name="sparkles" size={20} color={C.main} />
                   </View>
                 ) : (
                   <Image source={{ uri: staff.avatar || staff.photoUrl }} style={styles.avatar} />
@@ -80,7 +77,7 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
                 )}
               </View>
 
-              <Text style={[styles.name, isSelected && styles.nameSelected]} numberOfLines={1}>
+              <Text style={styles.name} numberOfLines={1}>
                 {staff.name}
               </Text>
               <Text style={styles.title} numberOfLines={1}>
@@ -89,7 +86,7 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
 
               {!staff.isAny && (
                 <View style={styles.ratingBox}>
-                  <Ionicons name="star" size={11} color="#D97706" />
+                  <Ionicons name="star" size={10} color="#c08532" />
                   <Text style={styles.ratingText}>{staff.rating || "4.9"}</Text>
                 </View>
               )}
@@ -103,60 +100,51 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: S.md,
+    marginVertical: S.sm,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: S.sm,
-    paddingHorizontal: S.sm,
+    marginBottom: S.xs,
   },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.1,
+    ...TYPO.eyebrow,
   },
   optionalBadge: {
-    fontSize: 11,
-    color: "#8E8880",
-    fontWeight: "600",
+    fontSize: FS.caption,
+    color: C.muted,
   },
   scrollContent: {
-    paddingRight: S.md,
+    paddingRight: S.sm,
   },
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   staffCard: {
-    width: 120,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 12,
+    width: 114,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
+    padding: S.sm,
     alignItems: "center",
-    marginRight: 10,
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    marginRight: S.xs,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   staffCardSelected: {
-    borderColor: "#1A1714",
-    backgroundColor: "#FAF8F5",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderColor: C.main,
+    backgroundColor: C.surface,
   },
   avatarWrapper: {
     position: "relative",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#F3F4F6",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: C.bone,
   },
   anyAvatar: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: C.mainLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -164,7 +152,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -2,
     right: -2,
-    backgroundColor: "#1A1714",
+    backgroundColor: C.main,
     width: 18,
     height: 18,
     borderRadius: 9,
@@ -174,33 +162,30 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   name: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#1A1714",
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
     textAlign: "center",
   },
-  nameSelected: {
-    fontWeight: "800",
-  },
   title: {
-    fontSize: 10,
-    color: "#8E8880",
+    fontSize: FS.caption,
+    color: C.body,
     textAlign: "center",
     marginTop: 2,
   },
   ratingBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEF3C7",
+    backgroundColor: C.lifted,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
-    marginTop: 6,
+    borderRadius: R.pill,
+    marginTop: 4,
   },
   ratingText: {
     fontSize: 10,
-    fontWeight: "800",
-    color: "#B45309",
-    marginLeft: 3,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    marginLeft: 2,
   },
 });

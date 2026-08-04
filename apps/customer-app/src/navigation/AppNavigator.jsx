@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform, Animated, LayoutAnimation, UIManager, LogBox } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, SHADOWS } from "../theme";
+import { C, S, FS, FW, R, SHADOWS } from "../theme";
 
 import HomeScreen from "../screen/homeScreen";
 import ExploreScreen from "../screen/ExploreScreen";
@@ -172,18 +172,26 @@ export default function AppNavigator() {
       return <SupportScreen goBack={goBack} navigate={navigate} />;
     }
 
-    switch (currentTab) {
-      case "Explore":
-        return <ExploreScreen navigate={navigate} routeParams={screenParams} onScroll={handleScroll} />;
-      case "Bookings":
-        return <BookingsScreen navigate={navigate} onScroll={handleScroll} />;
-      case "Profile":
-        return <ProfileScreen navigate={navigate} onScroll={handleScroll} />;
-      case "Home":
-      default:
-        return <HomeScreen navigate={navigate} onScroll={handleScroll} />;
-    }
+    return renderTabViews();
   };
+
+  // Persistent Tab Screen Views (Keep-Alive)
+  const renderTabViews = () => (
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, display: currentTab === "Home" ? "flex" : "none" }}>
+        <HomeScreen navigate={navigate} onScroll={handleScroll} />
+      </View>
+      <View style={{ flex: 1, display: currentTab === "Explore" ? "flex" : "none" }}>
+        <ExploreScreen navigate={navigate} routeParams={screenParams} onScroll={handleScroll} />
+      </View>
+      <View style={{ flex: 1, display: currentTab === "Bookings" ? "flex" : "none" }}>
+        <BookingsScreen navigate={navigate} onScroll={handleScroll} />
+      </View>
+      <View style={{ flex: 1, display: currentTab === "Profile" ? "flex" : "none" }}>
+        <ProfileScreen navigate={navigate} onScroll={handleScroll} />
+      </View>
+    </View>
+  );
 
   const isIos = Platform.OS === "ios";
 
@@ -242,8 +250,8 @@ export default function AppNavigator() {
                   >
                     <Ionicons
                       name={iconName}
-                      size={22}
-                      color={isSelected ? "#1A1714" : "#8E8880"}
+                      size={20}
+                      color={isSelected ? C.main : C.muted}
                     />
                     <Text
                       style={[
@@ -273,87 +281,80 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.dark,
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   content: {
     flex: 1,
   },
 
-  // ──── iOS Floating Pill Tab Bar ────
+  // ──── Floating Pill Nav per cursor/DESIGN.md ────
   iosTabBarContainer: {
     position: "absolute",
-    bottom: 28,
-    left: 20,
-    right: 20,
-    height: 66,
-    borderRadius: 33,
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    bottom: 24,
+    left: 16,
+    right: 16,
+    height: 58,
+    borderRadius: R.pill,          // rounded.pill (9999px)
+    backgroundColor: C.surface,     // Surface card white
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.14,
-    shadowRadius: 20,
-    elevation: 12,
+    borderColor: C.border,          // 1px hairline border
   },
   iosTabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   iosTabLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#8E8880",
-    marginTop: 3,
+    fontSize: 10,
+    fontWeight: FW.medium,
+    color: C.muted,
+    marginTop: 2,
   },
   iosTabLabelSelected: {
-    color: "#1A1714",
-    fontWeight: "800",
+    color: C.main,                  // Cursor Orange #f54e00
+    fontWeight: FW.semiBold,
   },
 
-  // ──── Android Material 3 Expanding Pill Capsule Tab Bar ────
+  // ──── Android Tab Bar per cursor/DESIGN.md ────
   androidTabBarContainer: {
     position: "absolute",
-    bottom: 24,
+    bottom: 20,
     left: 16,
     right: 16,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#FFFFFF",
+    height: 56,
+    borderRadius: R.pill,
+    backgroundColor: C.surface,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 10,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   androidTabItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: R.md,             // 8px radius per cursor/DESIGN.md
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
   },
   androidTabItemActive: {
-    backgroundColor: "#1D1B20",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 24,
+    backgroundColor: C.main,        // Cursor Orange primary
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: R.md,             // 8px CTA radius
   },
   androidActiveLabel: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    fontWeight: FW.medium,
     fontSize: 13,
-    marginLeft: 8,
+    marginLeft: 6,
   },
 });
+

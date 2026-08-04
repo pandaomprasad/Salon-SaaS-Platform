@@ -12,15 +12,25 @@ import {
   Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S } from "../theme";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 
-export default function AddReviewModal({ visible, onClose, onSubmit, salonName }) {
+export default function AddReviewModal({ visible, onClose, onSubmit, appointment, salonName: propSalonName }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const salonName =
+    propSalonName ||
+    appointment?.salon?.name ||
+    (typeof appointment?.salonId === "object" ? appointment.salonId?.name : null) ||
+    "Salon Studio";
+
+  const serviceName =
+    appointment?.service?.name ||
+    (typeof appointment?.serviceId === "object" ? appointment.serviceId?.name : null) ||
+    "your appointment";
+
   const handleSubmit = async () => {
-    if (!comment.trim()) return;
     setSubmitting(true);
     try {
       if (onSubmit) {
@@ -37,19 +47,19 @@ export default function AddReviewModal({ visible, onClose, onSubmit, salonName }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="fade">
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.backdrop}>
           <View style={styles.card}>
             <View style={styles.header}>
-              <Text style={styles.title}>RATE YOUR EXPERIENCE</Text>
+              <Text style={styles.title}>RATE YOUR LAST VISIT</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={20} color="#1A1714" />
+                <Ionicons name="close" size={18} color={C.ink} />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.subtitle}>
-              How was your visit to <Text style={styles.salonBold}>{salonName || "the salon"}</Text>?
+              How was your recent <Text style={styles.salonBold}>{serviceName}</Text> at <Text style={styles.salonBold}>{salonName}</Text>?
             </Text>
 
             {/* Star Selector */}
@@ -63,8 +73,8 @@ export default function AddReviewModal({ visible, onClose, onSubmit, salonName }
                 >
                   <Ionicons
                     name={star <= rating ? "star" : "star-outline"}
-                    size={36}
-                    color={star <= rating ? "#D97706" : "#D1D5DB"}
+                    size={32}
+                    color={star <= rating ? C.main : C.dustTaupe}
                   />
                 </TouchableOpacity>
               ))}
@@ -76,8 +86,8 @@ export default function AddReviewModal({ visible, onClose, onSubmit, salonName }
             {/* Comment Input */}
             <TextInput
               style={styles.textInput}
-              placeholder="Write your feedback, stylist appreciation, or tips..."
-              placeholderTextColor="#9CA3AF"
+              placeholder="Write your review, feedback or comments..."
+              placeholderTextColor={C.dustTaupe}
               multiline
               numberOfLines={4}
               value={comment}
@@ -85,16 +95,17 @@ export default function AddReviewModal({ visible, onClose, onSubmit, salonName }
               textAlignVertical="top"
             />
 
+            {/* button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius */}
             <TouchableOpacity
-              style={[styles.submitBtn, (!comment.trim() || submitting) && styles.disabledBtn]}
+              style={[styles.submitBtn, submitting && styles.disabledBtn]}
               onPress={handleSubmit}
-              disabled={!comment.trim() || submitting}
+              disabled={submitting}
               activeOpacity={0.85}
             >
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitBtnText}>Post Review</Text>
+                <Text style={styles.submitBtnText}>Submit Review</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -107,76 +118,81 @@ export default function AddReviewModal({ visible, onClose, onSubmit, salonName }
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(38, 37, 30, 0.5)",
+    justifyContent: "center",
+    padding: S.md,
   },
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   card: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, // 12px card radius
     padding: S.lg,
-    paddingBottom: 36,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: S.sm,
+    marginBottom: S.xs,
   },
   title: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 1.1,
+    ...TYPO.eyebrow,
+    color: C.main,
   },
   closeBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
+    borderRadius: R.md,
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#4B5563",
-    marginBottom: S.md,
+    fontSize: FS.bodySm,
+    color: C.body,
+    marginBottom: S.sm,
+    lineHeight: 20,
   },
   salonBold: {
-    fontWeight: "700",
-    color: "#1A1714",
+    fontWeight: FW.semiBold,
+    color: C.ink,
   },
   starRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
-    marginVertical: S.sm,
+    marginVertical: S.xs,
   },
   starBtn: {
     padding: 4,
   },
   ratingLabel: {
     textAlign: "center",
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#B45309",
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+    color: C.ink,
+    marginBottom: S.sm,
+  },
+  // text-input per cursor/DESIGN.md: 8px radius
+  textInput: {
+    backgroundColor: C.surface,
+    borderRadius: R.md, // 8px radius
+    padding: S.sm,
+    fontSize: FS.bodySm,
+    color: C.ink,
+    borderWidth: 1,
+    borderColor: C.border,
+    height: 90,
     marginBottom: S.md,
   },
-  textInput: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 14,
-    fontSize: 14,
-    color: "#1A1714",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    height: 110,
-    marginBottom: S.lg,
-  },
+  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
   submitBtn: {
-    backgroundColor: "#1A1714",
-    paddingVertical: 15,
-    borderRadius: 16,
+    backgroundColor: C.main, // Cursor Orange
+    paddingVertical: 12,
+    borderRadius: R.md, // 8px radius
     alignItems: "center",
   },
   disabledBtn: {
@@ -184,7 +200,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
 });

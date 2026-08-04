@@ -231,6 +231,24 @@ async function seedMasterData() {
     });
     await User.findByIdAndUpdate(manager1_1._id, { branchId: branch1_1._id });
 
+    // --- Salon 1, Branch 3: Bhubaneswar Saheed Nagar ---
+    const branch1_3 = await Branch.create({
+      salonId: salon1._id,
+      name: "Bhubaneswar Saheed Nagar Studio",
+      address: {
+        street: "Janpath Road, Saheed Nagar",
+        city: "Bhubaneswar",
+        state: "Odisha",
+        pincode: "751007",
+        country: "India",
+        coordinates: { lat: 20.296, lng: 85.824 },
+      },
+      contactPhone: "+91-9820022299",
+      contactEmail: "bhubaneswar@glamourstudios.com",
+      managerId: manager1_1._id,
+      slotDurationMinutes: 60,
+    });
+
     // Staff for Branch 1_1
     const staff1_1_a = await User.create({
       name: "Aarav Sharma",

@@ -8,10 +8,13 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
+  Platform,
 } from "react-native";
-import { C, S, SHADOWS } from "../theme";
+import { Ionicons } from "@expo/vector-icons";
+import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
+import BouncyButton from "../components/BouncyButton";
 
 export default function RegisterScreen({ navigate, goBack, routeParams }) {
   const { register } = useAuth();
@@ -45,41 +48,50 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
+      {/* Top Nav */}
+      <View style={styles.topNav}>
         {goBack ? (
-          <TouchableOpacity style={styles.backBtn} onPress={goBack}>
-            <Text style={styles.backText}>← Back</Text>
+          <TouchableOpacity style={styles.backCircleBtn} onPress={goBack} activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={18} color={C.ink} />
           </TouchableOpacity>
         ) : null}
-        <Text style={styles.headerTitle}>Create Account</Text>
-        <Text style={styles.headerSub}>Join Salon Luxe for easy bookings & exclusive perks</Text>
       </View>
 
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.badgeTag}>
+          <Text style={styles.badgeTagText}>JOIN PLATFORM</Text>
+        </View>
+        <Text style={styles.headerTitle}>Create Account</Text>
+        <Text style={styles.headerSub}>Join for instant bookings & exclusive partner perks</Text>
+      </View>
+
+      {/* Form Card per cursor/DESIGN.md */}
       <View style={styles.formCard}>
-      <ErrorCardModal
-        visible={!!error}
-        title="Registration Error"
-        message={error}
-        onClose={() => setError("")}
-      />
+        <ErrorCardModal
+          visible={!!error}
+          title="Registration Error"
+          message={error}
+          onClose={() => setError("")}
+        />
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Full Name</Text>
+          <Text style={styles.label}>FULL NAME</Text>
           <TextInput
             style={styles.input}
             placeholder="Jane Doe"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={C.dustTaupe}
             value={name}
             onChangeText={setName}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email Address</Text>
+          <Text style={styles.label}>EMAIL ADDRESS</Text>
           <TextInput
             style={styles.input}
             placeholder="jane@example.com"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={C.dustTaupe}
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
@@ -88,11 +100,11 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone Number (Optional)</Text>
+          <Text style={styles.label}>PHONE NUMBER (OPTIONAL)</Text>
           <TextInput
             style={styles.input}
             placeholder="+91 98765 43210"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={C.dustTaupe}
             keyboardType="phone-pad"
             value={phone}
             onChangeText={setPhone}
@@ -100,28 +112,29 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>PASSWORD</Text>
           <TextInput
             style={styles.input}
             placeholder="Create a strong password"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={C.dustTaupe}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
           />
         </View>
 
-        <TouchableOpacity
+        {/* button-primary: Cursor Orange #f54e00, 8px radius */}
+        <BouncyButton
           style={styles.submitBtn}
           disabled={loading}
           onPress={handleRegister}
         >
           {loading ? (
-            <ActivityIndicator color={C.dark} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.submitBtnText}>Create Account</Text>
           )}
-        </TouchableOpacity>
+        </BouncyButton>
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Already have an account?</Text>
@@ -137,101 +150,107 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
   },
   content: {
+    paddingHorizontal: S.md,
+    paddingTop: Platform.OS === "android" ? 44 : 52,
     paddingBottom: 40,
   },
+  topNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: S.md,
+  },
+  backCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: R.md,
+    backgroundColor: C.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
   header: {
-    backgroundColor: C.dark,
-    paddingTop: 60,
-    paddingHorizontal: S.lg,
-    paddingBottom: S.xxl,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    marginBottom: S.lg,
   },
-  backBtn: {
-    marginBottom: S.sm,
+  badgeTag: {
+    backgroundColor: C.read, // Blue timeline pill per cursor/DESIGN.md
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: R.pill,
+    marginBottom: S.xs,
   },
-  backText: {
-    color: C.gold,
-    fontSize: 14,
-    fontWeight: "700",
+  badgeTagText: {
+    color: C.ink,
+    fontSize: 10,
+    fontWeight: FW.semiBold,
+    letterSpacing: 0.88,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#FFF",
+    fontSize: FS.hero,
+    fontWeight: "400", // Display 400
+    color: C.ink,
+    letterSpacing: -0.72,
   },
   headerSub: {
-    fontSize: 13,
-    color: C.muted,
-    marginTop: 4,
+    fontSize: FS.bodySm,
+    color: C.body,
+    marginTop: S.xxs,
+    lineHeight: 20,
   },
+  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   formCard: {
-    marginHorizontal: S.lg,
-    marginTop: -20,
     backgroundColor: C.surface,
-    borderRadius: 20,
-    padding: S.lg,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-    ...SHADOWS.md,
-  },
-  errorBox: {
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: R.lg, // 12px card radius
     padding: S.md,
-    borderRadius: 10,
-    marginBottom: S.md,
-  },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    fontWeight: "600",
+    borderWidth: 1,
+    borderColor: C.border,
   },
   inputGroup: {
-    marginBottom: S.md,
+    marginBottom: S.sm + 2,
   },
   label: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: C.text,
-    marginBottom: 6,
+    ...TYPO.eyebrow,
+    marginBottom: S.xxs,
   },
   input: {
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    paddingHorizontal: S.md,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: C.text,
+    backgroundColor: C.surface,
+    borderRadius: R.md, // 8px radius
+    paddingHorizontal: S.sm,
+    height: 44,
+    fontSize: FS.bodySm,
+    color: C.ink,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
+    borderColor: C.border,
   },
   submitBtn: {
-    backgroundColor: C.gold,
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: C.main, // Cursor Orange
+    borderRadius: R.md, // 8px radius
+    height: 44,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: S.sm,
   },
   submitBtnText: {
-    color: C.dark,
-    fontSize: 15,
-    fontWeight: "900",
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
   },
   footerRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: S.lg,
+    marginTop: S.md,
   },
   footerText: {
     color: C.muted,
-    fontSize: 13,
+    fontSize: FS.bodySm,
   },
   footerLink: {
-    color: C.dark,
-    fontWeight: "800",
-    fontSize: 13,
+    color: C.main,
+    fontWeight: FW.medium,
+    fontSize: FS.bodySm,
   },
 });
