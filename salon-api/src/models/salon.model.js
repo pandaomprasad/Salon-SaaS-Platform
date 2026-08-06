@@ -81,4 +81,7 @@ salonSchema.virtual('branches', {
 // index on owner — owner queries their salons often
 salonSchema.index({ owner: 1 })
 
+// browse/filter: every public listing filters by active salon
+salonSchema.index({ isActive: 1, deactivatedByAdmin: 1 })
+
 module.exports = mongoose.model('Salon', salonSchema)

@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C } from "../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BAR_MARGIN = 16; // left: 16, right: 16
@@ -22,6 +23,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
   const selectedIndex = activeIndex >= 0 ? activeIndex : 0;
 
   const animValue = useRef(new Animated.Value(selectedIndex)).current;
+  const styles = getStyles();
 
   useEffect(() => {
     Animated.spring(animValue, {
@@ -45,7 +47,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
 
   return (
     <View style={styles.container}>
-      {/* Moving Black Pill Indicator */}
+      {/* Moving Pill Indicator */}
       <Animated.View
         style={[
           styles.movingIndicator,
@@ -72,7 +74,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
                 <Ionicons
                   name={isSelected ? tab.iconActive : tab.iconInactive}
                   size={19}
-                  color={isSelected ? "#FFFFFF" : "#5F5D62"}
+                  color={isSelected ? "#FFFFFF" : C.muted}
                 />
                 <Text
                   style={[
@@ -92,59 +94,58 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    bottom: 24,
-    left: BAR_MARGIN,
-    right: BAR_MARGIN,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    paddingHorizontal: BAR_PADDING,
-    elevation: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-  },
-  tabsTrack: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    zIndex: 2,
-  },
-  tabColumn: {
-    width: TAB_COL_WIDTH,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabLabel: {
-    fontSize: 12,
-    marginLeft: 5,
-  },
-  labelActive: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-  },
-  labelInactive: {
-    color: "#5F5D62",
-    fontWeight: "600",
-  },
-  movingIndicator: {
-    position: "absolute",
-    top: 8,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#1D1B20",
-    zIndex: 1,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    container: {
+      position: "absolute",
+      bottom: 24,
+      left: BAR_MARGIN,
+      right: BAR_MARGIN,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: C.surface,
+      justifyContent: "center",
+      paddingHorizontal: BAR_PADDING,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    tabsTrack: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "100%",
+      zIndex: 2,
+    },
+    tabColumn: {
+      width: TAB_COL_WIDTH,
+      height: 48,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    tabInner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    tabLabel: {
+      fontSize: 12,
+      marginLeft: 5,
+    },
+    labelActive: {
+      color: "#FFFFFF",
+      fontWeight: "800",
+    },
+    labelInactive: {
+      color: C.muted,
+      fontWeight: "600",
+    },
+    movingIndicator: {
+      position: "absolute",
+      top: 8,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: C.ink,
+      zIndex: 1,
+    },
+  });
+}

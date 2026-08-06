@@ -1,6 +1,7 @@
 const router = require('express').Router()
 
 const {
+  getInitialLoad,
   browseSalons,
   getSalonPublic,
   browseBranches,
@@ -15,6 +16,9 @@ const {
 // ================================
 // ALL PUBLIC — no authentication
 // ================================
+
+// Consolidated initial data load (Salons, Locations, Services, Staff, Slots)
+router.get('/initial-load',               getInitialLoad)
 
 // salons
 router.get('/salons',                     browseSalons)

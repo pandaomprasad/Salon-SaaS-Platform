@@ -12,6 +12,26 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI)
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`)
     logger.info(`MongoDB connected: ${conn.connection.host}`)
+
+    // Backfill citySlug on branches created before the field existed.
+    // Pipeline update runs server-side so it pays no network cost.
+    const Branch = require('../models/branch.model')
+    const backfill = await Branch.updateMany(
+      { $or: [{ citySlug: { $exists: false } }, { citySlug: null }] },
+      [
+        {
+          $set: {
+            citySlug: {
+              $toLower: { $trim: { input: '$address.city' } }
+            }
+          }
+        }
+      ],
+      { updatePipeline: true }
+    )
+    if (backfill.matchedCount > 0) {
+      console.log(`🏙️ Backfilled citySlug on ${backfill.modifiedCount} branch(es)`)
+    }
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`)
     logger.error(`MongoDB connection error: ${error.message}`)

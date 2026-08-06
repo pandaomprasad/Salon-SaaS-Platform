@@ -61,6 +61,8 @@ export default function SupportScreen({ goBack }) {
     }, 1000);
   };
 
+  const styles = getStyles();
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -112,16 +114,14 @@ export default function SupportScreen({ goBack }) {
           })}
         </View>
 
-        {/* Contact Ticket Form */}
-        <Text style={styles.sectionHeader}>CONTACT SUPPORT</Text>
+        {/* Support Ticket Section */}
+        <Text style={styles.sectionHeader}>SEND US A MESSAGE</Text>
         <View style={styles.ticketCard}>
-          <Text style={styles.ticketCardSub}>
-            Can't find what you need? Send a direct message to our support team.
-          </Text>
+          <Text style={styles.ticketCardSub}>Have a specific request or issue? Submit a ticket below.</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Subject (e.g. Booking issue, Refund request)"
+            placeholder="Subject / Topic (e.g. Refund Request)"
             placeholderTextColor={C.dustTaupe}
             value={ticketSubject}
             onChangeText={setTicketSubject}
@@ -129,23 +129,23 @@ export default function SupportScreen({ goBack }) {
 
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Describe your question or issue in detail..."
+            placeholder="Describe your inquiry or concern in detail…"
             placeholderTextColor={C.dustTaupe}
             multiline
             numberOfLines={4}
+            textAlignVertical="top"
             value={ticketMessage}
             onChangeText={setTicketMessage}
-            textAlignVertical="top"
           />
 
           <TouchableOpacity
             style={[styles.sendBtn, (!ticketMessage.trim() || sending) && styles.disabledBtn]}
             onPress={handleSendTicket}
             disabled={!ticketMessage.trim() || sending}
-            activeOpacity={0.85}
+            activeOpacity={0.88}
           >
             {sending ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : sentSuccess ? (
               <Text style={styles.sendBtnText}>✓ Ticket Submitted!</Text>
             ) : (
@@ -158,156 +158,156 @@ export default function SupportScreen({ goBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: S.md,
-    paddingTop: 52,
-    paddingBottom: S.md,
-    backgroundColor: C.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: R.md,
-    backgroundColor: C.lifted,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  headerTitle: {
-    fontSize: FS.titleSm,
-    fontWeight: "400", // Display 400
-    color: C.ink,
-    letterSpacing: -0.32,
-  },
-  content: {
-    padding: S.md,
-  },
-  bannerCard: {
-    backgroundColor: C.ink,
-    borderRadius: R.lg, // 12px radius
-    padding: S.md,
-    alignItems: "center",
-    marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: C.borderDark,
-  },
-  bannerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: S.xs,
-  },
-  bannerTitle: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: "#FFFFFF",
-    textAlign: "center",
-  },
-  bannerSub: {
-    fontSize: FS.bodySm,
-    color: "rgba(255, 255, 255, 0.7)",
-    textAlign: "center",
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  sectionHeader: {
-    ...TYPO.eyebrow,
-    color: C.main,
-    marginBottom: S.xs,
-    marginTop: S.sm,
-  },
-  faqList: {
-    gap: S.xs,
-    marginBottom: S.md,
-  },
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
-  faqCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px radius
-    paddingHorizontal: S.md,
-    paddingVertical: S.sm + 2,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  faqQuestionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  faqQuestion: {
-    flex: 1,
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    marginRight: S.xs,
-  },
-  faqAnswerBox: {
-    marginTop: S.xs,
-    paddingTop: S.xs,
-    borderTopWidth: 1,
-    borderTopColor: C.borderLight,
-  },
-  faqAnswer: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    lineHeight: 20,
-  },
-  ticketCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px radius
-    padding: S.md,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  ticketCardSub: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    marginBottom: S.sm,
-  },
-  // text-input per cursor/DESIGN.md: 8px radius, height 44px
-  input: {
-    backgroundColor: C.surface,
-    borderRadius: R.md, // 8px radius
-    paddingHorizontal: S.sm,
-    height: 44,
-    fontSize: FS.bodySm,
-    color: C.ink,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: S.xs,
-  },
-  textArea: {
-    height: 90,
-    paddingVertical: S.xs,
-  },
-  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
-  sendBtn: {
-    backgroundColor: C.main, // Cursor Orange
-    paddingVertical: 12,
-    borderRadius: R.md, // 8px radius
-    alignItems: "center",
-    marginTop: S.xs,
-  },
-  disabledBtn: {
-    opacity: 0.5,
-  },
-  sendBtnText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 54,
+      paddingHorizontal: S.md,
+      paddingBottom: S.md,
+      borderBottomWidth: 1,
+      borderBottomColor: C.borderLight,
+      backgroundColor: C.bg,
+    },
+    backBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
+      backgroundColor: C.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    headerTitle: {
+      fontSize: FS.titleSm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+    },
+    content: {
+      paddingHorizontal: S.md,
+      paddingTop: S.md,
+      paddingBottom: 40,
+    },
+    bannerCard: {
+      backgroundColor: C.surfaceStrong || C.ink,
+      borderRadius: R.lg,
+      padding: S.lg,
+      alignItems: "center",
+      marginBottom: S.md,
+      borderWidth: 1,
+      borderColor: C.borderDark,
+    },
+    bannerIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: S.xs,
+    },
+    bannerTitle: {
+      fontSize: FS.titleSm,
+      fontWeight: FW.semiBold,
+      color: "#FFFFFF",
+      textAlign: "center",
+    },
+    bannerSub: {
+      fontSize: FS.bodySm,
+      color: "rgba(255, 255, 255, 0.7)",
+      textAlign: "center",
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    sectionHeader: {
+      ...TYPO.eyebrow,
+      color: C.main,
+      marginBottom: S.xs,
+      marginTop: S.sm,
+    },
+    faqList: {
+      gap: S.xs,
+      marginBottom: S.md,
+    },
+    faqCard: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      paddingHorizontal: S.md,
+      paddingVertical: S.sm + 2,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    faqQuestionRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    faqQuestion: {
+      flex: 1,
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      marginRight: S.xs,
+    },
+    faqAnswerBox: {
+      marginTop: S.xs,
+      paddingTop: S.xs,
+      borderTopWidth: 1,
+      borderTopColor: C.borderLight,
+    },
+    faqAnswer: {
+      fontSize: FS.bodySm,
+      color: C.body,
+      lineHeight: 20,
+    },
+    ticketCard: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      padding: S.md,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    ticketCardSub: {
+      fontSize: FS.bodySm,
+      color: C.body,
+      marginBottom: S.sm,
+    },
+    input: {
+      backgroundColor: C.surface,
+      borderRadius: R.md,
+      paddingHorizontal: S.sm,
+      height: 44,
+      fontSize: FS.bodySm,
+      color: C.ink,
+      borderWidth: 1,
+      borderColor: C.border,
+      marginBottom: S.xs,
+    },
+    textArea: {
+      height: 90,
+      paddingVertical: S.xs,
+    },
+    sendBtn: {
+      backgroundColor: C.main,
+      paddingVertical: 12,
+      borderRadius: R.md,
+      alignItems: "center",
+      marginTop: S.xs,
+    },
+    disabledBtn: {
+      opacity: 0.5,
+    },
+    sendBtnText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+  });
+}

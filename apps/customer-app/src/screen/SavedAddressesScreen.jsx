@@ -57,6 +57,8 @@ export default function SavedAddressesScreen({ goBack }) {
     setAddresses(addresses.filter((a) => a.id !== id));
   };
 
+  const styles = getStyles();
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -98,19 +100,18 @@ export default function SavedAddressesScreen({ goBack }) {
             />
             <TextInput
               style={styles.input}
-              placeholder="City, State & Zip Code"
+              placeholder="City, State & ZIP"
               placeholderTextColor={C.dustTaupe}
               value={city}
               onChangeText={setCity}
             />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleAddAddress} activeOpacity={0.85}>
-              <Text style={styles.saveBtnText}>Save Location</Text>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleAddAddress} activeOpacity={0.88}>
+              <Text style={styles.saveBtnText}>Save Address</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Address Cards per cursor/DESIGN.md */}
         {addresses.map((item) => (
           <View key={item.id} style={styles.addressCard}>
             <View style={styles.cardHeader}>
@@ -118,11 +119,11 @@ export default function SavedAddressesScreen({ goBack }) {
                 <Ionicons name={item.icon} size={16} color={C.ink} />
               </View>
               <Text style={styles.tagLabel}>{item.tag}</Text>
-              {item.isDefault && (
+              {item.isDefault ? (
                 <View style={styles.defaultBadge}>
                   <Text style={styles.defaultText}>DEFAULT</Text>
                 </View>
-              )}
+              ) : null}
               <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
                 <Ionicons name="trash-outline" size={16} color={C.muted} />
               </TouchableOpacity>
@@ -136,169 +137,169 @@ export default function SavedAddressesScreen({ goBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: S.md,
-    paddingTop: 52,
-    paddingBottom: S.md,
-    backgroundColor: C.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: R.md,
-    backgroundColor: C.lifted,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  addHeaderBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: R.md,
-    backgroundColor: C.lifted,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  headerTitle: {
-    fontSize: FS.titleSm,
-    fontWeight: "400", // Display 400
-    color: C.ink,
-    letterSpacing: -0.32,
-  },
-  content: {
-    padding: S.md,
-  },
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
-  addFormCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px radius
-    padding: S.md,
-    marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  formTitle: {
-    ...TYPO.eyebrow,
-    color: C.main,
-    marginBottom: S.xs,
-  },
-  tagRow: {
-    flexDirection: "row",
-    gap: S.xs,
-    marginBottom: S.sm,
-  },
-  tagChip: {
-    paddingHorizontal: S.md,
-    paddingVertical: 7,
-    borderRadius: R.md,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  tagChipActive: {
-    backgroundColor: C.ink,
-    borderColor: C.ink,
-  },
-  tagText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-    color: C.ink,
-  },
-  tagTextActive: {
-    color: "#FFFFFF",
-  },
-  // text-input per cursor/DESIGN.md: 8px radius, 44px height
-  input: {
-    backgroundColor: C.surface,
-    borderRadius: R.md, // 8px radius
-    paddingHorizontal: S.sm,
-    height: 44,
-    fontSize: FS.bodySm,
-    color: C.ink,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: S.xs,
-  },
-  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
-  saveBtn: {
-    backgroundColor: C.main, // Cursor Orange
-    paddingVertical: 12,
-    borderRadius: R.md,
-    alignItems: "center",
-    marginTop: S.xs,
-  },
-  saveBtnText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  addressCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px radius
-    padding: S.md,
-    marginBottom: S.sm,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: S.xs,
-  },
-  iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: R.md,
-    backgroundColor: C.lifted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: S.xs,
-    borderWidth: 1,
-    borderColor: C.borderLight,
-  },
-  tagLabel: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    flex: 1,
-  },
-  defaultBadge: {
-    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: R.pill,
-    marginRight: S.xs,
-  },
-  defaultText: {
-    fontSize: 9,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    letterSpacing: 0.88,
-  },
-  deleteBtn: {
-    padding: S.xxs,
-  },
-  streetText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.regular,
-    color: C.ink,
-  },
-  cityText: {
-    fontSize: FS.bodySm - 1,
-    color: C.body,
-    marginTop: 2,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 54,
+      paddingHorizontal: S.md,
+      paddingBottom: S.md,
+      borderBottomWidth: 1,
+      borderBottomColor: C.borderLight,
+      backgroundColor: C.bg,
+    },
+    backBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
+      backgroundColor: C.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    headerTitle: {
+      fontSize: FS.titleSm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+    },
+    addHeaderBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
+      backgroundColor: C.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    content: {
+      paddingHorizontal: S.md,
+      paddingTop: S.md,
+      paddingBottom: 40,
+    },
+    addFormCard: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      padding: S.md,
+      marginBottom: S.md,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    formTitle: {
+      ...TYPO.eyebrow,
+      color: C.main,
+      marginBottom: S.xs,
+    },
+    tagRow: {
+      flexDirection: "row",
+      gap: S.xs,
+      marginBottom: S.sm,
+    },
+    tagChip: {
+      paddingHorizontal: S.md,
+      paddingVertical: 7,
+      borderRadius: R.md,
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    tagChipActive: {
+      backgroundColor: C.ink,
+      borderColor: C.ink,
+    },
+    tagText: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+      color: C.ink,
+    },
+    tagTextActive: {
+      color: "#FFFFFF",
+    },
+    input: {
+      backgroundColor: C.surface,
+      borderRadius: R.md,
+      paddingHorizontal: S.sm,
+      height: 44,
+      fontSize: FS.bodySm,
+      color: C.ink,
+      borderWidth: 1,
+      borderColor: C.border,
+      marginBottom: S.xs,
+    },
+    saveBtn: {
+      backgroundColor: C.main,
+      paddingVertical: 12,
+      borderRadius: R.md,
+      alignItems: "center",
+      marginTop: S.xs,
+    },
+    saveBtnText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    addressCard: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      padding: S.md,
+      marginBottom: S.sm,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: S.xs,
+    },
+    iconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: R.md,
+      backgroundColor: C.lifted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: S.xs,
+      borderWidth: 1,
+      borderColor: C.borderLight,
+    },
+    tagLabel: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      flex: 1,
+    },
+    defaultBadge: {
+      backgroundColor: C.grep,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: R.pill,
+      marginRight: S.xs,
+    },
+    defaultText: {
+      fontSize: 9,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      letterSpacing: 0.88,
+    },
+    deleteBtn: {
+      padding: S.xxs,
+    },
+    streetText: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.regular,
+      color: C.ink,
+    },
+    cityText: {
+      fontSize: FS.bodySm - 1,
+      color: C.body,
+      marginTop: 2,
+    },
+  });
+}

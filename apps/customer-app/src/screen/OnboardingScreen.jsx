@@ -1,5 +1,5 @@
 // src/screen/OnboardingScreen.jsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,30 @@ const { width, height } = Dimensions.get("window");
 
 const ONBOARDING_KEY = "@salon_app_has_onboarded";
 
+// ── Design Tokens (from cursor/DESIGN.md) ──────────────────
+const COLORS = {
+  canvas: "#f7f7f4",
+  canvasSoft: "#fafaf7",
+  surface: "#ffffff",
+  ink: "#26251e",
+  body: "#5a5852",
+  muted: "#807d72",
+  mutedSoft: "#a09c92",
+  primary: "#f54e00",
+  primaryActive: "#d04200",
+  onPrimary: "#ffffff",
+  hairline: "#e6e5e0",
+  hairlineSoft: "#efeee8",
+  hairlineStrong: "#cfcdc4",
+  surfaceStrong: "#e6e5e0",
+  // Timeline pastels (signature)
+  thinking: "#dfa88f",
+  grep: "#9fc9a2",
+  read: "#9fbbe0",
+  edit: "#c0a8dd",
+  done: "#c08532",
+};
+
 const SLIDES = [
   {
     id: "1",
@@ -28,8 +52,10 @@ const SLIDES = [
     subtitle:
       "Explore top-rated luxury studios, handpicked beauty specialists & relaxing spa sanctuaries near you.",
     icon: "sparkles",
-    accentColor: "#FFFFFF",
-    bgGlow: "rgba(255, 255, 255, 0.06)",
+    accentPastel: COLORS.thinking,
+    secondaryPastel: COLORS.edit,
+    tertiaryPastel: COLORS.grep,
+    decorIcon: "diamond-outline",
   },
   {
     id: "2",
@@ -38,8 +64,10 @@ const SLIDES = [
     subtitle:
       "Select your preferred specialist, pick custom time slots, and confirm your appointment in seconds.",
     icon: "calendar",
-    accentColor: "#E8E8E8",
-    bgGlow: "rgba(232, 232, 232, 0.06)",
+    accentPastel: COLORS.grep,
+    secondaryPastel: COLORS.read,
+    tertiaryPastel: COLORS.thinking,
+    decorIcon: "time-outline",
   },
   {
     id: "3",
@@ -48,8 +76,10 @@ const SLIDES = [
     subtitle:
       "Get live appointment tracking, enjoy exclusive member rewards, and rebook your favorites with one tap.",
     icon: "trophy",
-    accentColor: "#D6D6D6",
-    bgGlow: "rgba(214, 214, 214, 0.06)",
+    accentPastel: COLORS.read,
+    secondaryPastel: COLORS.done,
+    tertiaryPastel: COLORS.edit,
+    decorIcon: "gift-outline",
   },
 ];
 
@@ -58,37 +88,162 @@ export default function OnboardingScreen({ onFinish, navigate }) {
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
-  // Entrance transition: header + footer fade/slide up on first mount
-  const mountAnim = useRef(new Animated.Value(0)).current;
-  // Micro-interaction: button compresses slightly on press
+  // ── Staggered entrance animations ──────────────────────────
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const cardAnim = useRef(new Animated.Value(0)).current;
+  const textAnim = useRef(new Animated.Value(0)).current;
+  const footerAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Continuous ambient loops ───────────────────────────────
+  const orbFloat1 = useRef(new Animated.Value(0)).current;
+  const orbFloat2 = useRef(new Animated.Value(0)).current;
+  const iconPulse = useRef(new Animated.Value(0)).current;
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  // ── Micro-interactions ────────────────────────────────────
   const buttonScale = useRef(new Animated.Value(1)).current;
+  const buttonGlow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(mountAnim, {
+    // Staggered entrance sequence — each element cascades in
+    Animated.stagger(120, [
+      Animated.spring(headerAnim, {
+        toValue: 1,
+        tension: 60,
+        friction: 12,
+        useNativeDriver: true,
+      }),
+      Animated.spring(cardAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+      Animated.spring(textAnim, {
+        toValue: 1,
+        tension: 55,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.spring(footerAnim, {
+        toValue: 1,
+        tension: 60,
+        friction: 12,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Orb 1: slow dreamy float (Y + slight rotation feel via X)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(orbFloat1, {
+          toValue: 1,
+          duration: 3500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orbFloat1, {
+          toValue: 0,
+          duration: 3500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Orb 2: offset phase for organic feel
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(orbFloat2, {
+          toValue: 1,
+          duration: 4200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(orbFloat2, {
+          toValue: 0,
+          duration: 4200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Icon ring breathing pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(iconPulse, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(iconPulse, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Shimmer sweep on CTA button — continuous subtle highlight
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 2400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 2400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Button glow breathing
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(buttonGlow, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        }),
+        Animated.timing(buttonGlow, {
+          toValue: 0,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  // ── Button press micro-interaction ─────────────────────────
+  const handlePressIn = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(buttonScale, {
+        toValue: 0.94,
+        speed: 50,
+        bounciness: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    Animated.spring(buttonScale, {
       toValue: 1,
-      duration: 650,
-      easing: Easing.out(Easing.cubic),
+      speed: 18,
+      bounciness: 10,
       useNativeDriver: true,
     }).start();
   }, []);
-
-  const handlePressIn = () => {
-    Animated.spring(buttonScale, {
-      toValue: 0.96,
-      speed: 40,
-      bounciness: 6,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(buttonScale, {
-      toValue: 1,
-      speed: 30,
-      bounciness: 8,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const handleNext = async () => {
     if (currentIndex < SLIDES.length - 1) {
@@ -117,88 +272,327 @@ export default function OnboardingScreen({ onFinish, navigate }) {
     }
   }).current;
 
+  // ── Slide Renderer ────────────────────────────────────────
   const renderSlide = ({ item, index }) => {
     const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
 
-    // Smooth Interpolations for Card Scale and Opacity
-    const scale = scrollX.interpolate({
+    // Card: scale + vertical float + subtle tilt
+    const cardScale = scrollX.interpolate({
       inputRange,
-      outputRange: [0.85, 1, 0.85],
+      outputRange: [0.82, 1, 0.82],
       extrapolate: "clamp",
     });
 
-    const opacity = scrollX.interpolate({
+    const cardOpacity = scrollX.interpolate({
       inputRange,
-      outputRange: [0.4, 1, 0.4],
+      outputRange: [0, 1, 0],
       extrapolate: "clamp",
     });
 
-    const translateY = scrollX.interpolate({
+    const cardTranslateY = scrollX.interpolate({
+      inputRange,
+      outputRange: [40, 0, 40],
+      extrapolate: "clamp",
+    });
+
+    const cardRotate = scrollX.interpolate({
+      inputRange,
+      outputRange: ["4deg", "0deg", "-4deg"],
+      extrapolate: "clamp",
+    });
+
+    // Text: parallax counter-slide (text drifts opposite to scroll for depth)
+    const textTranslateX = scrollX.interpolate({
+      inputRange,
+      outputRange: [60, 0, -60],
+      extrapolate: "clamp",
+    });
+
+    const textOpacity = scrollX.interpolate({
+      inputRange,
+      outputRange: [0, 1, 0],
+      extrapolate: "clamp",
+    });
+
+    const textTranslateY = scrollX.interpolate({
       inputRange,
       outputRange: [20, 0, 20],
       extrapolate: "clamp",
     });
 
-    // Subtle parallax rotation as cards drift past — makes the paging feel
-    // less like a hard cut and more like a continuous motion.
-    const rotate = scrollX.interpolate({
+    // Subtitle lags slightly behind title for staggered depth
+    const subtitleTranslateX = scrollX.interpolate({
       inputRange,
-      outputRange: ["6deg", "0deg", "-6deg"],
+      outputRange: [90, 0, -90],
       extrapolate: "clamp",
+    });
+
+    // Badge parallax (drifts with card but delayed)
+    const badgeTranslateY = scrollX.interpolate({
+      inputRange,
+      outputRange: [14, 0, 14],
+      extrapolate: "clamp",
+    });
+
+    const badgeScale = scrollX.interpolate({
+      inputRange,
+      outputRange: [0.8, 1, 0.8],
+      extrapolate: "clamp",
+    });
+
+    // ── Ambient orb transforms ───────────────────────────────
+    const orb1Y = orbFloat1.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-8, 8],
+    });
+    const orb1X = orbFloat1.interpolate({
+      inputRange: [0, 1],
+      outputRange: [5, -5],
+    });
+    const orb1Scale = orbFloat1.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [1, 1.08, 1],
+    });
+
+    const orb2Y = orbFloat2.interpolate({
+      inputRange: [0, 1],
+      outputRange: [6, -6],
+    });
+    const orb2X = orbFloat2.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-4, 4],
+    });
+    const orb2Scale = orbFloat2.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [1, 1.12, 1],
+    });
+
+    // Third orb — cross-phase for richness
+    const orb3Y = orbFloat1.interpolate({
+      inputRange: [0, 1],
+      outputRange: [4, -4],
+    });
+    const orb3X = orbFloat2.interpolate({
+      inputRange: [0, 1],
+      outputRange: [3, -3],
+    });
+
+    // Icon pulse: gentle scale breathing
+    const iconScale = iconPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.06],
+    });
+
+    // Icon ring outer pulse
+    const ringScale = iconPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.04],
+    });
+
+    const ringOpacity = iconPulse.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.6, 1, 0.6],
     });
 
     return (
       <View style={[styles.slideContainer, { width }]}>
+        {/* ── Graphic Card ──────────────────────────────────── */}
         <Animated.View
           style={[
             styles.graphicCard,
             {
-              transform: [{ scale }, { translateY }, { rotate }],
-              opacity,
+              transform: [{ scale: cardScale }, { translateY: cardTranslateY }, { rotate: cardRotate }],
+              opacity: cardOpacity,
             },
           ]}
         >
-          {/* Subtle Background Glow Circle */}
-          <View style={[styles.glowRing, { backgroundColor: item.bgGlow }]} />
+          {/* Floating pastel orbs with scale breathing */}
+          <Animated.View
+            style={[
+              styles.decorOrb,
+              styles.decorOrbLarge,
+              {
+                backgroundColor: item.accentPastel + "28",
+                transform: [
+                  { translateY: orb1Y },
+                  { translateX: orb1X },
+                  { scale: orb1Scale },
+                ],
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.decorOrb,
+              styles.decorOrbMed,
+              {
+                backgroundColor: item.secondaryPastel + "35",
+                transform: [
+                  { translateY: orb2Y },
+                  { translateX: orb2X },
+                  { scale: orb2Scale },
+                ],
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.decorOrb,
+              styles.decorOrbTiny,
+              {
+                backgroundColor: item.tertiaryPastel + "30",
+                transform: [
+                  { translateY: orb3Y },
+                  { translateX: orb3X },
+                ],
+              },
+            ]}
+          />
 
-          {/* Icon Container with Dual Glass Border */}
-          <View style={[styles.iconOuterRing, { borderColor: item.accentColor + "40" }]}>
-            <View style={[styles.iconInnerCircle, { backgroundColor: item.accentColor + "12" }]}>
-              <Ionicons name={item.icon} size={60} color={item.accentColor} />
-            </View>
-          </View>
+          {/* Pulsing accent ring behind icon */}
+          <Animated.View
+            style={[
+              styles.iconAccentRing,
+              {
+                borderColor: item.accentPastel + "55",
+                transform: [{ scale: ringScale }],
+                opacity: ringOpacity,
+              },
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.iconInnerCircle,
+                {
+                  backgroundColor: item.accentPastel + "15",
+                  transform: [{ scale: iconScale }],
+                },
+              ]}
+            >
+              <Ionicons name={item.icon} size={48} color={COLORS.ink} />
+            </Animated.View>
+          </Animated.View>
 
-          {/* Glassmorphic Category Badge */}
-          <View style={styles.badgeContainer}>
-            <Ionicons name="sparkles" size={12} color={item.accentColor} style={{ marginRight: 6 }} />
-            <Text style={[styles.badgeText, { color: item.accentColor }]}>{item.badge}</Text>
-          </View>
+          {/* Floating decor badge with orbit float */}
+          <Animated.View
+            style={[
+              styles.floatingDecorBadge,
+              {
+                backgroundColor: item.secondaryPastel + "22",
+                borderColor: item.secondaryPastel + "45",
+                transform: [
+                  {
+                    translateY: orbFloat2.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [4, -4],
+                    }),
+                  },
+                  {
+                    translateX: orbFloat1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-2, 2],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Ionicons name={item.decorIcon} size={15} color={COLORS.muted} />
+          </Animated.View>
+
+          {/* Second floating decor — bottom-left corner */}
+          <Animated.View
+            style={[
+              styles.floatingDecorBadge2,
+              {
+                backgroundColor: item.tertiaryPastel + "20",
+                borderColor: item.tertiaryPastel + "40",
+                transform: [
+                  {
+                    translateY: orbFloat1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-3, 3],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Ionicons name="star-outline" size={12} color={COLORS.mutedSoft} />
+          </Animated.View>
+
+          {/* Badge pill with bounce entrance */}
+          <Animated.View
+            style={[
+              styles.badgePill,
+              {
+                backgroundColor: item.accentPastel + "18",
+                borderColor: item.accentPastel + "38",
+                transform: [{ translateY: badgeTranslateY }, { scale: badgeScale }],
+              },
+            ]}
+          >
+            <Ionicons name="sparkles" size={10} color={COLORS.ink} style={{ marginRight: 5 }} />
+            <Text style={styles.badgeText}>{item.badge}</Text>
+          </Animated.View>
         </Animated.View>
 
-        {/* Text Content */}
-        <Animated.View style={[styles.textContainer, { opacity }]}>
-          <Text style={styles.titleText}>{item.title}</Text>
-          <Text style={styles.subtitleText}>{item.subtitle}</Text>
-        </Animated.View>
+        {/* ── Text Content with parallax depth ──────────────── */}
+        <View style={styles.textContainer}>
+          <Animated.Text
+            style={[
+              styles.titleText,
+              {
+                opacity: textOpacity,
+                transform: [{ translateX: textTranslateX }, { translateY: textTranslateY }],
+              },
+            ]}
+          >
+            {item.title}
+          </Animated.Text>
+          <Animated.Text
+            style={[
+              styles.subtitleText,
+              {
+                opacity: textOpacity,
+                transform: [{ translateX: subtitleTranslateX }, { translateY: textTranslateY }],
+              },
+            ]}
+          >
+            {item.subtitle}
+          </Animated.Text>
+        </View>
       </View>
     );
   };
 
+  // ── CTA shimmer overlay position ──────────────────────────
+  const shimmerTranslateX = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-width, width],
+  });
+
+  // ── Button glow opacity ───────────────────────────────────
+  const glowOpacity = buttonGlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.15],
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.canvas} />
 
-      {/* Header Bar */}
+      {/* ── Header (staggered entrance: slide down + fade) ──── */}
       <Animated.View
         style={[
           styles.header,
           {
-            opacity: mountAnim,
+            opacity: headerAnim,
             transform: [
               {
-                translateY: mountAnim.interpolate({
+                translateY: headerAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [-12, 0],
+                  outputRange: [-30, 0],
                 }),
               },
             ],
@@ -206,8 +600,8 @@ export default function OnboardingScreen({ onFinish, navigate }) {
         ]}
       >
         <View style={styles.logoRow}>
-          <View style={styles.miniLogoCircle}>
-            <Ionicons name="cut" size={14} color="#FFFFFF" />
+          <View style={styles.logoCircle}>
+            <Ionicons name="cut" size={14} color={COLORS.primary} />
           </View>
           <Text style={styles.logoText}>SALON LUXE</Text>
         </View>
@@ -223,51 +617,68 @@ export default function OnboardingScreen({ onFinish, navigate }) {
         )}
       </Animated.View>
 
-      {/* Horizontal Paging Carousel */}
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        renderItem={renderSlide}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        decelerationRate="fast"
-        scrollEventThrottle={16}
-        keyExtractor={(item) => item.id}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
-        )}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
-      />
-
-      {/* Bottom Footer & Navigation */}
+      {/* ── Carousel (staggered entrance: scale up) ──────── */}
       <Animated.View
         style={[
-          styles.footer,
+          styles.carouselWrapper,
           {
-            opacity: mountAnim,
+            opacity: cardAnim,
             transform: [
               {
-                translateY: mountAnim.interpolate({
+                scale: cardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [16, 0],
+                  outputRange: [0.85, 1],
                 }),
               },
             ],
           },
         ]}
       >
-        {/* Animated Expanding Pagination Indicators */}
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          renderItem={renderSlide}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          decelerationRate="fast"
+          scrollEventThrottle={16}
+          keyExtractor={(item) => item.id}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: false }
+          )}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+        />
+      </Animated.View>
+
+      {/* ── Footer (staggered entrance: slide up + fade) ──── */}
+      <Animated.View
+        style={[
+          styles.footer,
+          {
+            opacity: footerAnim,
+            transform: [
+              {
+                translateY: footerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [40, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {/* Animated expanding pagination dots */}
         <View style={styles.paginationRow}>
-          {SLIDES.map((_, i) => {
+          {SLIDES.map((slide, i) => {
             const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
 
             const dotWidth = scrollX.interpolate({
               inputRange,
-              outputRange: [8, 30, 8],
+              outputRange: [8, 32, 8],
               extrapolate: "clamp",
             });
 
@@ -277,9 +688,15 @@ export default function OnboardingScreen({ onFinish, navigate }) {
               extrapolate: "clamp",
             });
 
+            const dotHeight = scrollX.interpolate({
+              inputRange,
+              outputRange: [6, 6, 6],
+              extrapolate: "clamp",
+            });
+
             const backgroundColor = scrollX.interpolate({
               inputRange,
-              outputRange: ["rgba(255, 255, 255, 0.2)", "#FFFFFF", "rgba(255, 255, 255, 0.2)"],
+              outputRange: [COLORS.hairlineStrong, COLORS.primary, COLORS.hairlineStrong],
               extrapolate: "clamp",
             });
 
@@ -290,6 +707,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
                   styles.dot,
                   {
                     width: dotWidth,
+                    height: dotHeight,
                     opacity: dotOpacity,
                     backgroundColor,
                   },
@@ -299,37 +717,64 @@ export default function OnboardingScreen({ onFinish, navigate }) {
           })}
         </View>
 
-        {/* Primary Action Button */}
+        {/* CTA button with shimmer sweep + scale micro-interaction */}
         <Animated.View style={{ width: "100%", transform: [{ scale: buttonScale }] }}>
+          {/* Glow effect behind button */}
+          <Animated.View
+            style={[
+              styles.ctaGlow,
+              { opacity: glowOpacity },
+            ]}
+          />
           <TouchableOpacity
-            style={styles.actionButton}
+            style={styles.ctaButton}
             onPress={handleNext}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
-            activeOpacity={0.88}
+            activeOpacity={0.92}
           >
-            <Text style={styles.actionButtonText}>
+            {/* Shimmer sweep overlay */}
+            <Animated.View
+              style={[
+                styles.shimmerOverlay,
+                {
+                  transform: [{ translateX: shimmerTranslateX }],
+                },
+              ]}
+            />
+
+            <Text style={styles.ctaButtonText}>
               {currentIndex === SLIDES.length - 1 ? "Get Started" : "Continue"}
             </Text>
-            <View style={styles.arrowCircle}>
+            <View style={styles.ctaArrowCircle}>
               <Ionicons
                 name={currentIndex === SLIDES.length - 1 ? "checkmark" : "arrow-forward"}
-                size={18}
-                color="#FFFFFF"
+                size={17}
+                color={COLORS.onPrimary}
               />
             </View>
           </TouchableOpacity>
         </Animated.View>
+
+        {/* Terms hint on last slide */}
+        {currentIndex === SLIDES.length - 1 && (
+          <Text style={styles.termsHint}>
+            By continuing you agree to our Terms & Privacy Policy
+          </Text>
+        )}
       </Animated.View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // ── Root ──────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: COLORS.canvas,
   },
+
+  // ── Header ────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -342,117 +787,171 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  miniLogoCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  logoCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.22)",
+    borderColor: COLORS.hairline,
   },
   logoText: {
-    fontSize: 13,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: 2.5,
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.ink,
+    letterSpacing: 2,
     marginLeft: 10,
   },
   skipButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 9999,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.hairline,
   },
   skipText: {
     fontSize: 13,
-    fontWeight: "700",
-    color: "#B8B8B8",
+    fontWeight: "500",
+    color: COLORS.muted,
   },
+
+  // ── Carousel Wrapper ──────────────────────────────────────
+  carouselWrapper: {
+    flex: 1,
+  },
+
+  // ── Slide ─────────────────────────────────────────────────
   slideContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 28,
   },
+
+  // ── Graphic Card ──────────────────────────────────────────
   graphicCard: {
     width: width - 56,
     height: height * 0.38,
-    borderRadius: 36,
-    backgroundColor: "#101010",
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.6,
-    shadowRadius: 28,
-    elevation: 14,
+    borderWidth: 1,
+    borderColor: COLORS.hairline,
     overflow: "hidden",
   },
-  glowRing: {
+
+  // ── Decorative Floating Orbs ──────────────────────────────
+  decorOrb: {
     position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    borderRadius: 9999,
   },
-  iconOuterRing: {
-    width: 124,
-    height: 124,
-    borderRadius: 62,
+  decorOrbLarge: {
+    width: 170,
+    height: 170,
+    top: -35,
+    right: -45,
+  },
+  decorOrbMed: {
+    width: 110,
+    height: 110,
+    bottom: -25,
+    left: -30,
+  },
+  decorOrbTiny: {
+    width: 60,
+    height: 60,
+    top: 20,
+    left: 30,
+  },
+
+  // ── Icon Ring ─────────────────────────────────────────────
+  iconAccentRing: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: "transparent",
   },
   iconInnerCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeContainer: {
+
+  // ── Floating Decor Badges ─────────────────────────────────
+  floatingDecorBadge: {
+    position: "absolute",
+    top: 18,
+    right: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  floatingDecorBadge2: {
+    position: "absolute",
+    bottom: 18,
+    left: 22,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+
+  // ── Badge Pill ────────────────────────────────────────────
+  badgePill: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 26,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.14)",
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1.8,
+    fontWeight: "600",
+    color: COLORS.ink,
+    letterSpacing: 1.2,
   },
+
+  // ── Text Content ──────────────────────────────────────────
   textContainer: {
-    marginTop: 34,
+    marginTop: 30,
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
+    overflow: "hidden",
   },
   titleText: {
     fontSize: 28,
-    fontWeight: "900",
-    color: "#FFFFFF",
+    fontWeight: "400",
+    color: COLORS.ink,
     textAlign: "center",
     lineHeight: 36,
     letterSpacing: -0.6,
   },
   subtitleText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#8A8A8A",
+    fontSize: 15,
+    fontWeight: "400",
+    color: COLORS.body,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 23,
     marginTop: 12,
   },
+
+  // ── Footer ────────────────────────────────────────────────
   footer: {
     paddingHorizontal: 28,
     paddingBottom: Platform.OS === "ios" ? 36 : 28,
@@ -463,40 +962,66 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     height: 16,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    borderRadius: 3,
     marginHorizontal: 4,
   },
-  actionButton: {
+
+  // ── CTA Button ────────────────────────────────────────────
+  ctaGlow: {
+    position: "absolute",
+    top: 4,
+    left: 16,
+    right: 16,
+    bottom: -4,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  ctaButton: {
     width: "100%",
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#FFFFFF",
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#FFFFFF",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 9,
+    overflow: "hidden",
   },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#000000",
-    letterSpacing: 0.5,
+  shimmerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 80,
+    height: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    // Angled via skew not available natively — use a wide band
+    borderRadius: 8,
   },
-  arrowCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+  ctaButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: COLORS.onPrimary,
+    letterSpacing: 0.2,
+  },
+  ctaArrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryActive,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
+  },
+
+  // ── Terms Hint ────────────────────────────────────────────
+  termsHint: {
+    fontSize: 11,
+    fontWeight: "400",
+    color: COLORS.mutedSoft,
+    textAlign: "center",
+    marginTop: 14,
+    letterSpacing: 0.1,
   },
 });

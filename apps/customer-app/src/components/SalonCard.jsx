@@ -41,6 +41,8 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
     measureCard();
   }, [salon, onPress, coverImage, startSharedTransition, measureCard]);
 
+  const styles = getStyles();
+
   return (
     <BouncyButton
       ref={cardRef}
@@ -91,100 +93,100 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
 
 export default memo(SalonCard);
 
-const styles = StyleSheet.create({
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border, no shadows
-  card: {
-    backgroundColor: C.surface, // White card surface
-    borderRadius: R.lg, // 12px card radius per cursor/DESIGN.md
-    overflow: "hidden",
-    marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: C.border, // 1px hairline border
-  },
-  horizontal: {
-    width: SCREEN_WIDTH * 0.72,
-    marginRight: S.md,
-  },
-  full: {
-    width: "100%",
-  },
-  imageFrame: {
-    height: 160,
-    backgroundColor: C.lifted,
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  distanceBadge: {
-    position: "absolute",
-    top: S.xs,
-    right: S.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: R.pill,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  distanceText: {
-    color: C.ink,
-    fontSize: 10,
-    fontWeight: FW.medium,
-  },
-  info: {
-    padding: S.md,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 2,
-  },
-  name: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    flex: 1,
-  },
-  description: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    marginBottom: S.sm,
-  },
-  footerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  ratingBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  branchCount: {
-    fontSize: FS.bodySm - 1,
-    color: C.muted,
-  },
-  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
-  bookBtn: {
-    backgroundColor: C.main, // Cursor Orange
-    paddingHorizontal: S.md,
-    paddingVertical: 6,
-    borderRadius: R.md, // 8px radius
-  },
-  bookBtnText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      overflow: "hidden",
+      marginBottom: S.md,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    horizontal: {
+      width: SCREEN_WIDTH * 0.72,
+      marginRight: S.md,
+    },
+    full: {
+      width: "100%",
+    },
+    imageFrame: {
+      height: 160,
+      backgroundColor: C.lifted,
+      position: "relative",
+    },
+    image: {
+      width: "100%",
+      height: "100%",
+    },
+    distanceBadge: {
+      position: "absolute",
+      top: S.xs,
+      right: S.xs,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: C.surface,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: R.pill,
+      gap: 4,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    distanceText: {
+      color: C.ink,
+      fontSize: 10,
+      fontWeight: FW.medium,
+    },
+    info: {
+      padding: S.md,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 2,
+    },
+    name: {
+      fontSize: FS.titleSm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      flex: 1,
+    },
+    description: {
+      fontSize: FS.bodySm,
+      color: C.body,
+      marginBottom: S.sm,
+    },
+    footerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    ratingBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    ratingText: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+    },
+    branchCount: {
+      fontSize: 11,
+      color: C.muted,
+    },
+    bookBtn: {
+      backgroundColor: C.main,
+      paddingHorizontal: S.sm + 2,
+      paddingVertical: 6,
+      borderRadius: R.md,
+    },
+    bookBtnText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+  });
+}

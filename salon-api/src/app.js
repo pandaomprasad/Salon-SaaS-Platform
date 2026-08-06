@@ -20,12 +20,6 @@ const app = express();
 // Trust proxy (required when behind tunnel/proxy like localtunnel, ngrok, NGINX)
 app.set("trust proxy", 1);
 
-// Immediate request logger
-app.use((req, res, next) => {
-  console.log(`📥 [INCOMING REQUEST] ${req.method} ${req.originalUrl}`);
-  next();
-});
-
 // ================================
 // Connect to MongoDB
 // ================================
@@ -125,12 +119,6 @@ app.get("/health", (req, res) => {
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
   });
-});
-
-// DEBUG — log every request before route matching
-app.use((req, res, next) => {
-  console.log(`[DEBUG] ${req.method} ${req.originalUrl}`);
-  next();
 });
 
 // ================================

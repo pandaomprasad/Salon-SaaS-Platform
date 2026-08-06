@@ -100,8 +100,17 @@ const slotSchema = new mongoose.Schema(
 // most common query: "show me available slots for branch X on date Y"
 slotSchema.index({ branchId: 1, date: 1, status: 1 })
 
+// same query + sorted by start time (covers the sort, avoids in-memory sort)
+slotSchema.index({ branchId: 1, date: 1, status: 1, startTime: 1 })
+
 // "show me all slots for staff X on date Y"
 slotSchema.index({ staffId: 1, date: 1 })
+
+// owner-level slot reports: filter by salon instead of branch
+slotSchema.index({ salonId: 1, date: 1 })
+
+// browse "which branches have slots on date X" (distinct branchId)
+slotSchema.index({ date: 1, status: 1 })
 
 // prevent duplicate slots for same staff at same time
 slotSchema.index(

@@ -4,6 +4,7 @@ const User = require('../models/user.model')
 const Slot = require('../models/slot.model')
 const AppError = require('../utils/AppError')
 const dayjs = require('dayjs')
+const { getCache, setCache } = require('../services/cache.service')
 
 // ================================
 // GET /api/v1/reports/overview
@@ -18,6 +19,12 @@ const getOverview = async (req, res, next) => {
     // default to current month if no dates given
     const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
     const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const cacheKey = `report:overview:${role}:${salonId || branchId || 'all'}:${start}:${end}`
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     // build filter based on role
     const filter = {
@@ -53,27 +60,32 @@ const getOverview = async (req, res, next) => {
 
     const totalRevenue = revenueData[0]?.total || 0
 
+    const responseData = {
+      period: { startDate: start, endDate: end },
+      appointments: {
+        total: totalAppointments,
+        completed: completedAppointments,
+        cancelled: cancelledAppointments,
+        pending: pendingAppointments,
+        confirmed: confirmedAppointments,
+        noShow: noShowAppointments,
+        completionRate: totalAppointments > 0
+          ? ((completedAppointments / totalAppointments) * 100).toFixed(1) + '%'
+          : '0%'
+      },
+      revenue: {
+        total: totalRevenue,
+        // formatted display e.g. ₹5000.00
+        display: `₹${(totalRevenue / 100).toFixed(2)}`
+      }
+    }
+
+    await setCache(cacheKey, responseData, 120)
+
     res.status(200).json({
       success: true,
-      data: {
-        period: { startDate: start, endDate: end },
-        appointments: {
-          total: totalAppointments,
-          completed: completedAppointments,
-          cancelled: cancelledAppointments,
-          pending: pendingAppointments,
-          confirmed: confirmedAppointments,
-          noShow: noShowAppointments,
-          completionRate: totalAppointments > 0
-            ? ((completedAppointments / totalAppointments) * 100).toFixed(1) + '%'
-            : '0%'
-        },
-        revenue: {
-          total: totalRevenue,
-          // formatted display e.g. ₹5000.00
-          display: `₹${(totalRevenue / 100).toFixed(2)}`
-        }
-      }
+      cached: false,
+      data: responseData
     })
   } catch (error) {
     next(error)
@@ -91,6 +103,12 @@ const getPopularServices = async (req, res, next) => {
 
     const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
     const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const cacheKey = `report:popular-services:${role}:${salonId || branchId || 'all'}:${start}:${end}:${limit}`
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const matchFilter = {
       date: { $gte: start, $lte: end },
@@ -147,12 +165,17 @@ const getPopularServices = async (req, res, next) => {
       }
     ])
 
+    const popularData = {
+      period: { startDate: start, endDate: end },
+      popularServices
+    }
+
+    await setCache(cacheKey, popularData, 300)
+
     res.status(200).json({
       success: true,
-      data: {
-        period: { startDate: start, endDate: end },
-        popularServices
-      }
+      cached: false,
+      data: popularData
     })
   } catch (error) {
     next(error)
@@ -170,6 +193,12 @@ const getStaffPerformance = async (req, res, next) => {
 
     const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
     const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const cacheKey = `report:staff-performance:${role}:${salonId || branchId || 'all'}:${start}:${end}`
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const matchFilter = {
       date: { $gte: start, $lte: end },
@@ -226,12 +255,17 @@ const getStaffPerformance = async (req, res, next) => {
       }
     ])
 
+    const staffData = {
+      period: { startDate: start, endDate: end },
+      staffPerformance
+    }
+
+    await setCache(cacheKey, staffData, 300)
+
     res.status(200).json({
       success: true,
-      data: {
-        period: { startDate: start, endDate: end },
-        staffPerformance
-      }
+      cached: false,
+      data: staffData
     })
   } catch (error) {
     next(error)
@@ -250,6 +284,12 @@ const getDailyBookings = async (req, res, next) => {
 
     const start = startDate || dayjs().startOf('month').format('YYYY-MM-DD')
     const end = endDate || dayjs().endOf('month').format('YYYY-MM-DD')
+
+    const cacheKey = `report:daily-bookings:${role}:${salonId || branchId || 'all'}:${start}:${end}`
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const matchFilter = {
       date: { $gte: start, $lte: end }
@@ -296,12 +336,17 @@ const getDailyBookings = async (req, res, next) => {
       }
     ])
 
+    const dailyDataResponse = {
+      period: { startDate: start, endDate: end },
+      dailyBookings: dailyData
+    }
+
+    await setCache(cacheKey, dailyDataResponse, 300)
+
     res.status(200).json({
       success: true,
-      data: {
-        period: { startDate: start, endDate: end },
-        dailyBookings: dailyData
-      }
+      cached: false,
+      data: dailyDataResponse
     })
   } catch (error) {
     next(error)
@@ -319,6 +364,12 @@ const getSlotUtilization = async (req, res, next) => {
 
     const targetDate = date || dayjs().format('YYYY-MM-DD')
 
+    const cacheKey = `report:slot-utilization:${role}:${salonId || branchId || 'all'}:${targetDate}`
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
+
     const filter = { date: targetDate }
     if (role === 'manager') filter.branchId = branchId
     if (role === 'owner') filter.salonId = salonId
@@ -330,20 +381,25 @@ const getSlotUtilization = async (req, res, next) => {
       Slot.countDocuments({ ...filter, status: 'BLOCKED' })
     ])
 
+    const utilizationData = {
+      date: targetDate,
+      slots: {
+        total,
+        available,
+        booked,
+        blocked,
+        utilizationRate: total > 0
+          ? ((booked / total) * 100).toFixed(1) + '%'
+          : '0%'
+      }
+    }
+
+    await setCache(cacheKey, utilizationData, 120)
+
     res.status(200).json({
       success: true,
-      data: {
-        date: targetDate,
-        slots: {
-          total,
-          available,
-          booked,
-          blocked,
-          utilizationRate: total > 0
-            ? ((booked / total) * 100).toFixed(1) + '%'
-            : '0%'
-        }
-      }
+      cached: false,
+      data: utilizationData
     })
   } catch (error) {
     next(error)

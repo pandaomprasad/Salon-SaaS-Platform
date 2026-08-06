@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform, Animated, LayoutAnimation, UIManager, LogBox } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, SHADOWS } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 
 import HomeScreen from "../screen/homeScreen";
 import ExploreScreen from "../screen/ExploreScreen";
@@ -14,7 +15,9 @@ import ProfileScreen from "../screen/ProfileScreen";
 import EditProfileScreen from "../screen/EditProfileScreen";
 import SavedAddressesScreen from "../screen/SavedAddressesScreen";
 import SupportScreen from "../screen/SupportScreen";
+import AllSalonsScreen from "../screen/AllSalonsScreen";
 import OnboardingScreen from "../screen/OnboardingScreen";
+import SplashScreen from "../screen/SplashScreen";
 import ScreenTransition from "../components/ScreenTransition";
 import AndroidExpandingTabBar from "../components/AndroidExpandingTabBar";
 import { FavoritesProvider } from "../context/FavoritesContext";
@@ -35,15 +38,17 @@ const TABS = [
 ];
 
 export default function AppNavigator() {
+  const { theme, isDark } = useTheme();
   const [currentTab, setCurrentTab] = useState("Home");
   const [screenStack, setScreenStack] = useState([]); // Navigation stack: [{ name, params }]
   const [hasOnboarded, setHasOnboarded] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   React.useEffect(() => {
     const checkOnboarding = async () => {
       try {
         const val = await storage.getItem("@salon_app_has_onboarded");
-        setHasOnboarded(val === "true" ? false : false); // Set to false to show onboarding preview
+        setHasOnboarded(val === "true");
       } catch (e) {
         setHasOnboarded(false);
       }
@@ -110,6 +115,11 @@ export default function AppNavigator() {
 
   // Render current view
   const renderContent = () => {
+    // Show splash screen on cold launch
+    if (showSplash) {
+      return <SplashScreen onFinish={() => setShowSplash(false)} />;
+    }
+
     if (hasOnboarded === false || activeScreen === "Onboarding") {
       return (
         <OnboardingScreen
@@ -123,56 +133,62 @@ export default function AppNavigator() {
       );
     }
 
-    if (activeScreen === "SalonDetail") {
-      return (
-        <SalonDetailScreen
-          salon={screenParams.salon}
-          goBack={goBack}
-          navigate={navigate}
-          onScroll={handleScroll}
-        />
-      );
-    }
-    if (activeScreen === "Booking") {
-      return (
-        <BookingScreen
-          salon={screenParams.salon}
-          branch={screenParams.branch}
-          service={screenParams.service}
-          goBack={goBack}
-          navigate={navigate}
-        />
-      );
-    }
-    if (activeScreen === "Login") {
-      return (
-        <LoginScreen
-          navigate={navigate}
-          goBack={goBack}
-          routeParams={screenParams}
-        />
-      );
-    }
-    if (activeScreen === "Register") {
-      return (
-        <RegisterScreen
-          navigate={navigate}
-          goBack={goBack}
-          routeParams={screenParams}
-        />
-      );
-    }
-    if (activeScreen === "EditProfile") {
-      return <EditProfileScreen goBack={goBack} navigate={navigate} />;
-    }
-    if (activeScreen === "SavedAddresses") {
-      return <SavedAddressesScreen goBack={goBack} navigate={navigate} />;
-    }
-    if (activeScreen === "Support") {
-      return <SupportScreen goBack={goBack} navigate={navigate} />;
-    }
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, display: activeScreen ? "none" : "flex" }}>
+          {renderTabViews()}
+        </View>
 
-    return renderTabViews();
+        {activeScreen === "SalonDetail" && (
+          <SalonDetailScreen
+            salon={screenParams.salon}
+            goBack={goBack}
+            navigate={navigate}
+            onScroll={handleScroll}
+          />
+        )}
+        {activeScreen === "Booking" && (
+          <BookingScreen
+            salon={screenParams.salon}
+            branch={screenParams.branch}
+            service={screenParams.service}
+            goBack={goBack}
+            navigate={navigate}
+          />
+        )}
+        {activeScreen === "Login" && (
+          <LoginScreen
+            navigate={navigate}
+            goBack={goBack}
+            routeParams={screenParams}
+          />
+        )}
+        {activeScreen === "Register" && (
+          <RegisterScreen
+            navigate={navigate}
+            goBack={goBack}
+            routeParams={screenParams}
+          />
+        )}
+        {activeScreen === "EditProfile" && (
+          <EditProfileScreen goBack={goBack} navigate={navigate} />
+        )}
+        {activeScreen === "SavedAddresses" && (
+          <SavedAddressesScreen goBack={goBack} navigate={navigate} />
+        )}
+        {activeScreen === "Support" && (
+          <SupportScreen goBack={goBack} navigate={navigate} />
+        )}
+        {activeScreen === "AllSalons" && (
+          <AllSalonsScreen
+            goBack={goBack}
+            navigate={navigate}
+            routeParams={screenParams}
+            onScroll={handleScroll}
+          />
+        )}
+      </View>
+    );
   };
 
   // Persistent Tab Screen Views (Keep-Alive)
@@ -213,22 +229,24 @@ export default function AppNavigator() {
 
   return (
     <FavoritesProvider>
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={C.dark} />
+      <View style={[styles.container, { backgroundColor: theme.canvas }]}>
+        <StatusBar barStyle={theme.statusBar} backgroundColor={theme.canvas} />
 
-        <View style={styles.content}>
+        <View style={styles.content} key={isDark ? 'dark' : 'light'}>
           <ScreenTransition screenKey={activeScreen || currentTab} isStackScreen={!!activeScreen}>
             {renderContent()}
           </ScreenTransition>
         </View>
 
-        {/* Show Bottom Tab Bar when not in a modal stack screen or onboarding */}
-        {!activeScreen && hasOnboarded !== false ? (
+        {/* Show Bottom Tab Bar when not in a modal stack screen or onboarding or splash */}
+        {!activeScreen && hasOnboarded !== false && !showSplash ? (
           isIos ? (
             <Animated.View
               style={[
                 styles.iosTabBarContainer,
                 {
+                  backgroundColor: theme.tabBg,
+                  borderColor: theme.tabBorder,
                   opacity: barOpacity,
                   transform: [
                     { translateY },
@@ -251,12 +269,13 @@ export default function AppNavigator() {
                     <Ionicons
                       name={iconName}
                       size={20}
-                      color={isSelected ? C.main : C.muted}
+                      color={isSelected ? theme.primary : theme.muted}
                     />
                     <Text
                       style={[
                         styles.iosTabLabel,
-                        isSelected && styles.iosTabLabelSelected,
+                        { color: theme.muted },
+                        isSelected && { color: theme.primary, fontWeight: "600" },
                       ]}
                     >
                       {tab.label}
@@ -281,7 +300,7 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
+    backgroundColor: C.bg,
   },
   content: {
     flex: 1,

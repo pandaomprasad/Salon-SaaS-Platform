@@ -78,6 +78,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
   const [statusToast, setStatusToast] = useState(null);
 
   const promptedReviewIdsRef = React.useRef(new Set());
+  const styles = getStyles();
 
   const handleAddReviewSubmit = async ({ rating, comment }) => {
     if (!reviewModalAppt) return;
@@ -219,34 +220,21 @@ export default function BookingsScreen({ navigate, onScroll }) {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [isAuthenticated, user, fetchAppointments]);
+  }, [isAuthenticated, user]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchAppointments();
+  const handleCancelSuccess = () => {
+    setCancelApptModal(null);
+    setStatusToast({
+      type: "warning",
+      title: "Appointment Cancelled",
+      message: "Your appointment has been cancelled.",
+    });
+    fetchAppointments(true);
   };
 
-  const handleCancel = async (id) => {
+  const handleRescheduleSuccess = async (updatedAppt) => {
+    setRescheduleAppt(null);
     try {
-      await appointmentService.cancelAppointment(id);
-      fetchAppointments();
-    } catch (err) {
-      setError(err.message || "Failed to cancel appointment");
-    }
-  };
-
-  const handleConfirmCancel = async (id, reason) => {
-    try {
-      await appointmentService.cancelAppointment(id, reason);
-      fetchAppointments();
-    } catch (err) {
-      setError(err.message || "Failed to cancel appointment");
-    }
-  };
-
-  const handleConfirmReschedule = async (id, newSlotId) => {
-    try {
-      await appointmentService.rescheduleAppointment(id, newSlotId);
       setStatusToast({
         type: "success",
         title: "📅 Rescheduled Successfully!",
@@ -300,22 +288,33 @@ export default function BookingsScreen({ navigate, onScroll }) {
         visible={!!selectedAppt}
         appointment={selectedAppt}
         onClose={() => setSelectedAppt(null)}
-        onCancel={(id) => setCancelApptModal(selectedAppt)}
+        onReschedule={(appt) => {
+          setSelectedAppt(null);
+          setRescheduleAppt(appt);
+        }}
+        onCancel={(appt) => {
+          setSelectedAppt(null);
+          setCancelApptModal(appt);
+        }}
       />
 
-      <RescheduleModal
-        visible={!!rescheduleAppt}
-        booking={rescheduleAppt}
-        onClose={() => setRescheduleAppt(null)}
-        onConfirm={handleConfirmReschedule}
-      />
+      {rescheduleAppt && (
+        <RescheduleModal
+          visible={!!rescheduleAppt}
+          appointment={rescheduleAppt}
+          onClose={() => setRescheduleAppt(null)}
+          onSuccess={handleRescheduleSuccess}
+        />
+      )}
 
-      <CancelBookingModal
-        visible={!!cancelApptModal}
-        booking={cancelApptModal}
-        onClose={() => setCancelApptModal(null)}
-        onConfirm={handleConfirmCancel}
-      />
+      {cancelApptModal && (
+        <CancelBookingModal
+          visible={!!cancelApptModal}
+          appointment={cancelApptModal}
+          onClose={() => setCancelApptModal(null)}
+          onSuccess={handleCancelSuccess}
+        />
+      )}
 
       <AddReviewModal
         visible={!!reviewModalAppt}
@@ -324,25 +323,22 @@ export default function BookingsScreen({ navigate, onScroll }) {
         appointment={reviewModalAppt}
       />
 
-      {/* Real-time Status Change Toast Notification */}
-      {statusToast && (
+      {statusToast ? (
         <View style={styles.toastBanner}>
           <View style={{ flex: 1 }}>
             <Text style={styles.toastTitle}>{statusToast.title}</Text>
             <Text style={styles.toastMessage}>{statusToast.message}</Text>
           </View>
-          <TouchableOpacity onPress={() => setStatusToast(null)} style={styles.toastCloseBtn}>
+          <TouchableOpacity style={styles.toastCloseBtn} onPress={() => setStatusToast(null)}>
             <Ionicons name="close" size={16} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-      )}
+      ) : null}
 
-      {/* Aesthetic Minimal Top Header */}
       <View style={styles.header}>
         <Text style={styles.title}>My Appointments</Text>
-        <Text style={styles.subtitle}>Manage your upcoming & past salon visits</Text>
+        <Text style={styles.subtitle}>Track, reschedule or manage your salon visits</Text>
 
-        {/* Minimal Pill Tabs */}
         <View style={styles.tabRow}>
           {TABS.map((tab) => {
             const isSelected = activeTab === tab;
@@ -363,27 +359,23 @@ export default function BookingsScreen({ navigate, onScroll }) {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.gold} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAppointments(false)} tintColor={C.main} />
         }
       >
-        {loading ? (
+        {loading && !refreshing ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="small" color={C.dark} />
-            <Text style={styles.loadingText}>Fetching your appointments...</Text>
+            <ActivityIndicator size="small" color={C.main} />
+            <Text style={styles.loadingText}>Loading visits…</Text>
           </View>
         ) : filteredAppointments.length === 0 ? (
           <View style={styles.centerBox}>
-            <Text style={styles.noApptTitle}>No {activeTab.toLowerCase()} appointments</Text>
-            <Text style={styles.noApptSub}>
-              {activeTab === "Active"
-                ? "You don't have any upcoming salon visits scheduled."
-                : `No ${activeTab.toLowerCase()} bookings recorded.`}
-            </Text>
+            <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} appointments</Text>
+            <Text style={styles.emptySub}>When you book a service, your visit details will appear here.</Text>
           </View>
         ) : (
           filteredAppointments.map((appt) => {
@@ -391,58 +383,47 @@ export default function BookingsScreen({ navigate, onScroll }) {
               appt.salon?.name ||
               (typeof appt.salonId === "object" ? appt.salonId?.name : null) ||
               (typeof appt.branchId === "object" ? appt.branchId?.name : null) ||
-              "Salon Luxe";
+              "Salon Partner";
 
             const serviceName =
               appt.service?.name ||
               (typeof appt.serviceId === "object" ? appt.serviceId?.name : null) ||
-              "Salon Service";
-
-            const price =
-              appt.pricePaid ??
-              (typeof appt.serviceId === "object" ? appt.serviceId?.price : null) ??
-              (typeof appt.service === "object" ? appt.service?.price : null);
-
-            const rawDate =
-              appt.date ||
-              (typeof appt.slotId === "object" ? appt.slotId?.date : null) ||
-              appt.slot?.date;
-
-            const rawStartTime =
-              appt.startTime ||
-              (typeof appt.slotId === "object" ? appt.slotId?.startTime : null) ||
-              appt.slot?.startTime;
-
-            const rawEndTime =
-              appt.endTime ||
-              (typeof appt.slotId === "object" ? appt.slotId?.endTime : null) ||
-              appt.slot?.endTime;
+              "Service";
 
             const staffName =
+              appt.staff?.name ||
               (typeof appt.staffId === "object" ? appt.staffId?.name : null) ||
-              (typeof appt.staff === "object" ? appt.staff?.name : null);
+              "Any available stylist";
 
-            const slotDate = formatDate(rawDate);
-            const timeRange = formatTimeRange(rawStartTime, rawEndTime);
-            const status = appt.status || "CONFIRMED";
+            const status = (appt.status || "PENDING").toUpperCase();
+            const dateText = formatDate(appt.date || (typeof appt.slotId === "object" ? appt.slotId?.date : null));
+            const timeText = formatTimeRange(
+              appt.startTime || (typeof appt.slotId === "object" ? appt.slotId?.startTime : null),
+              appt.endTime || (typeof appt.slotId === "object" ? appt.slotId?.endTime : null)
+            );
+
+            const isPending = status === "PENDING";
+            const isConfirmed = status === "CONFIRMED";
+            const isCompleted = status === "COMPLETED";
 
             return (
               <TouchableOpacity
                 key={appt._id || appt.id}
                 style={styles.card}
-                activeOpacity={0.88}
                 onPress={() => setSelectedAppt(appt)}
+                activeOpacity={0.88}
               >
                 <View style={styles.cardHeader}>
-                  <View style={{ flex: 1, paddingRight: S.sm }}>
-                    <Text style={styles.salonName}>{salonName.toUpperCase()}</Text>
+                  <View style={{ flex: 1, paddingRight: S.xs }}>
+                    <Text style={styles.salonName}>{salonName}</Text>
                     <Text style={styles.serviceName}>{serviceName}</Text>
-                    {staffName ? (
-                      <Text style={styles.staffText}>✂️ Stylist: {staffName}</Text>
-                    ) : null}
+                    <Text style={styles.staffText}>Stylist: {staffName}</Text>
                   </View>
+
                   <View style={[styles.statusBadge, getStatusStyle(status)]}>
-                    <Text style={[styles.statusText, getStatusTextStyle(status)]}>{status}</Text>
+                    <Text style={[styles.statusText, getStatusTextStyle(status)]}>
+                      {status}
+                    </Text>
                   </View>
                 </View>
 
@@ -450,15 +431,15 @@ export default function BookingsScreen({ navigate, onScroll }) {
 
                 <View style={styles.cardDetails}>
                   <View style={styles.metaRow}>
-                    <Text style={styles.detailText}>📅  {slotDate}</Text>
-                    <Text style={styles.detailText}>⏰  {timeRange}</Text>
+                    <Text style={styles.detailText}>📅 {dateText}</Text>
+                    <Text style={styles.detailText}>⏰ {timeText}</Text>
                   </View>
-                  {price !== undefined && price !== null ? (
-                    <Text style={styles.detailPrice}>{paiseToINR(price)}</Text>
-                  ) : null}
+
+                  <Text style={styles.detailPrice}>{paiseToINR(appt.totalAmount || appt.price || 0)}</Text>
                 </View>
 
-                {status === "PENDING" || status === "CONFIRMED" ? (
+                {/* Actions for Active / Completed */}
+                {isPending || isConfirmed ? (
                   <View style={styles.cardActionsRow}>
                     <TouchableOpacity
                       style={styles.rescheduleBtn}
@@ -479,14 +460,14 @@ export default function BookingsScreen({ navigate, onScroll }) {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.cancelBtnText}>Cancel Booking</Text>
+                      <Text style={styles.cancelBtnText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
-                ) : status === "COMPLETED" ? (
-                  <View style={styles.cardActionsRow}>
+                ) : isCompleted ? (
+                  <View style={styles.cardActions}>
                     {appt.rating && appt.rating.score ? (
                       <View style={styles.ratedChip}>
-                        <Ionicons name="star" size={13} color="#c08532" />
+                        <Ionicons name="star" size={12} color="#c08532" />
                         <Text style={styles.ratedChipText}>
                           {appt.rating.score}/5 {appt.rating.review ? `· "${appt.rating.review}"` : ""}
                         </Text>
@@ -518,13 +499,13 @@ export default function BookingsScreen({ navigate, onScroll }) {
 function getStatusStyle(status) {
   switch ((status || "").toUpperCase()) {
     case "CONFIRMED":
-      return { backgroundColor: C.grep };       // Mint timeline pill
+      return { backgroundColor: C.grep };
     case "PENDING":
-      return { backgroundColor: C.thinking };   // Peach timeline pill
+      return { backgroundColor: C.thinking };
     case "IN_PROGRESS":
-      return { backgroundColor: C.read };       // Blue timeline pill
+      return { backgroundColor: C.read };
     case "COMPLETED":
-      return { backgroundColor: C.edit };       // Lavender timeline pill
+      return { backgroundColor: C.edit };
     case "CANCELLED":
     case "NO_SHOW":
       return { backgroundColor: C.errorBg, borderWidth: 1, borderColor: "rgba(207, 45, 86, 0.2)" };
@@ -543,274 +524,276 @@ function getStatusTextStyle(status) {
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F5F0",
-  },
-  header: {
-    backgroundColor: "#F7F5F0",
-    paddingTop: 54,
-    paddingHorizontal: S.lg,
-    paddingBottom: S.md,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#1A1714",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#8E877D",
-    marginTop: 2,
-    marginBottom: S.lg,
-  },
-  tabRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 24,
-  },
-  tabSelected: {
-    backgroundColor: "#121016",
-  },
-  tabUnselected: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  tabTextSelected: {
-    color: "#FFFFFF",
-  },
-  tabTextUnselected: {
-    color: "#78716C",
-  },
-  listContent: {
-    paddingHorizontal: S.lg,
-    paddingTop: S.xs,
-    paddingBottom: 40,
-  },
-  centerBox: {
-    padding: S.xxl,
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-    color: C.ink,
-  },
-  tabTextActive: {
-    color: "#FFFFFF",
-  },
-  contentContainer: {
-    paddingHorizontal: S.md,
-    paddingBottom: 110,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: C.bg,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: S.xl,
-  },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: S.sm,
-  },
-  emptyTitle: {
-    fontSize: FS.title,
-    fontWeight: "400",
-    color: C.ink,
-    textAlign: "center",
-    letterSpacing: -0.32,
-  },
-  emptySub: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    textAlign: "center",
-    marginTop: S.xs,
-    marginBottom: S.lg,
-    lineHeight: 20,
-  },
-  signInBtn: {
-    backgroundColor: C.main,
-    paddingHorizontal: S.xl,
-    paddingVertical: 10,
-    borderRadius: R.md,
-  },
-  signInBtnText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: S.md,
-    marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  salonName: {
-    ...TYPO.eyebrow,
-    color: C.main,
-  },
-  serviceName: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    marginTop: 2,
-  },
-  staffText: {
-    fontSize: FS.bodySm,
-    color: C.muted,
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: R.pill,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    letterSpacing: 0.88,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: C.borderLight,
-    marginVertical: S.sm,
-  },
-  cardDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  metaRow: {
-    gap: 2,
-  },
-  detailText: {
-    fontSize: FS.bodySm,
-    color: C.body,
-  },
-  detailPrice: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  cardActions: {
-    marginTop: S.sm,
-    alignItems: "flex-end",
-  },
-  cardActionsRow: {
-    marginTop: S.sm,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: S.xs,
-  },
-  rescheduleBtn: {
-    paddingHorizontal: S.md,
-    paddingVertical: 6,
-    borderRadius: R.md,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.borderDark,
-  },
-  rescheduleBtnText: {
-    color: C.ink,
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  cancelBtn: {
-    paddingHorizontal: S.md,
-    paddingVertical: 6,
-    borderRadius: R.md,
-    backgroundColor: C.errorBg,
-    borderWidth: 1,
-    borderColor: "rgba(207, 45, 86, 0.2)",
-  },
-  cancelBtnText: {
-    color: C.error,
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  rateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: S.md,
-    paddingVertical: 6,
-    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
-    backgroundColor: C.main, // Cursor Orange #f54e00
-  },
-  rateBtnText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  ratedChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: S.sm,
-    paddingVertical: 4,
-    borderRadius: R.pill,
-    backgroundColor: C.lifted,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  ratedChipText: {
-    color: C.ink,
-    fontSize: FS.bodySm - 1,
-    fontWeight: FW.medium,
-  },
-  toastBanner: {
-    position: "absolute",
-    top: 48,
-    left: 16,
-    right: 16,
-    zIndex: 9999,
-    backgroundColor: C.ink,
-    borderRadius: R.md,
-    paddingHorizontal: S.md,
-    paddingVertical: S.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: C.main,
-  },
-  toastTitle: {
-    color: C.main,
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-  },
-  toastMessage: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm - 1,
-    marginTop: 2,
-  },
-  toastCloseBtn: {
-    padding: 4,
-    marginLeft: S.xs,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+    header: {
+      backgroundColor: C.bg,
+      paddingTop: 54,
+      paddingHorizontal: S.lg,
+      paddingBottom: S.md,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: "400",
+      color: C.ink,
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: C.muted,
+      marginTop: 2,
+      marginBottom: S.lg,
+    },
+    tabRow: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: 24,
+    },
+    tabSelected: {
+      backgroundColor: C.ink,
+    },
+    tabUnselected: {
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    tabText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    tabTextSelected: {
+      color: "#FFFFFF",
+    },
+    tabTextUnselected: {
+      color: C.muted,
+    },
+    listContent: {
+      paddingHorizontal: S.lg,
+      paddingTop: S.xs,
+      paddingBottom: 40,
+    },
+    centerBox: {
+      padding: S.xxl,
+      alignItems: "center",
+    },
+    loadingText: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+      color: C.ink,
+    },
+    tabTextActive: {
+      color: "#FFFFFF",
+    },
+    contentContainer: {
+      paddingHorizontal: S.md,
+      paddingBottom: 110,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    emptyContainer: {
+      flex: 1,
+      backgroundColor: C.bg,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: S.xl,
+    },
+    emptyIcon: {
+      fontSize: 40,
+      marginBottom: S.sm,
+    },
+    emptyTitle: {
+      fontSize: FS.title,
+      fontWeight: "400",
+      color: C.ink,
+      textAlign: "center",
+      letterSpacing: -0.32,
+    },
+    emptySub: {
+      fontSize: FS.bodySm,
+      color: C.body,
+      textAlign: "center",
+      marginTop: S.xs,
+      marginBottom: S.lg,
+      lineHeight: 20,
+    },
+    signInBtn: {
+      backgroundColor: C.main,
+      paddingHorizontal: S.xl,
+      paddingVertical: 10,
+      borderRadius: R.md,
+    },
+    signInBtnText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    card: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      padding: S.md,
+      marginBottom: S.md,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    salonName: {
+      ...TYPO.eyebrow,
+      color: C.main,
+    },
+    serviceName: {
+      fontSize: FS.titleSm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      marginTop: 2,
+    },
+    staffText: {
+      fontSize: FS.bodySm,
+      color: C.muted,
+      marginTop: 2,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: R.pill,
+    },
+    statusText: {
+      fontSize: 10,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      letterSpacing: 0.88,
+    },
+    cardDivider: {
+      height: 1,
+      backgroundColor: C.borderLight,
+      marginVertical: S.sm,
+    },
+    cardDetails: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    metaRow: {
+      gap: 2,
+    },
+    detailText: {
+      fontSize: FS.bodySm,
+      color: C.body,
+    },
+    detailPrice: {
+      fontSize: FS.titleSm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+    },
+    cardActions: {
+      marginTop: S.sm,
+      alignItems: "flex-end",
+    },
+    cardActionsRow: {
+      marginTop: S.sm,
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: S.xs,
+    },
+    rescheduleBtn: {
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.md,
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.borderDark,
+    },
+    rescheduleBtnText: {
+      color: C.ink,
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    cancelBtn: {
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.md,
+      backgroundColor: C.errorBg,
+      borderWidth: 1,
+      borderColor: "rgba(207, 45, 86, 0.2)",
+    },
+    cancelBtnText: {
+      color: C.error,
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    rateBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.md,
+      backgroundColor: C.main,
+    },
+    rateBtnText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    ratedChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: S.sm,
+      paddingVertical: 4,
+      borderRadius: R.pill,
+      backgroundColor: C.lifted,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    ratedChipText: {
+      color: C.ink,
+      fontSize: FS.bodySm - 1,
+      fontWeight: FW.medium,
+    },
+    toastBanner: {
+      position: "absolute",
+      top: 48,
+      left: 16,
+      right: 16,
+      zIndex: 9999,
+      backgroundColor: C.ink,
+      borderRadius: R.md,
+      paddingHorizontal: S.md,
+      paddingVertical: S.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: C.main,
+    },
+    toastTitle: {
+      color: C.main,
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
+    },
+    toastMessage: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm - 1,
+      marginTop: 2,
+    },
+    toastCloseBtn: {
+      padding: 4,
+      marginLeft: S.xs,
+    },
+  });
+}

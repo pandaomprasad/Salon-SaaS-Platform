@@ -2,6 +2,12 @@
 import { apiClient } from "./apiClient";
 
 export const browseService = {
+  getInitialLoad: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const endpoint = `/browse/initial-load${query ? `?${query}` : ""}`;
+    return await apiClient.get(endpoint);
+  },
+
   getSalons: async (params = {}) => {
     const query = new URLSearchParams(params).toString();
     const endpoint = `/browse/salons${query ? `?${query}` : ""}`;

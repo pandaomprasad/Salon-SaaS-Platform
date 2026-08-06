@@ -7,6 +7,8 @@ const AppError = require("../utils/AppError");
 const dayjs = require("dayjs");
 const { getIO } = require("../config/socket");
 
+const { delCachePattern } = require("../services/cache.service");
+
 // ================================
 // POST /api/v1/appointments
 // customer only — book an appointment
@@ -66,8 +68,6 @@ const bookAppointment = async (req, res, next) => {
     // --------------------------------
     // Step 3 — check customer conflict
     // --------------------------------
-    // Step 3 — check customer conflict
-    // --------------------------------
     const conflict = await Appointment.findOne({
       customerId: userId,
       date: slot.date,
@@ -97,58 +97,52 @@ const bookAppointment = async (req, res, next) => {
     // Step 4 — atomic booking inside a transaction
     // if ANY step fails, ALL steps roll back
     // --------------------------------
-    const session = await mongoose.startSession();
     let appointment;
+    const session = await mongoose.startSession();
 
     try {
       await session.withTransaction(async () => {
-        // atomically mark slot as BOOKED inside transaction
-        const bookedSlot = await Slot.findOneAndUpdate(
+        const slotToBook = await Slot.findOneAndUpdate(
           { _id: slotId, status: "AVAILABLE" },
           { status: "BOOKED" },
-          { new: true, session }, // pass session to every DB call
+          { new: true, session },
         );
 
-        // someone else booked it in the same millisecond
-        if (!bookedSlot) {
-          throw new AppError(
-            "This slot was just booked by someone else. Please choose another.",
-            400,
-          );
+        if (!slotToBook) {
+          throw new AppError("Slot was just booked by another customer", 409);
         }
 
-        // create appointment inside same transaction
         const created = await Appointment.create(
           [
             {
-              customerId: userId,
-              branchId: slot.branchId,
               salonId: slot.salonId,
+              branchId: slot.branchId,
+              customerId: userId,
               staffId: slot.staffId,
               serviceId,
               slotId,
               date: slot.date,
               startTime: slot.startTime,
               endTime: slot.endTime,
-              status: "PENDING",
-              pricePaid: service.price,
-              currency: service.currency,
-              customerNotes: customerNotes || null,
-              statusHistory: [
+              price: service.price,
+              currency: service.currency || "INR",
+              customerNotes,
+              status: "CONFIRMED",
+              history: [
                 {
-                  status: "PENDING",
+                  status: "CONFIRMED",
+                  changedBy: userId,
                   changedAt: new Date(),
                   note: "Appointment booked by customer",
                 },
               ],
             },
           ],
-          { session }, // array form required when using session with create
+          { session },
         );
 
         appointment = created[0];
 
-        // link appointment back to slot — inside same transaction
         await Slot.findByIdAndUpdate(
           slotId,
           { appointmentId: appointment._id },
@@ -156,9 +150,16 @@ const bookAppointment = async (req, res, next) => {
         );
       });
     } finally {
-      // always end the session whether success or failure
       session.endSession();
     }
+
+    // Invalidate Redis slot caches for this branch/date only.
+    // NOTE: we deliberately do NOT flush `initial_load:*` here — nuking
+    // the whole city's cached dataset on every booking forced a full slow
+    // rebuild for every subsequent request. The 300s TTL keeps it fresh
+    // enough, and the next customer that books this branch still sees the
+    // just-invalidated slots on the booking screen.
+    delCachePattern(`branch:slots:${slot.branchId}:${slot.date}:*`);
 
     res.status(201).json({
       success: true,
@@ -166,8 +167,6 @@ const bookAppointment = async (req, res, next) => {
       data: { appointment },
     });
   } catch (error) {
-    // if the error came from inside the transaction (like slot taken)
-    // pass it to global error handler
     next(error);
   }
 };

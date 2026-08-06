@@ -465,13 +465,129 @@ async function seedMasterData() {
         eligibleStaff: [staff2_1_a._id],
       },
     ]);
-    console.log(`  📍 Branch 1: ${branch2_1.name} (2 services, 1 staff)`);
+    // ========================================================
+    // SALON 3: Sahu Salon & Spa (Brahmapur)
+    // ========================================================
+    const owner3 = await User.create({
+      name: "Amitabh Sahu",
+      email: "sahu.owner@salon.com",
+      phone: "+91-9861011111",
+      password: "Password@123",
+      role: roleMap["owner"],
+      isActive: true,
+    });
+
+    const salon3 = await Salon.create({
+      name: "Sahu Salon & Spa",
+      owner: owner3._id,
+      description: "Premier luxury hair styling, facial glow treatments and spa therapy in Brahmapur.",
+      contactEmail: "contact@sahusalon.com",
+      contactPhone: "+91-9861011111",
+      coverImage: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1000&auto=format&fit=crop",
+      rating: 4.9,
+      isActive: true,
+    });
+    await User.findByIdAndUpdate(owner3._id, { salonId: salon3._id });
+    console.log(`🏰 Salon 3 created: ${salon3.name} (Owner: ${owner3.email})`);
+
+    const manager3_1 = await User.create({
+      name: "Subhashree Panda",
+      email: "manager.gopalpur@salon.com",
+      phone: "+91-9861022222",
+      password: "Password@123",
+      role: roleMap["manager"],
+      salonId: salon3._id,
+      isActive: true,
+    });
+
+    const branch3_1 = await Branch.create({
+      salonId: salon3._id,
+      name: "Gopalpur Branch",
+      address: {
+        street: "Beach Road, Gopalpur-on-Sea",
+        city: "Brahmapur",
+        state: "Odisha",
+        pincode: "760002",
+        country: "India",
+        coordinates: { lat: 19.261, lng: 84.908 },
+      },
+      contactPhone: "+91-9861022222",
+      contactEmail: "gopalpur@sahusalon.com",
+      managerId: manager3_1._id,
+      slotDurationMinutes: 60,
+    });
+    await User.findByIdAndUpdate(manager3_1._id, { branchId: branch3_1._id });
+
+    const staff3_1_a = await User.create({
+      name: "Manas Ranjan Sahoo",
+      email: "manas.staff@sahusalon.com",
+      phone: "+91-9861033331",
+      password: "Password@123",
+      role: roleMap["staff"],
+      salonId: salon3._id,
+      branchId: branch3_1._id,
+      isActive: true,
+    });
+    const staff3_1_b = await User.create({
+      name: "Pooja Nayak",
+      email: "pooja.staff@sahusalon.com",
+      phone: "+91-9861033332",
+      password: "Password@123",
+      role: roleMap["staff"],
+      salonId: salon3._id,
+      branchId: branch3_1._id,
+      isActive: true,
+    });
+    const staff3_1_c = await User.create({
+      name: "Rajesh Kumar Behera",
+      email: "rajesh.staff@sahusalon.com",
+      phone: "+91-9861033333",
+      password: "Password@123",
+      role: roleMap["staff"],
+      salonId: salon3._id,
+      branchId: branch3_1._id,
+      isActive: true,
+    });
+
+    await Service.insertMany([
+      {
+        branchId: branch3_1._id,
+        salonId: salon3._id,
+        name: "Royal Haircut & Beard Grooming",
+        description: "Precision haircut, hot towel massage, and beard styling.",
+        category: "hair",
+        price: 60000,
+        durationMinutes: 45,
+        eligibleStaff: [staff3_1_a._id, staff3_1_c._id],
+      },
+      {
+        branchId: branch3_1._id,
+        salonId: salon3._id,
+        name: "Gold Radiance Facial",
+        description: "Deep cleansing skin glow facial with herbal extracts.",
+        category: "skin",
+        price: 150000,
+        durationMinutes: 60,
+        eligibleStaff: [staff3_1_b._id],
+      },
+      {
+        branchId: branch3_1._id,
+        salonId: salon3._id,
+        name: "Herbal Head & Body Spa",
+        description: "Aromatherapy therapeutic relaxation and head massage.",
+        category: "spa",
+        price: 120000,
+        durationMinutes: 60,
+        eligibleStaff: [staff3_1_b._id, staff3_1_c._id],
+      },
+    ]);
+    console.log(`  📍 Branch 3: ${branch3_1.name} (3 services, 3 staff)`);
 
     // ========================================================
     // Step 6 — Pre-generate Slots for All Staff for Next 7 Days
     // ========================================================
     console.log("⏳ Generating bookable time slots for all staff...");
-    const allStaff = [staff1_1_a, staff1_1_b, staff1_2_a, staff2_1_a];
+    const allStaff = [staff1_1_a, staff1_1_b, staff1_2_a, staff2_1_a, staff3_1_a, staff3_1_b, staff3_1_c];
     const today = new Date();
     const slotDocs = [];
 

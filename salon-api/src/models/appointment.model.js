@@ -199,6 +199,19 @@ appointmentSchema.index({ staffId: 1, date: 1 })
 // compound — branch + date + status (most frequent analytics query)
 appointmentSchema.index({ branchId: 1, date: 1, status: 1 })
 
+// owner-level reports: filter by salon instead of branch (full-scan otherwise)
+appointmentSchema.index({ salonId: 1, date: 1, status: 1 })
+
+// public reviews: only appointments that actually have a rating
+appointmentSchema.index(
+  { branchId: 1, 'rating.ratedAt': -1 },
+  { partialFilterExpression: { 'rating.score': { $type: 'number' } } },
+)
+appointmentSchema.index(
+  { salonId: 1, 'rating.ratedAt': -1 },
+  { partialFilterExpression: { 'rating.score': { $type: 'number' } } },
+)
+
 // ================================
 // Pre-save hook — auto-record status changes
 // ================================

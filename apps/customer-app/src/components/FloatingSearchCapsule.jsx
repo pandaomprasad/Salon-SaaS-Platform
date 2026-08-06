@@ -29,6 +29,7 @@ export default function FloatingSearchCapsule({
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState(value || "");
   const expandAnim = useRef(new Animated.Value(0)).current;
+  const styles = getStyles();
 
   useEffect(() => {
     if (isFocused) {
@@ -102,62 +103,62 @@ export default function FloatingSearchCapsule({
   );
 }
 
-const styles = StyleSheet.create({
-  outer: { position: "relative", zIndex: 100 },
-  // text-input from cursor/DESIGN.md (height 44px, 8px radius, white surface, 1px hairline border)
-  inputContainer: {
-    height: 44,
-    borderRadius: R.md, // 8px radius per cursor/DESIGN.md
-    backgroundColor: C.surface,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: S.md,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  inputFocused: {
-    borderColor: C.main, // Cursor Orange focus border
-  },
-  searchIcon: {
-    marginRight: S.xs,
-  },
-  input: {
-    flex: 1,
-    fontSize: FS.bodySm,
-    color: C.ink,
-    fontWeight: FW.regular,
-    paddingVertical: 0,
-  },
-  dropdown: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px card radius
-    paddingVertical: S.xs,
-    paddingHorizontal: S.md,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: "hidden",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: S.sm,
-    gap: S.xs,
-  },
-  // Signature Timeline Pill styling per cursor/DESIGN.md
-  timelinePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: R.pill,
-  },
-  timelinePillText: {
-    fontSize: 10,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    letterSpacing: 0.88,
-  },
-  rowQuery: {
-    fontSize: FS.bodySm,
-    color: C.ink,
-    fontWeight: FW.regular,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    outer: { position: "relative", zIndex: 100 },
+    inputContainer: {
+      height: 44,
+      borderRadius: R.md,
+      backgroundColor: C.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: S.md,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    inputFocused: {
+      borderColor: C.main,
+    },
+    searchIcon: {
+      marginRight: S.xs,
+    },
+    input: {
+      flex: 1,
+      fontSize: FS.bodySm,
+      color: C.ink,
+      fontWeight: FW.regular,
+      paddingVertical: 0,
+    },
+    dropdown: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      paddingVertical: S.xs,
+      paddingHorizontal: S.md,
+      borderWidth: 1,
+      borderColor: C.border,
+      overflow: "hidden",
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: S.sm,
+      gap: S.xs,
+    },
+    timelinePill: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: R.pill,
+    },
+    timelinePillText: {
+      fontSize: 10,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      letterSpacing: 0.88,
+    },
+    rowQuery: {
+      fontSize: FS.bodySm,
+      color: C.ink,
+      fontWeight: FW.regular,
+    },
+  });
+}

@@ -3,42 +3,170 @@ const Branch = require('../models/branch.model')
 const Service = require('../models/service.model')
 const Slot = require('../models/slot.model')
 const Appointment = require('../models/appointment.model')
+const User = require('../models/user.model')
 const AppError = require('../utils/AppError')
 const dayjs = require('dayjs')
+const { getCache, setCache } = require('../services/cache.service')
+
+// ================================
+// GET /api/v1/browse/initial-load
+// public — consolidated initial dataset for fast startup
+// Loads Salons, Locations, Services (with images & pricing), Specialists/Staff, and Available Slots
+// ================================
+const getInitialLoad = async (req, res, next) => {
+  try {
+    const { city, date = dayjs().format('YYYY-MM-DD') } = req.query
+    const cleanCity = city ? city.split(',')[0].trim().toLowerCase() : null
+    const cacheKey = `initial_load:${cleanCity || 'all'}:${date}`
+
+    const cachedData = await getCache(cacheKey)
+    if (cachedData) {
+      return res.status(200).json({
+        success: true,
+        cached: true,
+        data: cachedData
+      })
+    }
+
+    // 1. Fetch Salons
+    const salonFilter = { isActive: true, deactivatedByAdmin: { $ne: true } }
+    const salons = await Salon.find(salonFilter)
+      .populate('owner', 'name')
+      .select('name description contactEmail contactPhone logo banner coverImage images')
+      .lean()
+
+    const salonIds = salons.map((s) => s._id)
+
+    // 2. Fetch Locations / Branches
+    const branchFilter = { salonId: { $in: salonIds }, isActive: true, deactivatedByAdmin: { $ne: true } }
+    if (cleanCity) {
+      // exact match on lowercase slug — can use the citySlug index
+      branchFilter.citySlug = cleanCity
+    }
+
+    const branches = await Branch.find(branchFilter)
+      .populate('salonId', 'name logo')
+      .select('salonId name address contactPhone contactEmail workingHours slotDurationMinutes managerId images')
+      .lean()
+
+    const branchIds = branches.map((b) => b._id)
+
+    // 3-5. Fetch services, staff and slots in parallel
+    const [services, staffMembers, availableSlots] = await Promise.all([
+      Service.find({ branchId: { $in: branchIds }, isActive: true })
+        .select('branchId name description category price durationMinutes currency eligibleStaff image photoUrl')
+        .lean(),
+
+      User.find({ branchId: { $in: branchIds }, isActive: { $ne: false } })
+        .select('branchId name email phone avatar photoUrl role bio title rating')
+        .lean(),
+
+      Slot.find({
+        branchId: { $in: branchIds },
+        date,
+        status: 'AVAILABLE'
+      })
+        .populate('staffId', 'name avatar photoUrl')
+        .select('branchId staffId date startTime endTime status')
+        .sort({ startTime: 1 })
+        .lean()
+    ])
+
+    const servicesWithDisplay = services.map((s) => ({
+      ...s,
+      priceDisplay: `₹${(s.price / 100).toFixed(0)}`
+    }))
+
+    // Group slots by staff/specialist
+    const slotsBySpecialist = availableSlots.reduce((acc, slot) => {
+      const staffId = slot.staffId?._id?.toString() || 'unassigned'
+      const staffName = slot.staffId?.name || 'Specialist'
+      if (!acc[staffId]) {
+        acc[staffId] = {
+          staffId,
+          staffName,
+          slots: []
+        }
+      }
+      acc[staffId].slots.push({
+        slotId: slot._id,
+        branchId: slot.branchId,
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        status: slot.status
+      })
+      return acc
+    }, {})
+
+    // Combine branches with their salons, services, and staff
+    const branchesBySalon = {}
+    branches.forEach((b) => {
+      const sid = b.salonId._id ? b.salonId._id.toString() : b.salonId.toString()
+      if (!branchesBySalon[sid]) branchesBySalon[sid] = []
+      branchesBySalon[sid].push(b)
+    })
+
+    const salonsWithDetails = salons.map((s) => ({
+      ...s,
+      branches: branchesBySalon[s._id.toString()] || []
+    }))
+
+    const responseData = {
+      salons: salonsWithDetails,
+      branches,
+      services: servicesWithDisplay,
+      staff: staffMembers,
+      slotsBySpecialist: Object.values(slotsBySpecialist),
+      fetchedAt: new Date().toISOString()
+    }
+
+    // Save to Redis cache for 5 minutes (300s)
+    await setCache(cacheKey, responseData, 300)
+
+    res.status(200).json({
+      success: true,
+      cached: false,
+      data: responseData
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
 // ================================
 // GET /api/v1/browse/salons
-// public — no login required
-// search by name, city
+// public — search by name, city
 // ================================
 const browseSalons = async (req, res, next) => {
   try {
     const { search, city, page = 1, limit = 10 } = req.query
+    const cacheCity = city ? city.split(',')[0].trim().toLowerCase() : null
+    const cacheKey = `salons:list:${search || 'all'}:${cacheCity || 'all'}:${page}:${limit}`
+
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const filter = { isActive: true, deactivatedByAdmin: { $ne: true } }
 
-    // search by salon name — case insensitive
     if (search) {
       filter.name = { $regex: new RegExp(search, 'i') }
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
-    // if city filter — look inside branches matching exact/partial city name
     let salonIdsInCity = null
-    if (city) {
-      const cleanCity = city.split(',')[0].trim()
-      // Match address.city strictly (e.g. "Mumbai", "Bhubaneswar", "Bangalore")
+    if (cacheCity) {
       const branchesInCity = await Branch.find({
-        'address.city': { $regex: new RegExp(cleanCity, 'i') },
+        citySlug: cacheCity,
         isActive: true
       })
         .select('salonId')
         .lean()
 
       salonIdsInCity = branchesInCity.map((b) => b.salonId.toString())
-
-      // filter salons to only those with branches in this city
       filter._id = { $in: salonIdsInCity }
     }
 
@@ -52,13 +180,11 @@ const browseSalons = async (req, res, next) => {
       Salon.countDocuments(filter)
     ])
 
-    // attach branch count + basic branch info to each salon
     const salonIds = salons.map((s) => s._id)
 
     const branchFilter = { salonId: { $in: salonIds }, isActive: true }
-    if (city) {
-      const cleanCity = city.split(',')[0].trim()
-      branchFilter['address.city'] = { $regex: new RegExp(cleanCity, 'i') }
+    if (cacheCity) {
+      branchFilter.citySlug = cacheCity
     }
 
     const [branchCounts, branches] = await Promise.all([
@@ -89,17 +215,22 @@ const browseSalons = async (req, res, next) => {
       branches: branchesBySalon[s._id.toString()] || []
     }))
 
+    const resultData = {
+      salons: salonsWithBranches,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    }
+
+    await setCache(cacheKey, resultData, 300)
+
     res.status(200).json({
       success: true,
-      data: {
-        salons: salonsWithBranches,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
-        }
-      }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -113,6 +244,12 @@ const browseSalons = async (req, res, next) => {
 const getSalonPublic = async (req, res, next) => {
   try {
     const { salonId } = req.params
+    const cacheKey = `salon:detail:${salonId}`
+
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const salon = await Salon.findOne({ _id: salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .select('name description contactEmail contactPhone logo')
@@ -122,19 +259,23 @@ const getSalonPublic = async (req, res, next) => {
       return next(new AppError('Salon not found', 404))
     }
 
-    // get all active branches for this salon
     const branches = await Branch.find({ salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .select('name address contactPhone contactEmail workingHours slotDurationMinutes')
       .lean()
 
+    const resultData = {
+      salon: {
+        ...salon,
+        branches
+      }
+    }
+
+    await setCache(cacheKey, resultData, 300)
+
     res.status(200).json({
       success: true,
-      data: {
-        salon: {
-          ...salon,
-          branches
-        }
-      }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -144,25 +285,28 @@ const getSalonPublic = async (req, res, next) => {
 // ================================
 // GET /api/v1/browse/branches
 // public — browse branches directly
-// filter by city, service category, date availability
 // ================================
 const browseBranches = async (req, res, next) => {
   try {
     const { city, category, date, search, page = 1, limit = 10 } = req.query
+    const cacheCity = city ? city.split(',')[0].trim().toLowerCase() : null
+    const cacheKey = `branches:list:${cacheCity || 'all'}:${category || 'all'}:${date || 'all'}:${search || 'all'}:${page}:${limit}`
+
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const filter = { isActive: true, deactivatedByAdmin: { $ne: true } }
 
-    // filter by city
-    if (city) {
-      filter['address.city'] = { $regex: new RegExp(city, 'i') }
+    if (cacheCity) {
+      filter.citySlug = cacheCity
     }
 
-    // search branch name
     if (search) {
       filter.name = { $regex: new RegExp(search, 'i') }
     }
 
-    // filter by service category — find branchIds that offer this category
     if (category) {
       const branchesWithCategory = await Service.find({
         category,
@@ -175,15 +319,12 @@ const browseBranches = async (req, res, next) => {
       filter._id = { $in: branchIds }
     }
 
-    // filter by date availability — only show branches with available slots on this date
     if (date) {
       const branchesWithSlots = await Slot.find({
         date,
         status: 'AVAILABLE'
-      })
-        .distinct('branchId')
+      }).distinct('branchId')
 
-      // intersect with existing filter if category was also set
       if (filter._id) {
         const existing = filter._id.$in.map((id) => id.toString())
         const withSlots = branchesWithSlots.map((id) => id.toString())
@@ -206,7 +347,6 @@ const browseBranches = async (req, res, next) => {
       Branch.countDocuments(filter)
     ])
 
-    // attach service summary to each branch
     const branchIds = branches.map((b) => b._id)
     const serviceSummary = await Service.aggregate([
       {
@@ -247,17 +387,22 @@ const browseBranches = async (req, res, next) => {
       }
     }))
 
+    const resultData = {
+      branches: branchesWithDetails,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    }
+
+    await setCache(cacheKey, resultData, 180)
+
     res.status(200).json({
       success: true,
-      data: {
-        branches: branchesWithDetails,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
-        }
-      }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -271,6 +416,12 @@ const browseBranches = async (req, res, next) => {
 const getBranchPublic = async (req, res, next) => {
   try {
     const { branchId } = req.params
+    const cacheKey = `branch:detail:${branchId}`
+
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const branch = await Branch.findOne({ _id: branchId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .populate('salonId', 'name logo description')
@@ -281,12 +432,10 @@ const getBranchPublic = async (req, res, next) => {
       return next(new AppError('Branch not found', 404))
     }
 
-    // get all active services for this branch
     const services = await Service.find({ branchId, isActive: true })
       .select('name description category price durationMinutes currency')
       .lean()
 
-    // group services by category
     const servicesByCategory = services.reduce((acc, service) => {
       if (!acc[service.category]) acc[service.category] = []
       acc[service.category].push({
@@ -296,14 +445,19 @@ const getBranchPublic = async (req, res, next) => {
       return acc
     }, {})
 
+    const resultData = {
+      branch: {
+        ...branch,
+        servicesByCategory
+      }
+    }
+
+    await setCache(cacheKey, resultData, 300)
+
     res.status(200).json({
       success: true,
-      data: {
-        branch: {
-          ...branch,
-          servicesByCategory
-        }
-      }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -313,7 +467,6 @@ const getBranchPublic = async (req, res, next) => {
 // ================================
 // GET /api/v1/browse/branches/:branchId/slots
 // public — available slots for a branch on a date
-// customers use this before booking
 // ================================
 const getBranchSlotsPublic = async (req, res, next) => {
   try {
@@ -324,9 +477,14 @@ const getBranchSlotsPublic = async (req, res, next) => {
       return next(new AppError('Date is required. Use ?date=YYYY-MM-DD', 400))
     }
 
-    // don't allow browsing past dates
     if (dayjs(date).isBefore(dayjs().startOf('day'))) {
       return next(new AppError('Cannot browse slots in the past', 400))
+    }
+
+    const cacheKey = `branch:slots:${branchId}:${date}:${staffId || 'all'}:${serviceId || 'all'}`
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
     }
 
     const filter = {
@@ -334,19 +492,16 @@ const getBranchSlotsPublic = async (req, res, next) => {
       date
     }
 
-    // if customer selected a specific staff member
     if (staffId) {
       filter.staffId = staffId
     }
 
-    // if serviceId provided — only show staff who can perform this service
     if (serviceId) {
       const service = await Service.findById(serviceId).lean()
       if (!service) {
         return next(new AppError('Service not found', 404))
       }
 
-      // filter slots to only eligible staff for this service
       if (service.eligibleStaff && service.eligibleStaff.length > 0) {
         if (staffId) {
           if (!service.eligibleStaff.map((id) => id.toString()).includes(staffId.toString())) {
@@ -367,7 +522,6 @@ const getBranchSlotsPublic = async (req, res, next) => {
       .sort({ startTime: 1 })
       .lean()
 
-    // group slots by staff for easier display on frontend
     const slotsByStaff = slots.reduce((acc, slot) => {
       const staffName = slot.staffId?.name || 'Unknown'
       const staffId = slot.staffId?._id?.toString()
@@ -390,13 +544,19 @@ const getBranchSlotsPublic = async (req, res, next) => {
       return acc
     }, {})
 
+    const resultData = {
+      date,
+      branchId,
+      availability: Object.values(slotsByStaff)
+    }
+
+    // Short TTL for slots (60s)
+    await setCache(cacheKey, resultData, 60)
+
     res.status(200).json({
       success: true,
-      data: {
-        date,
-        branchId,
-        availability: Object.values(slotsByStaff)
-      }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -405,13 +565,17 @@ const getBranchSlotsPublic = async (req, res, next) => {
 
 // ================================
 // GET /api/v1/browse/branches/:branchId/services
-// public — all services for a branch
-// filter by category
 // ================================
 const getBranchServicesPublic = async (req, res, next) => {
   try {
     const { branchId } = req.params
     const { category } = req.query
+    const cacheKey = `branch:services:${branchId}:${category || 'all'}`
+
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
 
     const filter = { branchId, isActive: true }
     if (category) filter.category = category
@@ -425,9 +589,14 @@ const getBranchServicesPublic = async (req, res, next) => {
       priceDisplay: `₹${(s.price / 100).toFixed(2)}`
     }))
 
+    const resultData = { services: servicesWithDisplay }
+
+    await setCache(cacheKey, resultData, 300)
+
     res.status(200).json({
       success: true,
-      data: { services: servicesWithDisplay }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -436,19 +605,29 @@ const getBranchServicesPublic = async (req, res, next) => {
 
 // ================================
 // GET /api/v1/browse/branches/:branchId/staff
-// public — list specialists/staff for a branch
 // ================================
 const getBranchStaffPublic = async (req, res, next) => {
   try {
     const { branchId } = req.params
-    const User = require('../models/user.model')
+    const cacheKey = `branch:staff:${branchId}`
+
+    const cached = await getCache(cacheKey)
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached })
+    }
+
     const staff = await User.find({ branchId, isActive: { $ne: false } })
       .select('name email phone avatar photoUrl role')
       .lean()
 
+    const resultData = { staff }
+
+    await setCache(cacheKey, resultData, 300)
+
     res.status(200).json({
       success: true,
-      data: { staff }
+      cached: false,
+      data: resultData
     })
   } catch (error) {
     next(error)
@@ -457,11 +636,17 @@ const getBranchStaffPublic = async (req, res, next) => {
 
 // ================================
 // GET /api/v1/browse/branches/:branchId/reviews
-// public — list reviews for a branch
 // ================================
 const getBranchReviewsPublic = async (req, res, next) => {
   try {
     const { branchId } = req.params;
+    const cacheKey = `branch:reviews:${branchId}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached });
+    }
+
     const appointments = await Appointment.find({
       branchId,
       'rating.score': { $ne: null }
@@ -481,9 +666,13 @@ const getBranchReviewsPublic = async (req, res, next) => {
       ratedAt: appt.rating.ratedAt,
     }));
 
+    const resultData = { reviews };
+    await setCache(cacheKey, resultData, 300);
+
     res.status(200).json({
       success: true,
-      data: { reviews }
+      cached: false,
+      data: resultData
     });
   } catch (error) {
     next(error);
@@ -492,11 +681,17 @@ const getBranchReviewsPublic = async (req, res, next) => {
 
 // ================================
 // GET /api/v1/browse/salons/:salonId/reviews
-// public — list reviews for a salon
 // ================================
 const getSalonReviewsPublic = async (req, res, next) => {
   try {
     const { salonId } = req.params;
+    const cacheKey = `salon:reviews:${salonId}`;
+
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, cached: true, data: cached });
+    }
+
     const appointments = await Appointment.find({
       salonId,
       'rating.score': { $ne: null }
@@ -516,9 +711,13 @@ const getSalonReviewsPublic = async (req, res, next) => {
       ratedAt: appt.rating.ratedAt,
     }));
 
+    const resultData = { reviews };
+    await setCache(cacheKey, resultData, 300);
+
     res.status(200).json({
       success: true,
-      data: { reviews }
+      cached: false,
+      data: resultData
     });
   } catch (error) {
     next(error);
@@ -526,6 +725,7 @@ const getSalonReviewsPublic = async (req, res, next) => {
 };
 
 module.exports = {
+  getInitialLoad,
   browseSalons,
   getSalonPublic,
   browseBranches,

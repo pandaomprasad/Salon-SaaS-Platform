@@ -36,8 +36,9 @@ const DEFAULT_STAFF = [
   },
 ];
 
-export default function StaffPicker({ staffList = [], selectedStaffId, onSelectStaff }) {
+export default function StaffPicker({ staffList = [], selectedStaffId, selectedStaff, onSelectStaff }) {
   const list = staffList.length > 0 ? [DEFAULT_STAFF[0], ...staffList] : DEFAULT_STAFF;
+  const currentStaffId = selectedStaffId || selectedStaff?._id || selectedStaff?.id || (typeof selectedStaff === "string" ? selectedStaff : null);
 
   return (
     <View style={styles.container}>
@@ -53,7 +54,7 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
       >
         {list.map((staff) => {
           const staffId = staff.id || staff._id;
-          const isSelected = selectedStaffId === staffId || (!selectedStaffId && staff.isAny);
+          const isSelected = currentStaffId === staffId || (!currentStaffId && staff.isAny);
 
           return (
             <TouchableOpacity
@@ -68,7 +69,16 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
                     <Ionicons name="sparkles" size={20} color={C.main} />
                   </View>
                 ) : (
-                  <Image source={{ uri: staff.avatar || staff.photoUrl }} style={styles.avatar} />
+                  <Image
+                    source={{
+                      uri:
+                        staff.avatar ||
+                        staff.photoUrl ||
+                        staff.image ||
+                        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop",
+                    }}
+                    style={styles.avatar}
+                  />
                 )}
                 {isSelected && (
                   <View style={styles.checkBadge}>
@@ -79,9 +89,6 @@ export default function StaffPicker({ staffList = [], selectedStaffId, onSelectS
 
               <Text style={styles.name} numberOfLines={1}>
                 {staff.name}
-              </Text>
-              <Text style={styles.title} numberOfLines={1}>
-                {staff.title || staff.role || "Stylist"}
               </Text>
 
               {!staff.isAny && (

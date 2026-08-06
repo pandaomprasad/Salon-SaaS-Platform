@@ -150,6 +150,16 @@ const branchSchema = new mongoose.Schema(
     adminDeactivatedAt: {
       type: Date,
       default: null
+    },
+
+    // normalized lowercase city used for exact-match (index-friendly) queries
+    // the public browse endpoints filter by city — regex on address.city
+    // cannot use an index, this slug can
+    citySlug: {
+      type: String,
+      default: null,
+      lowercase: true,
+      trim: true
     }
   },
   {
@@ -159,11 +169,19 @@ const branchSchema = new mongoose.Schema(
   }
 )
 
+// keep citySlug in sync with address.city on every save
+branchSchema.pre('save', function () {
+  const city = this.address && this.address.city
+  this.citySlug = city ? String(city).toLowerCase().trim() : null
+})
+
 // ================================
 // Indexes
 // ================================
 branchSchema.index({ salonId: 1 })
 branchSchema.index({ salonId: 1, isActive: 1 })
+// city filter drives salons/homescreens — exact match on slug can use the index
+branchSchema.index({ citySlug: 1, isActive: 1 })
 branchSchema.plugin(tenantPlugin)
 
 module.exports = mongoose.model('Branch', branchSchema)

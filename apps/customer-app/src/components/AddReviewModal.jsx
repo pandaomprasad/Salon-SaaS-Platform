@@ -10,12 +10,25 @@ import {
   ActivityIndicator,
   TouchableWithoutFeedback,
   Keyboard,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 
+const REVIEW_TERMS = [
+  { id: "service", label: "Service", icon: "cut-outline" },
+  { id: "cleanliness", label: "Cleanliness", icon: "sparkles-outline" },
+  { id: "ambience", label: "Ambience", icon: "leaf-outline" },
+  { id: "punctuality", label: "Punctuality", icon: "time-outline" },
+];
+
 export default function AddReviewModal({ visible, onClose, onSubmit, appointment, salonName: propSalonName }) {
-  const [rating, setRating] = useState(5);
+  const [aspects, setAspects] = useState({
+    service: 5,
+    cleanliness: 5,
+    ambience: 5,
+    punctuality: 5,
+  });
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,14 +43,32 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
     (typeof appointment?.serviceId === "object" ? appointment.serviceId?.name : null) ||
     "your appointment";
 
+  const handleStarPress = (termId, starVal) => {
+    setAspects((prev) => ({
+      ...prev,
+      [termId]: starVal,
+    }));
+  };
+
+  const calculateOverallRating = () => {
+    const total = aspects.service + aspects.cleanliness + aspects.ambience + aspects.punctuality;
+    return Math.round(total / 4);
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
+    const overallScore = calculateOverallRating();
     try {
       if (onSubmit) {
-        await onSubmit({ rating, comment: comment.trim() });
+        await onSubmit({
+          rating: overallScore,
+          score: overallScore,
+          comment: comment.trim(),
+          aspects,
+        });
       }
       setComment("");
-      setRating(5);
+      setAspects({ service: 5, cleanliness: 5, ambience: 5, punctuality: 5 });
       onClose();
     } catch (e) {
       console.warn("Failed to submit review", e);
@@ -46,68 +77,99 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
     }
   };
 
+  const overallScore = calculateOverallRating();
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.backdrop}>
           <View style={styles.card}>
             <View style={styles.header}>
-              <Text style={styles.title}>RATE YOUR LAST VISIT</Text>
+              <Text style={styles.title}>RATE YOUR EXPERIENCE</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                 <Ionicons name="close" size={18} color={C.ink} />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.subtitle}>
-              How was your recent <Text style={styles.salonBold}>{serviceName}</Text> at <Text style={styles.salonBold}>{salonName}</Text>?
+              How was your recent <Text style={styles.salonBold}>{serviceName}</Text> at{" "}
+              <Text style={styles.salonBold}>{salonName}</Text>?
             </Text>
 
-            {/* Star Selector */}
-            <View style={styles.starRow}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => setRating(star)}
-                  activeOpacity={0.7}
-                  style={styles.starBtn}
-                >
-                  <Ionicons
-                    name={star <= rating ? "star" : "star-outline"}
-                    size={32}
-                    color={star <= rating ? C.main : C.dustTaupe}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.ratingLabel}>
-              {rating === 5 ? "Exceptional 🌟" : rating === 4 ? "Very Good 😊" : rating === 3 ? "Average 😐" : "Needs Improvement 👎"}
-            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
+              {/* Aspect Ratings Section */}
+              <View style={styles.aspectsContainer}>
+                {REVIEW_TERMS.map((item) => {
+                  const currentScore = aspects[item.id];
+                  return (
+                    <View key={item.id} style={styles.aspectRow}>
+                      <View style={styles.aspectLabelBox}>
+                        <Ionicons name={item.icon} size={16} color={C.main} style={{ marginRight: 6 }} />
+                        <Text style={styles.aspectLabel}>{item.label}</Text>
+                      </View>
 
-            {/* Comment Input */}
-            <TextInput
-              style={styles.textInput}
-              placeholder="Write your review, feedback or comments..."
-              placeholderTextColor={C.dustTaupe}
-              multiline
-              numberOfLines={4}
-              value={comment}
-              onChangeText={setComment}
-              textAlignVertical="top"
-            />
+                      <View style={styles.starRow}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <TouchableOpacity
+                            key={star}
+                            onPress={() => handleStarPress(item.id, star)}
+                            activeOpacity={0.7}
+                            style={styles.starBtn}
+                          >
+                            <Ionicons
+                              name={star <= currentScore ? "star" : "star-outline"}
+                              size={20}
+                              color={star <= currentScore ? C.main : C.dustTaupe}
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
 
-            {/* button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius */}
-            <TouchableOpacity
-              style={[styles.submitBtn, submitting && styles.disabledBtn]}
-              onPress={handleSubmit}
-              disabled={submitting}
-              activeOpacity={0.85}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.submitBtnText}>Submit Review</Text>
-              )}
-            </TouchableOpacity>
+              {/* Overall Summary Indicator */}
+              <View style={styles.overallBadge}>
+                <Text style={styles.overallText}>
+                  Overall Score: <Text style={styles.overallScoreBold}>{overallScore} / 5</Text>
+                  {"  "}
+                  {overallScore === 5
+                    ? "🌟 Exceptional"
+                    : overallScore === 4
+                    ? "😊 Very Good"
+                    : overallScore === 3
+                    ? "😐 Average"
+                    : "👎 Needs Improvement"}
+                </Text>
+              </View>
+
+              {/* Comment Input */}
+              <TextInput
+                style={styles.textInput}
+                placeholder="Share more feedback about cleanliness, ambience, service..."
+                placeholderTextColor={C.dustTaupe}
+                multiline
+                numberOfLines={3}
+                value={comment}
+                onChangeText={setComment}
+                textAlignVertical="top"
+              />
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[styles.submitBtn, submitting && styles.disabledBtn]}
+                onPress={handleSubmit}
+                disabled={submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Submit Review</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </TouchableWithoutFeedback>
@@ -122,13 +184,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: S.md,
   },
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
   card: {
     backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px card radius
+    borderRadius: R.lg,
     padding: S.lg,
     borderWidth: 1,
     borderColor: C.border,
+    maxHeight: "85%",
   },
   header: {
     flexDirection: "row",
@@ -153,46 +215,80 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: FS.bodySm,
     color: C.body,
-    marginBottom: S.sm,
+    marginBottom: S.md,
     lineHeight: 20,
   },
   salonBold: {
     fontWeight: FW.semiBold,
     color: C.ink,
   },
+  scrollBody: {
+    flexGrow: 0,
+  },
+  aspectsContainer: {
+    backgroundColor: C.bg,
+    borderRadius: R.md,
+    padding: S.sm,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: S.sm,
+    gap: S.xs,
+  },
+  aspectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  aspectLabelBox: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  aspectLabel: {
+    fontSize: FS.bodySm,
+    fontWeight: FW.medium,
+    color: C.ink,
+  },
   starRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginVertical: S.xs,
+    alignItems: "center",
+    gap: 4,
   },
   starBtn: {
-    padding: 4,
+    padding: 2,
   },
-  ratingLabel: {
-    textAlign: "center",
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
+  overallBadge: {
+    backgroundColor: "rgba(245, 78, 0, 0.08)",
+    paddingVertical: 8,
+    paddingHorizontal: S.sm,
+    borderRadius: R.sm,
     marginBottom: S.sm,
+    alignItems: "center",
   },
-  // text-input per cursor/DESIGN.md: 8px radius
+  overallText: {
+    fontSize: FS.caption,
+    color: C.ink,
+    fontWeight: FW.medium,
+  },
+  overallScoreBold: {
+    fontWeight: FW.bold,
+    color: C.main,
+  },
   textInput: {
     backgroundColor: C.surface,
-    borderRadius: R.md, // 8px radius
+    borderRadius: R.md,
     padding: S.sm,
     fontSize: FS.bodySm,
     color: C.ink,
     borderWidth: 1,
     borderColor: C.border,
-    height: 90,
+    height: 80,
     marginBottom: S.md,
   },
-  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
   submitBtn: {
-    backgroundColor: C.main, // Cursor Orange
+    backgroundColor: C.main,
     paddingVertical: 12,
-    borderRadius: R.md, // 8px radius
+    borderRadius: R.md,
     alignItems: "center",
   },
   disabledBtn: {

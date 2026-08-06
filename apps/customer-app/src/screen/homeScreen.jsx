@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { C, S, FS, FW, R, TYPO } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import Ios26HomeHero from "../components/Ios26HomeHero";
 import TopPromoBanner from "../components/TopPromoBanner";
@@ -25,7 +26,7 @@ import { storage } from "../services/storage";
 import { cleanCityName } from "../services/locationService";
 import { socketClient } from "../services/socketClient";
 
-const SalonCarousel = memo(({ salons, onSalonPress }) => (
+const SalonCarousel = memo(({ salons, onSalonPress, styles }) => (
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
@@ -38,7 +39,7 @@ const SalonCarousel = memo(({ salons, onSalonPress }) => (
   </ScrollView>
 ));
 
-const SalonVerticalList = memo(({ salons, onSalonPress }) => (
+const SalonVerticalList = memo(({ salons, onSalonPress, styles }) => (
   <View style={styles.verticalList}>
     {salons.map((salon, idx) => (
       <SalonCard key={`full_${salon._id || salon.id}`} salon={salon} isHorizontal={false} index={idx + 2} onPress={onSalonPress} />
@@ -46,13 +47,18 @@ const SalonVerticalList = memo(({ salons, onSalonPress }) => (
   </View>
 ));
 
+const GLOBAL_SALON_CACHE = {};
+
 function HomeScreen({ navigate, onScroll }) {
+  const { isDark } = useTheme();
   const { user, isAuthenticated } = useAuth();
-  const [salons, setSalons] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedCity, setSelectedCity] = useState("Mumbai");
+  const initialCleanCity = cleanCityName("Mumbai");
+  const initialSalons = GLOBAL_SALON_CACHE[initialCleanCity] || [];
+  const [salons, setSalons] = useState(initialSalons);
+  const [loading, setLoading] = useState(initialSalons.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  const [selectedCity, setSelectedCity] = useState("Mumbai");
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState(null);
@@ -87,7 +93,7 @@ function HomeScreen({ navigate, onScroll }) {
     if (prevCityRef.current !== selectedCity) {
       prevCityRef.current = selectedCity;
       const cleanCity = cleanCityName(selectedCity);
-      const cached = salonCacheRef.current[cleanCity];
+      const cached = GLOBAL_SALON_CACHE[cleanCity] || salonCacheRef.current[cleanCity];
       if (cached && cached.length > 0) { setSalons(cached); setLoading(false); }
       else { setSalons([]); setLoading(true); }
       setLoadError(null);
@@ -96,13 +102,15 @@ function HomeScreen({ navigate, onScroll }) {
 
   const loadData = useCallback(async (silent = false) => {
     const cleanCity = cleanCityName(selectedCity);
-    const hasCachedData = (salonCacheRef.current[cleanCity]?.length || 0) > 0 || salonsRef.current.length > 0;
+    const cachedList = GLOBAL_SALON_CACHE[cleanCity] || salonCacheRef.current[cleanCity] || [];
+    const hasCachedData = cachedList.length > 0 || salonsRef.current.length > 0;
     try {
       setLoadError(null);
       if (!silent && !hasCachedData) setLoading(true);
       const res = await browseService.getSalons({ city: cleanCity });
       const salonList = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
       salonCacheRef.current[cleanCity] = salonList;
+      GLOBAL_SALON_CACHE[cleanCity] = salonList;
       if (JSON.stringify(salonList) !== JSON.stringify(salonsRef.current)) setSalons(salonList);
       if (isAuthenticated) {
         try {
@@ -135,7 +143,8 @@ function HomeScreen({ navigate, onScroll }) {
 
   useEffect(() => {
     const cleanCity = cleanCityName(selectedCity);
-    loadData((salonCacheRef.current[cleanCity]?.length || 0) > 0);
+    const cached = GLOBAL_SALON_CACHE[cleanCity] || salonCacheRef.current[cleanCity];
+    loadData((cached && cached.length > 0) || salonsRef.current.length > 0);
   }, [selectedCity, isAuthenticated, loadData]);
 
   useEffect(() => {
@@ -159,8 +168,12 @@ function HomeScreen({ navigate, onScroll }) {
   const handleCitySelect = useCallback((city) => { setSelectedCity(city); storage.setItem("@user_selected_city", city); }, []);
   const handleLocationClose = useCallback(() => setLocationModalVisible(false), []);
   const handleLocationClick = useCallback(() => setLocationModalVisible(true), []);
-  const handleSeeAll = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
+  const handleSeeAll = useCallback(() => {
+    if (navigate) navigate("AllSalons", { city: selectedCity });
+  }, [navigate, selectedCity]);
   const handleSearchSubmit = useCallback((term) => { if (navigate) navigate("Explore", { search: term }); }, [navigate]);
+
+  const styles = buildStyles();
 
   return (
     <View style={styles.screen}>
@@ -231,7 +244,7 @@ function HomeScreen({ navigate, onScroll }) {
             <Text style={styles.emptyText}>Check back soon for new partner salons.</Text>
           </View>
         ) : (
-          <SalonCarousel salons={salons} onSalonPress={handleSalonPress} />
+          <SalonCarousel salons={salons} onSalonPress={handleSalonPress} styles={styles} />
         )}
 
         {/* Section: All Studios */}
@@ -243,7 +256,7 @@ function HomeScreen({ navigate, onScroll }) {
                 <Text style={styles.sectionTitle}>Explore all partners</Text>
               </View>
             </View>
-            <SalonVerticalList salons={salons} onSalonPress={handleSalonPress} />
+            <SalonVerticalList salons={salons} onSalonPress={handleSalonPress} styles={styles} />
           </>
         ) : null}
 
@@ -265,7 +278,8 @@ function HomeScreen({ navigate, onScroll }) {
 
 export default memo(HomeScreen);
 
-const styles = StyleSheet.create({
+function buildStyles() {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: C.bg, // Canvas warm cream #f7f7f4 per cursor/DESIGN.md
@@ -364,4 +378,5 @@ const styles = StyleSheet.create({
     fontWeight: FW.medium,
     fontSize: FS.bodySm,
   },
-});
+  });
+}

@@ -91,6 +91,8 @@ const serviceSchema = new mongoose.Schema(
 serviceSchema.index({ branchId: 1 });
 serviceSchema.index({ branchId: 1, category: 1 });
 serviceSchema.index({ branchId: 1, isActive: 1 });
+// browse-by-category: filter services by category across branches
+serviceSchema.index({ category: 1, isActive: 1 });
 // pre-save hook — last line of defense for price validation
 serviceSchema.pre("save", function () {
   if (this.price !== undefined) {

@@ -28,6 +28,8 @@ function formatTime(timeStr) {
 }
 
 export default function QuickRebookWidget({ isAuthenticated = true, appointment, onRebook, onViewDetails, onLogin }) {
+  const styles = getStyles();
+
   if (!isAuthenticated) {
     return (
       <BouncyButton style={styles.card} onPress={onLogin || onRebook}>
@@ -96,85 +98,84 @@ export default function QuickRebookWidget({ isAuthenticated = true, appointment,
   );
 }
 
-const styles = StyleSheet.create({
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border, no shadow
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: S.md,
-    marginBottom: S.md,
-    padding: S.md,
-    borderRadius: R.lg, // 12px card radius
-    backgroundColor: C.surface, // White card surface
-    borderWidth: 1,
-    borderColor: C.border, // 1px hairline divider
-  },
-  cardActive: {
-    backgroundColor: C.surface,
-    borderColor: C.borderDark,
-  },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: R.md,
-    backgroundColor: C.lifted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: S.sm,
-    borderWidth: 1,
-    borderColor: C.borderLight,
-  },
-  textBlock: {
-    flex: 1,
-    marginRight: S.xs,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  cardTitle: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    flexShrink: 1,
-  },
-  statusPill: {
-    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: R.pill,
-  },
-  statusPillText: {
-    fontSize: 9,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    letterSpacing: 0.88,
-  },
-  cardSub: {
-    fontSize: FS.bodySm - 1,
-    color: C.body,
-    marginTop: 2,
-  },
-  // button-primary: Cursor Orange #f54e00, 8px radius
-  primaryBtn: {
-    backgroundColor: C.main, // Cursor Orange
-    paddingHorizontal: S.md,
-    paddingVertical: 8,
-    borderRadius: R.md, // 8px button radius per cursor/DESIGN.md
-  },
-  primaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  // button-secondary: White bg + 1px hairline border
-  secondaryBtn: {
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.borderDark,
-  },
-  secondaryBtnText: {
-    color: C.ink,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: S.md,
+      marginBottom: S.md,
+      padding: S.md,
+      borderRadius: R.lg,
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    cardActive: {
+      backgroundColor: C.surface,
+      borderColor: C.borderDark,
+    },
+    iconBox: {
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
+      backgroundColor: C.lifted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: S.sm,
+      borderWidth: 1,
+      borderColor: C.borderLight,
+    },
+    textBlock: {
+      flex: 1,
+      marginRight: S.xs,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    cardTitle: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      flexShrink: 1,
+    },
+    statusPill: {
+      backgroundColor: C.grep,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: R.pill,
+    },
+    statusPillText: {
+      fontSize: 9,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      letterSpacing: 0.88,
+    },
+    cardSub: {
+      fontSize: FS.bodySm - 1,
+      color: C.body,
+      marginTop: 2,
+    },
+    primaryBtn: {
+      backgroundColor: C.main,
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.md,
+    },
+    primaryBtnText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    secondaryBtn: {
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.borderDark,
+    },
+    secondaryBtnText: {
+      color: C.ink,
+    },
+  });
+};

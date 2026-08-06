@@ -19,7 +19,7 @@ import { Platform } from "react-native";
  */
 
 export const C = {
-  // Brand Accent (Cursor Orange)
+  // Brand Accent (Cursor Orange — never changes)
   main: "#f54e00",
   mainDark: "#d04200",
   mainLight: "rgba(245, 78, 0, 0.12)",
@@ -86,6 +86,107 @@ export const C = {
   text: "#26251e",
   green: "#1f8a65",
 };
+
+/**
+ * applyTheme — mutates C in-place so all screens that import C
+ * pick up the new tokens on their next render cycle.
+ * Called by ThemeContext whenever isDark changes.
+ */
+export function applyTheme(isDark) {
+  if (isDark) {
+    // ── Dark tokens ──────────────────────────────────────────
+    C.bg        = "#111110";
+    C.bgWarm    = "#111110";
+    C.lifted    = "#161614";
+    C.surface   = "#1e1d1b";
+    C.card      = "#1e1d1b";
+    C.bone      = "#252420";
+    C.light     = "#161614";
+    C.lightGrey = "#161614";
+    C.lightGreyBorder = "#2e2d2a";
+
+    C.ink       = "#f0ede8";
+    C.dark      = "#f0ede8";
+    C.charcoal  = "#f0ede8";
+    C.text      = "#f0ede8";
+    C.textPrimary  = "#f0ede8";
+    C.textSecondary = "#b5b0a8";
+    C.textMuted    = "#7a7670";
+    C.dustTaupe    = "#56524d";
+    C.muted        = "#7a7670";
+
+    C.border      = "#2e2d2a";
+    C.borderLight = "#252420";
+    C.borderDark  = "#3a3935";
+    C.divider     = "#2e2d2a";
+
+    C.thinking = "#c08a6e";
+    C.grep     = "#7aaa80";
+    C.read     = "#7a9dc0";
+    C.edit     = "#a08ac0";
+    C.done     = "#a06e28";
+
+    C.error    = "#e0476a";
+    C.errorText = "#e0476a";
+    C.errorBg  = "rgba(207, 45, 86, 0.14)";
+
+    C.success    = "#2aad80";
+    C.successText = "#2aad80";
+    C.successBg  = "rgba(31, 138, 101, 0.14)";
+  } else {
+    // ── Light tokens (restore defaults) ──────────────────────
+    C.bg        = "#f7f7f4";
+    C.bgWarm    = "#f7f7f4";
+    C.lifted    = "#fafaf7";
+    C.surface   = "#ffffff";
+    C.card      = "#ffffff";
+    C.bone      = "#efeee8";
+    C.light     = "#fafaf7";
+    C.lightGrey = "#fafaf7";
+    C.lightGreyBorder = "#e6e5e0";
+
+    C.ink       = "#26251e";
+    C.dark      = "#26251e";
+    C.charcoal  = "#26251e";
+    C.text      = "#26251e";
+    C.textPrimary  = "#26251e";
+    C.textSecondary = "#5a5852";
+    C.textMuted    = "#807d72";
+    C.dustTaupe    = "#a09c92";
+    C.muted        = "#807d72";
+
+    C.border      = "#e6e5e0";
+    C.borderLight = "#efeee8";
+    C.borderDark  = "#cfcdc4";
+    C.divider     = "#e6e5e0";
+
+    C.thinking = "#dfa88f";
+    C.grep     = "#9fc9a2";
+    C.read     = "#9fbbe0";
+    C.edit     = "#c0a8dd";
+    C.done     = "#c08532";
+
+    C.error    = "#cf2d56";
+    C.errorText = "#cf2d56";
+    C.errorBg  = "rgba(207, 45, 86, 0.08)";
+
+    C.success    = "#1f8a65";
+    C.successText = "#1f8a65";
+    C.successBg  = "rgba(31, 138, 101, 0.08)";
+  }
+
+  // Sync TYPO preset colors
+  if (TYPO) {
+    if (TYPO.eyebrow) TYPO.eyebrow.color = C.textMuted;
+    if (TYPO.screenTitle) TYPO.screenTitle.color = C.textPrimary;
+    if (TYPO.sectionTitle) TYPO.sectionTitle.color = C.textPrimary;
+    if (TYPO.cardTitle) TYPO.cardTitle.color = C.textPrimary;
+    if (TYPO.bodyText) TYPO.bodyText.color = C.body;
+    if (TYPO.badgeText) TYPO.badgeText.color = C.textPrimary;
+    if (TYPO.navLink) TYPO.navLink.color = C.textPrimary;
+  }
+}
+
 
 // ── Typography (CursorGothic / System) ─────────────────
 
