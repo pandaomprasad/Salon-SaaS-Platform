@@ -36,6 +36,8 @@ require("./models/branch.model");
 require("./models/service.model");
 require("./models/slot.model");
 require("./models/appointment.model");
+require("./models/staffLeave.model");
+require("./models/notification.model");
 const adminRoutes = require('./routes/admin.routes')
 const adminController = require('./controllers/admin.controller')
 
@@ -137,6 +139,8 @@ app.use(
 app.use("/api/v1/branches/:branchId/slots", require("./routes/slot.routes"));
 app.use("/api/v1/appointments", require("./routes/appointment.routes"));
 app.use("/api/v1/customers", require("./routes/customer.routes"));
+app.use("/api/v1/staff", require("./routes/staffSelf.routes"));
+app.use("/api/v1/notifications", require("./routes/notification.routes"));
 app.use("/api/v1/reports", require("./routes/report.routes"));
 app.use("/api/v1/location", require("./routes/location.routes"));
 app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus)

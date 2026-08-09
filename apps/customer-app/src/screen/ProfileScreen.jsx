@@ -1,20 +1,25 @@
 // src/screen/ProfileScreen.jsx
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Modal,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useFavorites } from "../context/FavoritesContext";
 import ThemeToggle from "../components/ThemeToggle";
 
 export default function ProfileScreen({ navigate, onScroll }) {
   const { user, isAuthenticated, logout } = useAuth();
   const { theme } = useTheme();
+  const { favorites, toggleFavorite } = useFavorites();
+  const [showFavModal, setShowFavModal] = useState(false);
 
   if (!isAuthenticated) {
     return (
@@ -101,6 +106,16 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: theme.hairlineSoft }]}
+            onPress={() => setShowFavModal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>❤️</Text>
+            <Text style={[styles.menuLabel, { color: theme.ink }]}>Saved Favorites ({favorites.length})</Text>
+            <Text style={[styles.menuArrow, { color: theme.muted }]}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: theme.hairlineSoft }]}
             onPress={() => navigate && navigate("SavedAddresses")}
             activeOpacity={0.7}
           >
@@ -156,6 +171,48 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
         <View style={{ height: S.section }} />
       </ScrollView>
+
+      {/* Saved Favorites Modal */}
+      <Modal visible={showFavModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: theme.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: S.md, maxHeight: "80%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
+              <Text style={{ fontSize: FS.titleSm, fontWeight: FW.semiBold, color: theme.ink }}>Saved Favorites ({favorites.length})</Text>
+              <TouchableOpacity onPress={() => setShowFavModal(false)}>
+                <Ionicons name="close" size={24} color={theme.ink} />
+              </TouchableOpacity>
+            </View>
+
+            {favorites.length === 0 ? (
+              <View style={{ paddingVertical: S.xl, alignItems: "center" }}>
+                <Ionicons name="heart-dislike-outline" size={32} color={C.muted} />
+                <Text style={{ marginTop: S.xs, color: C.muted, fontSize: FS.bodySm }}>No saved salons yet.</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {favorites.map((fav) => (
+                  <TouchableOpacity
+                    key={fav._id || fav.id}
+                    style={{ flexDirection: "row", alignItems: "center", paddingVertical: S.sm, borderBottomWidth: 1, borderBottomColor: C.borderLight }}
+                    onPress={() => {
+                      setShowFavModal(false);
+                      if (navigate) navigate("SalonDetail", { salon: fav });
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: FS.bodySm, fontWeight: FW.semiBold, color: theme.ink }}>{fav.name}</Text>
+                      <Text style={{ fontSize: 12, color: C.muted }}>{fav.description || "Luxury Salon & Spa"}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => toggleFavorite(fav)} style={{ padding: 4 }}>
+                      <Ionicons name="heart" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

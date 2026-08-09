@@ -25,16 +25,23 @@ const userSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      required: [true, "Phone is required"],
+      required: false,
+      default: null,
       trim: true,
-      match: [/^[+]?[\d\s\-().]{7,15}$/, "Please provide a valid phone number"],
     },
 
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: false,
+      default: null,
       minlength: [8, "Password must be at least 8 characters"],
       select: false, // never return password in queries by default
+    },
+
+    googleId: {
+      type: String,
+      default: null,
+      index: true,
     },
 
     // reference to Role document
@@ -89,6 +96,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
     // extra permissions assigned to this specific user
     // overrides and extends their role permissions
     // e.g. give one manager "report:read" without giving all managers that permission
@@ -98,6 +106,16 @@ const userSchema = new mongoose.Schema(
         trim: true,
         lowercase: true,
         // format: "resource:action" e.g. "report:read"
+      },
+    ],
+
+    // Expo push tokens registered per device (ExponentPushToken[...])
+    // used to send remote push notifications to this user's device(s)
+    pushTokens: [
+      {
+        type: String,
+        trim: true,
+        default: null,
       },
     ],
 
@@ -145,7 +163,7 @@ userSchema.index({ salonId: 1 });
 userSchema.pre("save", async function () {
   // only hash if password was changed/is new
   // without this check, re-saving a user would double-hash the password
-  if (!this.isModified("password")) return;
+  if (!this.password || !this.isModified("password")) return;
 
   // 12 = salt rounds — higher = more secure but slower
   // 12 is a good balance for production

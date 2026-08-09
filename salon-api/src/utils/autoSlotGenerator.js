@@ -3,6 +3,7 @@ const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const Slot = require("../models/slot.model");
 const { generateDaySlots } = require("./slotGenerator");
+const { getActiveStaffLeaves } = require("./staffLeaveQueries");
 const logger = require("./logger");
 const dayjs = require("dayjs");
 
@@ -60,9 +61,17 @@ const generateSlotsForAllBranches = async () => {
         const slotsToInsert = [];
         let current = startDate;
 
+        // fetch all active leaves overlapping the next 30 days ONCE
+        // so we don't hit the DB per-day
+        const staffLeaves = await getActiveStaffLeaves({
+          staffId: staff._id,
+          startDate: startDate.format("YYYY-MM-DD"),
+          endDate: endDate.format("YYYY-MM-DD"),
+        });
+
         while (current.isBefore(endDate.add(1, "day"))) {
           const date = current.format("YYYY-MM-DD");
-          const daySlots = generateDaySlots(branch, date);
+          const daySlots = generateDaySlots(branch, date, staffLeaves);
 
           daySlots.forEach((slot) => {
             slotsToInsert.push({

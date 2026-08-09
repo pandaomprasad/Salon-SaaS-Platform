@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Bell, Menu } from 'lucide-react'
 import { Page } from '@/lib/types'
-import { NOTIFICATIONS } from '@/lib/data'
+import { getUnreadCount } from '@/api/services/notificationService'
 
 const PAGE_TITLES: Record<Page, string> = {
   dashboard:     'Dashboard',
@@ -12,6 +13,9 @@ const PAGE_TITLES: Record<Page, string> = {
   schedule:      'Staff Schedule',
   reports:       'Reports & Analytics',
   notifications: 'Notifications',
+  branches:      'Branches',
+  staff:         'Staff',
+  leaves:        'Leaves & Availability',
 }
 
 interface HeaderProps {
@@ -24,7 +28,25 @@ interface HeaderProps {
 export default function Header({
   currentPage, initials, onNavigate, onMenuClick,
 }: HeaderProps) {
-  const unread = NOTIFICATIONS.filter(n => !n.read).length
+  const [unread, setUnread] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const count = await getUnreadCount()
+        if (!cancelled) setUnread(count)
+      } catch {
+        // endpoint unavailable — badge stays 0
+      }
+    }
+    poll()
+    const timer = setInterval(poll, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
 
   return (
     <header className="h-14 bg-paper border-b border-smoke/60 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 backdrop-blur-sm">

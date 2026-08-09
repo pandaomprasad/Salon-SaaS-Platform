@@ -4,6 +4,7 @@ import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useSharedElement } from "../context/SharedElementContext";
+import { useFavorites } from "../context/FavoritesContext";
 import BouncyButton from "./BouncyButton";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -19,10 +20,12 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
   const cardRef = useRef(null);
   const layoutBoundsRef = useRef(null);
   const { startSharedTransition } = useSharedElement();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const rating = (salon.rating || 4.8).toFixed(1);
   const coverImage = salon.coverImage || salon.image || DEMO_IMAGES[index % DEMO_IMAGES.length];
   const branchCount = salon.branches?.length || 1;
+  const isFav = isFavorite(salon._id || salon.id);
 
   const measureCard = useCallback(() => {
     if (cardRef.current && cardRef.current.measureInWindow) {
@@ -41,6 +44,14 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
     measureCard();
   }, [salon, onPress, coverImage, startSharedTransition, measureCard]);
 
+  const handleFavPress = useCallback(
+    (e) => {
+      e?.stopPropagation && e.stopPropagation();
+      toggleFavorite(salon);
+    },
+    [toggleFavorite, salon]
+  );
+
   const styles = getStyles();
 
   return (
@@ -53,6 +64,15 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
       {/* Image container */}
       <View style={styles.imageFrame}>
         <Image source={{ uri: coverImage }} style={styles.image} resizeMode="cover" />
+
+        {/* Favorite Heart Button */}
+        <BouncyButton style={styles.favBtn} onPress={handleFavPress}>
+          <Ionicons
+            name={isFav ? "heart" : "heart-outline"}
+            size={16}
+            color={isFav ? "#EF4444" : C.ink}
+          />
+        </BouncyButton>
 
         {/* Distance badge pill per cursor/DESIGN.md */}
         {salon.distanceKm ? (
@@ -118,6 +138,20 @@ function getStyles() {
     image: {
       width: "100%",
       height: "100%",
+    },
+    favBtn: {
+      position: "absolute",
+      top: S.xs,
+      left: S.xs,
+      width: 32,
+      height: 32,
+      borderRadius: R.pill,
+      backgroundColor: C.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: C.border,
+      zIndex: 2,
     },
     distanceBadge: {
       position: "absolute",

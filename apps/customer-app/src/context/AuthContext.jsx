@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useContext } from "react";
 import { setAuthToken, setUnauthorizedHandler } from "../services/apiClient";
 import { authService } from "../services/authService";
 import { storage } from "../services/storage";
+import { notificationService } from "../services/notificationService";
 
 const AuthContext = createContext();
 
@@ -16,12 +17,21 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   const logout = async () => {
+    await notificationService.unregisterPushToken();
     setUser(null);
     setToken(null);
     setAuthToken(null);
     await storage.removeItem(AUTH_TOKEN_KEY);
     await storage.removeItem(AUTH_USER_KEY);
   };
+
+  // Attach the device's Expo push token whenever a session is live
+  // (login, register, google, or restored-at-boot). Best-effort — never
+  // blocks the auth flow if the push backend is unreachable.
+  useEffect(() => {
+    if (!token || !user) return;
+    notificationService.registerPushToken();
+  }, [token, user]);
 
   useEffect(() => {
     setUnauthorizedHandler(logout);
@@ -119,6 +129,36 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async (googlePayload) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await authService.googleLogin(googlePayload);
+      const accessToken = res?.data?.accessToken || res?.accessToken;
+      const userData = res?.data?.user || res?.user;
+
+      if (accessToken) {
+        setToken(accessToken);
+        setUser(userData || null);
+        setAuthToken(accessToken);
+
+        await storage.setItem(AUTH_TOKEN_KEY, accessToken);
+        if (userData) {
+          await storage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+        }
+
+        return { success: true, user: userData };
+      }
+      throw new Error(res?.message || "Google authentication failed");
+    } catch (err) {
+      const msg = err.message || "Failed to log in with Google";
+      setError(msg);
+      return { success: false, error: msg };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -128,6 +168,7 @@ export function AuthProvider({ children }) {
         loading,
         error,
         login,
+        loginWithGoogle,
         register,
         logout,
       }}

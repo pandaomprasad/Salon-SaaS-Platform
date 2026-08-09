@@ -4,6 +4,11 @@ const {
   getMyAppointmentHistory
 } = require('../controllers/appointment.controller')
 
+const {
+  registerMyPushToken,
+  removeMyPushToken,
+} = require('../controllers/push.controller')
+
 const authenticate = require('../middleware/authenticate')
 
 router.use(authenticate)
@@ -21,5 +26,17 @@ router.get('/me/appointments', (req, res, next) => {
   }
   next()
 }, getMyAppointmentHistory)
+
+// POST /api/v1/customers/me/push-token
+// register this device's Expo push token (any authenticated user, idempotent)
+router.post('/me/push-token', registerMyPushToken)
+
+// DELETE /api/v1/customers/me/push-token
+// remove all device tokens
+router.delete('/me/push-token', removeMyPushToken)
+
+// DELETE /api/v1/customers/me/push-token/:token
+// remove one device token
+router.delete('/me/push-token/:token', removeMyPushToken)
 
 module.exports = router

@@ -2,6 +2,7 @@ const router = require('express').Router()
 const {
   register,
   login,
+  googleLogin,
   refresh,
   logout,
   me
@@ -18,6 +19,7 @@ const {
 // public routes — no token needed
 router.post('/register', registerValidator, validate, register)
 router.post('/login',    loginValidator,    validate, login)
+router.post('/google',   googleLogin)
 router.post('/refresh',  refreshValidator,  validate, refresh)
 
 // protected routes — token required

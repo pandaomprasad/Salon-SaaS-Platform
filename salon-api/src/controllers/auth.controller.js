@@ -258,7 +258,7 @@ const me = async (req, res, next) => {
       return next(new AppError("User not found", 404));
     }
 
-    res.status(200).json({
+res.status(200).json({
       success: true,
       data: {
         user: {
@@ -278,4 +278,120 @@ const me = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, me };
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client();
+
+// ================================
+// POST /api/v1/auth/google
+// ================================
+const googleLogin = async (req, res, next) => {
+  try {
+    const { idToken, googleUser } = req.body;
+
+    let email = null;
+    let name = null;
+    let googleId = null;
+    let picture = null;
+
+    if (idToken) {
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken,
+        });
+        const payload = ticket.getPayload();
+        email = payload.email;
+        name = payload.name;
+        googleId = payload.sub;
+        picture = payload.picture;
+      } catch (tokenErr) {
+        try {
+          const axios = require("axios");
+          const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+          if (resp.data && resp.data.email) {
+            email = resp.data.email;
+            name = resp.data.name || resp.data.email.split("@")[0];
+            googleId = resp.data.sub;
+            picture = resp.data.picture;
+          } else {
+            return next(new AppError("Invalid Google ID Token", 401));
+          }
+        } catch {
+          return next(new AppError("Failed to verify Google ID Token", 401));
+        }
+      }
+    } else if (googleUser && googleUser.email) {
+      email = googleUser.email;
+      name = googleUser.name || googleUser.email.split("@")[0];
+      googleId = googleUser.id || googleUser.sub;
+      picture = googleUser.picture;
+    } else {
+      return next(new AppError("Google ID token or user payload required", 400));
+    }
+
+    if (!email) {
+      return next(new AppError("Could not extract email from Google account", 400));
+    }
+
+    const customerRole = await Role.findOne({ name: "customer" });
+    if (!customerRole) {
+      return next(new AppError("Customer role not found. Please run seeder.", 500));
+    }
+
+    let user = await User.findOne({ email }).populate("role", "name");
+
+    if (!user) {
+      user = await User.create({
+        name: name || email.split("@")[0],
+        email: email.toLowerCase(),
+        googleId,
+        avatar: picture || null,
+        role: customerRole._id,
+      });
+      user = await User.findById(user._id).populate("role", "name");
+    } else {
+      if (!user.isActive) {
+        return next(new AppError("Your account has been deactivated", 401));
+      }
+      if (!user.googleId) user.googleId = googleId;
+      if (picture && !user.avatar) user.avatar = picture;
+    }
+
+    const payload = {
+      _id: user._id,
+      salonId: user.salonId,
+      branchId: user.branchId,
+      tokenVersion: user.tokenVersion,
+      roleName: user.role?.name || "customer",
+    };
+
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Google login successful",
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role?.name || "customer",
+          avatar: user.avatar,
+          salonId: user.salonId,
+          branchId: user.branchId,
+        },
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, googleLogin, refresh, logout, me };

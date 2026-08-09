@@ -19,6 +19,7 @@ import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import SalonCard from "../components/SalonCard";
 import FloatingSearchCapsule from "../components/FloatingSearchCapsule";
+import { SalonCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 
 const IS_IOS = Platform.OS === "ios";
@@ -372,8 +373,10 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
         scrollEventThrottle={16}
       >
         {loading ? (
-          <View style={[styles.centerContainer, IS_IOS && { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)", borderColor: glass.glassBorder }]}>
-            <ActivityIndicator size="small" color={C.main} />
+          <View style={{ gap: S.sm }}>
+            <SalonCardSkeleton />
+            <SalonCardSkeleton />
+            <SalonCardSkeleton />
           </View>
         ) : salons.length === 0 ? (
           <View style={[styles.centerContainer, IS_IOS && { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)", borderColor: glass.glassBorder }]}>

@@ -16,6 +16,7 @@ import { paiseToINR } from "@/lib/api";
 import type { Appointment, AppointmentStatus, UserRole } from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { getCached, setCache, invalidateCache } from "@/lib/cache";
+import { socketClient } from "@/lib/socket-client";
 
 
 const STATUS_OPTIONS = [
@@ -155,6 +156,26 @@ export default function BookingsPage() {
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
+
+  // Real-time auto-fetch via WebSockets when new appointments are created/updated
+  useEffect(() => {
+    socketClient.connect({ branchId, salonId: (user as any)?.salonId || null });
+
+    const handleRealtimeUpdate = () => {
+      invalidateCache("bookings_");
+      fetchAppointments();
+    };
+
+    const unsubCreated = socketClient.onAppointmentCreated(handleRealtimeUpdate);
+    const unsubUpdated = socketClient.onAppointmentUpdated(handleRealtimeUpdate);
+    const unsubStatus = socketClient.onAppointmentStatusChanged(handleRealtimeUpdate);
+
+    return () => {
+      unsubCreated();
+      unsubUpdated();
+      unsubStatus();
+    };
+  }, [branchId, user?.salonId, fetchAppointments]);
 
   // Reset to page 1 when filters or branch change
   useEffect(() => {

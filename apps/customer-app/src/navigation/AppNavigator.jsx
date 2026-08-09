@@ -22,6 +22,7 @@ import ScreenTransition from "../components/ScreenTransition";
 import AndroidExpandingTabBar from "../components/AndroidExpandingTabBar";
 import { FavoritesProvider } from "../context/FavoritesContext";
 import { storage } from "../services/storage";
+import { notificationService } from "../services/notificationService";
 
 LogBox.ignoreLogs([
   "setLayoutAnimationEnabledExperimental",
@@ -59,6 +60,18 @@ export default function AppNavigator() {
   // iOS Bottom Bar Squeeze Animation
   const squeezeAnim = useRef(new Animated.Value(0)).current;
   const lastY = useRef(0);
+
+  // Tapping an appointment push → open the Bookings tab
+  React.useEffect(() => {
+    notificationService.initAndroidChannel();
+    const unsubscribe = notificationService.onNotificationTap((data) => {
+      if (data?.type === "appointment.status" || data?.appointmentId) {
+        setCurrentTab("Bookings");
+        setScreenStack([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleScroll = (event) => {
     if (Platform.OS !== "ios") return;

@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableWithoutFeedback,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, SHADOWS } from "../theme";
@@ -235,6 +236,33 @@ export default function AppointmentDetailModal({
                     <Text style={styles.notesText}>{appointment.customerNotes}</Text>
                   </View>
                 ) : null}
+
+                {/* Quick Action Row */}
+                <View style={{ flexDirection: "row", gap: 10, marginBottom: S.md }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, gap: 6 }}
+                    onPress={() => {
+                      const phone = appointment.branch?.phone || "9876543210";
+                      Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="call-outline" size={16} color={C.ink} />
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: C.ink }}>Call Salon</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, gap: 6 }}
+                    onPress={() => {
+                      const addr = branchAddress || salonName;
+                      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="navigate-outline" size={16} color={C.ink} />
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: C.ink }}>Directions</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* Classy Action Buttons */}
                 <View style={styles.actionContainer}>

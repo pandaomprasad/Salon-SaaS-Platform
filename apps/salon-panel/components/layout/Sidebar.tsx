@@ -11,12 +11,15 @@ import {
   LogOut,
   GitBranch,
   UserCog,
+  CalendarOff,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
 import { type AppPage, PAGE_ACCESS } from "@/lib/rbac";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getUnreadCount } from "@/api/services/notificationService";
+import { socketClient } from "@/lib/socket-client";
 
 interface NavItem {
   page: AppPage;
@@ -32,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { page: "customers",     label: "Customers",      icon: Users,           group: "main" },
   { page: "services",      label: "Services",       icon: Scissors,        group: "manage" },
   { page: "staff",         label: "Staff",          icon: UserCog,         group: "manage" },
+  { page: "leaves",        label: "Leaves",         icon: CalendarOff,     group: "manage" },
   { page: "branches",      label: "Branches",       icon: GitBranch,       group: "manage" },
   { page: "reports",       label: "Reports",        icon: BarChart3,       group: "manage" },
   { page: "notifications", label: "Notifications",  icon: Bell,            group: "other" },
@@ -43,6 +47,7 @@ interface SidebarProps {
   name: string;
   email: string;
   initials: string;
+  userId?: string | null;
   isOpen: boolean;
   salonName: string;
   onNavigate: (page: AppPage) => void;
@@ -56,6 +61,7 @@ export default function Sidebar({
   name,
   email,
   initials,
+  userId,
   isOpen,
   salonName,
   onNavigate,
@@ -63,6 +69,35 @@ export default function Sidebar({
   onClose,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const count = await getUnreadCount();
+        if (!cancelled) setUnread(count);
+      } catch {
+        // endpoint unavailable — badge stays 0
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 30000);
+
+    socketClient.connect();
+    socketClient.setUserId(userId);
+    const offNotif = socketClient.onNotificationNew(() => {
+      setUnread((prev) => prev + 1);
+    });
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      offNotif();
+    };
+  }, [userId]);
 
   const visibleItems = NAV_ITEMS.filter((item) =>
     PAGE_ACCESS[item.page]?.includes(role),
@@ -125,7 +160,7 @@ export default function Sidebar({
         {/* Nav */}
         <nav className="flex-1 px-3 overflow-y-auto space-y-6">
           {/* Main */}
-          <NavGroup items={mainItems} currentPage={currentPage} collapsed={collapsed} onNavigate={handleNavigate} />
+          <NavGroup items={mainItems} currentPage={currentPage} collapsed={collapsed} onNavigate={handleNavigate} unread={unread} />
 
           {/* Management */}
           {manageItems.length > 0 && (
@@ -135,13 +170,13 @@ export default function Sidebar({
                   Manage
                 </p>
               )}
-              <NavGroup items={manageItems} currentPage={currentPage} collapsed={collapsed} onNavigate={handleNavigate} />
+              <NavGroup items={manageItems} currentPage={currentPage} collapsed={collapsed} onNavigate={handleNavigate} unread={unread} />
             </div>
           )}
 
           {/* Other */}
           {otherItems.length > 0 && (
-            <NavGroup items={otherItems} currentPage={currentPage} collapsed={collapsed} onNavigate={handleNavigate} />
+            <NavGroup items={otherItems} currentPage={currentPage} collapsed={collapsed} onNavigate={handleNavigate} unread={unread} />
           )}
         </nav>
 
@@ -178,23 +213,26 @@ function NavGroup({
   currentPage,
   collapsed,
   onNavigate,
+  unread,
 }: {
   items: NavItem[];
   currentPage: AppPage;
   collapsed: boolean;
   onNavigate: (page: AppPage) => void;
+  unread: number;
 }) {
   return (
     <div className="space-y-0.5">
       {items.map(({ page, label, icon: Icon }) => {
         const active = currentPage === page;
+        const showBadge = page === "notifications" && unread > 0;
         return (
           <button
             key={page}
             onClick={() => onNavigate(page)}
             title={collapsed ? label : undefined}
             className={`
-              w-full flex items-center gap-3 rounded-lg text-[13px] font-medium
+              relative w-full flex items-center gap-3 rounded-lg text-[13px] font-medium
               transition-all duration-150
               ${collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"}
               ${
@@ -205,7 +243,16 @@ function NavGroup({
             `}
           >
             <Icon size={16} strokeWidth={active ? 2 : 1.5} />
-            {!collapsed && <span>{label}</span>}
+            {!collapsed && <span className="flex-1 text-left">{label}</span>}
+            {showBadge && (
+              <span
+                className={`rounded-full bg-gold text-ink text-[9px] font-bold flex items-center justify-center h-4 min-w-[16px] px-1 shrink-0 ${
+                  collapsed ? "absolute top-0 right-0" : ""
+                }`}
+              >
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
           </button>
         );
       })}

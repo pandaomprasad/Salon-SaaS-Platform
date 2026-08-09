@@ -38,5 +38,14 @@ export function SharedElementProvider({ children }) {
 }
 
 export function useSharedElement() {
-  return useContext(SharedElementContext);
+  const context = useContext(SharedElementContext);
+  if (!context) {
+    return {
+      activeSharedElement: null,
+      lastBounds: null,
+      startSharedTransition: () => {},
+      clearSharedElement: () => {},
+    };
+  }
+  return context;
 }

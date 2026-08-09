@@ -63,7 +63,8 @@ salon-api/
 │   │   ├── branch.model.js
 │   │   ├── service.model.js
 │   │   ├── slot.model.js
-│   │   └── appointment.model.js
+│   │   ├── appointment.model.js
+│   │   └── staffLeave.model.js    # staff availability / leaves
 │   ├── middleware/
 │   │   ├── authenticate.js    # JWT verification + tenant context
 │   │   ├── checkPermission.js # resource:action RBAC check
@@ -75,6 +76,7 @@ salon-api/
 │   │   ├── salon.controller.js
 │   │   ├── branch.controller.js
 │   │   ├── staff.controller.js
+│   │   ├── leave.controller.js
 │   │   ├── service.controller.js
 │   │   ├── slot.controller.js
 │   │   ├── appointment.controller.js
@@ -90,6 +92,8 @@ salon-api/
 │       ├── priceHelper.js
 │       ├── slotGenerator.js
 │       ├── autoSlotGenerator.js
+│       ├── staffLeaveHelper.js    # leave → slot overlap logic
+│       ├── staffLeaveQueries.js   # active-leave range queries
 │       ├── tenantContext.js
 │       └── tenantPlugin.js
 └── app.js
@@ -333,6 +337,107 @@ Deactivating a branch automatically:
   "extraPermissions": ["report:read"],
   "deniedPermissions": ["staff:delete"]
 }
+```
+
+---
+
+### Staff Leave / Availability Routes
+
+Staff can mark days off, date ranges, recurring weekly offs, or time windows — separate from branch working hours.
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/branches/:branchId/staff/:staffId/leaves` | Owner, Manager | Create a leave |
+| GET | `/branches/:branchId/staff/:staffId/leaves` | Owner, Manager, Staff (own) | List leaves (`?includePast=true` for cancelled) |
+| GET | `/branches/:branchId/staff/:staffId/leaves/:leaveId` | Owner, Manager | Get a single leave |
+| PATCH | `/branches/:branchId/staff/:staffId/leaves/:leaveId` | Owner, Manager | Update a leave |
+| DELETE | `/branches/:branchId/staff/:staffId/leaves/:leaveId` | Owner, Manager | Cancel a leave |
+| POST | `/branches/:branchId/staff/:staffId/leaves/:leaveId/approve` | Owner, Manager | Approve a pending staff leave request (blocks slots) |
+| POST | `/branches/:branchId/staff/:staffId/leaves/:leaveId/reject` | Owner, Manager | Reject a pending staff leave request (`rejectionReason` optional) |
+
+#### Approval workflow
+- Staff self-service requests (`POST /staff/me/leaves`) are created as **PENDING** — they do **not** block slots or affect slot generation until approved.
+- Owner/manager-created leaves are **APPROVED immediately**.
+- Only `APPROVED` leaves skip slot generation, block existing slots, and hard-block bookings; PENDING/REJECTED leaves never do.
+- `GET` lists return `status` (`PENDING` / `APPROVED` / `REJECTED`) plus `reviewedBy`, `reviewedAt`, `rejectionReason` for the audit trail.
+
+#### Staff Self-Service
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/staff/me/leaves` | Staff (self) | Request own leave |
+| GET | `/staff/me/leaves` | Staff (self) | List own leaves |
+| DELETE | `/staff/me/leaves/:leaveId` | Staff (self) | Cancel own leave |
+
+A `care`/`appointment:read`-scoped staff member can manage their own leaves through `/api/v1/staff/me/leaves`; the staff is resolved from the JWT so no branch id is needed.
+
+---
+
+### In-App Notifications
+
+Tenant-scoped notifications surface events like "new leave request waiting for approval" inside the salon panel. They are written to the `notifications` collection and pushed in real-time over the existing Socket.IO server.
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/notifications` | Any authenticated user | List own notifications (`?unread=true`, `?limit=N`) + `unreadCount` |
+| GET | `/notifications/unread-count` | Any authenticated user | Lightweight unread count for the sidebar badge |
+| PATCH | `/notifications/:notificationId/read` | Owner (of the notification) | Mark one notification read |
+| POST | `/notifications/read-all` | Any authenticated user | Mark all own notifications read |
+
+#### Push notifications
+
+Authenticated users (their Expo push token) register a device's Expo push token. When an appointment is booked, rescheduled, or changes status, the backend sends a remote push via the Expo Push API.
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/customers/me/push-token` | Any authenticated | Register this device's Expo token (idempotent, `$addToSet` on the User) |
+| DELETE | `/customers/me/push-token` | Any authenticated | Remove all tokens for the user |
+| DELETE | `/customers/me/push-token/:token` | Any authenticated | Remove one specific token |
+
+- `src/services/push.service.js` validates `ExponentPushToken[...]` format and sends batches to `https://exp.host/--/api/v2/push/send`.
+- Pushes are **best-effort** — never block the booking/status-change flow.
+- When Expo returns `DeviceNotRegistered` (or the token is invalid/gone), the token is auto-`$pull`ed so stale tokens don't accumulate.
+- Push payload `data` carries `{ type: "appointment.status", appointmentId, status }` so the customer app can deep-link to Bookings on tap.
+- Push copy lives in `buildStatusPush()` in `src/controllers/appointment.controller.js` (`CONFIRMED`, `PENDING`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `REJECTED`, `NO_SHOW`) plus a dedicated reschedule push.
+
+#### Notification types (leave flow)
+| Type | Recipient | When |
+|---|---|---|
+| `leave.requested` | Branch managers + salon owner | Staff submits a leave via `POST /staff/me/leaves` |
+| `leave.approved` | Staff member | An owner/manager approves the request (`.../approve`) |
+| `leave.rejected` | Staff member | An owner/manager rejects the request (`.../reject`, includes `rejectionReason`) |
+
+#### Real-time delivery
+- Each notification is persisted via `Notification.create` (with `salonId`/`branchId` for tenant scoping).
+- The helper (`src/services/notification.service.js`) also emits `notification:new` on Socket.io room `user_<userId>`. Client joins that room with `socket.emit("join_user", <userId>)`.
+- Notification writes are best-effort — they never break the underlying leave/approval flow (errors are caught + logged).
+
+#### Types
+- **SINGLE** — one day off (`date`)
+- **RANGE** — date range off (`startDate`, `endDate`)
+- **RECURRING** — weekly recurring off (`startDate`, `endDate`, `weekdays` e.g. `[4]` for Thursdays)
+
+By default a leave is **all-day**. Pass `startTime` + `endTime` (HH:MM) to restrict it to a window (e.g. afternoon off).
+
+#### Effects
+- Slot generators (manual + nightly cron) never create slots inside a leave.
+- Existing `AVAILABLE` slots overlapping the leave are automatically **BLOCKED**.
+- Cancelling a leave releases those slots back to **AVAILABLE**.
+- Booking and rescheduling hard-block slots that fall inside a leave.
+
+#### Examples
+```json
+// single day off
+{ "type": "SINGLE", "date": "2026-08-10", "reason": "Medical appointment" }
+
+// range leave
+{ "type": "RANGE", "startDate": "2026-08-10", "endDate": "2026-08-14" }
+
+// off every Thursday in August
+{ "type": "RECURRING", "startDate": "2026-08-01", "endDate": "2026-08-31", "weekdays": [4] }
+
+// afternoon off on a single day
+{ "type": "SINGLE", "date": "2026-08-10", "startTime": "14:00", "endTime": "16:00" }
 ```
 
 ---

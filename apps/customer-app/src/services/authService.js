@@ -10,6 +10,14 @@ export const authService = {
     return res;
   },
 
+  googleLogin: async (payload) => {
+    const res = await apiClient.post("/auth/google", payload);
+    if (res.data?.accessToken) {
+      setAuthToken(res.data.accessToken);
+    }
+    return res;
+  },
+
   register: async (name, email, password, phone) => {
     const res = await apiClient.post("/auth/register", {
       name,

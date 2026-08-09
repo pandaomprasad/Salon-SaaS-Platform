@@ -1,21 +1,38 @@
-// src/context/FavoritesContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { storage } from "../services/storage";
 
 const FavoritesContext = createContext();
-
-// In-memory / Web storage fallback
-let memoryStorage = [];
+const FAVORITES_STORAGE_KEY = "@salon_app_favorites";
 
 export function FavoritesProvider({ children }) {
-  const [favorites, setFavorites] = useState(memoryStorage);
-  const [loading, setLoading] = useState(false);
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSavedFavorites = async () => {
+      try {
+        const saved = await storage.getItem(FAVORITES_STORAGE_KEY);
+        if (saved && saved !== "undefined" && saved !== "null") {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setFavorites(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load favorites from storage:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSavedFavorites();
+  }, []);
 
   const isFavorite = (id) => {
     if (!id) return false;
     return favorites.some((item) => item.id === id || item._id === id);
   };
 
-  const toggleFavorite = (salonOrBranch) => {
+  const toggleFavorite = async (salonOrBranch) => {
     if (!salonOrBranch) return;
     const itemId = salonOrBranch.id || salonOrBranch._id;
     if (!itemId) return;
@@ -27,8 +44,12 @@ export function FavoritesProvider({ children }) {
       updated = [...favorites, salonOrBranch];
     }
 
-    memoryStorage = updated;
     setFavorites(updated);
+    try {
+      await storage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Failed to persist favorites:", err);
+    }
   };
 
   return (

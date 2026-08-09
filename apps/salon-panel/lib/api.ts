@@ -133,7 +133,7 @@ export interface Staff {
   name: string;
   email: string;
   phone?: string;
-  role: "manager" | "staff";
+  role: { _id: string; name: "manager" | "staff" };
   branchId: string;
   salonId: string;
   specializations?: string[];
@@ -196,6 +196,51 @@ export type UpdateServicePayload = Partial<CreateServicePayload>;
 export interface AssignStaffPayload {
   staffIds: string[];
 }
+
+// ── Staff Leave / Availability ───────────
+
+export type LeaveType = "SINGLE" | "RANGE" | "RECURRING";
+
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface StaffLeave {
+  _id: string;
+  staffId: string;
+  branchId: string;
+  salonId: string;
+  createdBy?: string;
+  type: LeaveType;
+  date?: string; // SINGLE (YYYY-MM-DD)
+  startDate?: string; // RANGE / RECURRING
+  endDate?: string;
+  weekdays?: number[]; // RECURRING: 0=Sun … 6=Sat
+  allDay?: boolean;
+  startTime?: string; // HH:MM
+  endTime?: string;
+  reason?: string;
+  isActive: boolean;
+  status: LeaveStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string | null;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLeavePayload {
+  type: LeaveType;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+  weekdays?: number[];
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+}
+
+export type UpdateLeavePayload = Partial<CreateLeavePayload>;
 
 // ── Slot ─────────────────────────────────
 
@@ -362,6 +407,35 @@ export interface BrowseBranchParams {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+// ── Notifications ────────────────────────
+
+export type NotificationType =
+  | "appointment.status"
+  | "leave.requested"
+  | "leave.approved"
+  | "leave.rejected"
+  | string;
+
+export interface BackendNotification {
+  _id: string;
+  recipientId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data?: Record<string, unknown> | null;
+  isRead: boolean;
+  readAt?: string | null;
+  branchId?: string | null;
+  salonId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationsResponse {
+  notifications: BackendNotification[];
+  unreadCount: number;
 }
 
 // ── Price helpers ─────────────────────────

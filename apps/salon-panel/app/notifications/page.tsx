@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSelector } from "react-redux";
-import { RootState } from "@/store";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Button from "@/components/ui/Button";
 import apiClient from "@/lib/api-client";
@@ -16,11 +14,29 @@ import {
   AlertTriangle,
   Bell,
   BellOff,
+  CalendarOff,
+  CalendarX2,
+  CalendarCheck,
 } from "lucide-react";
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "@/api/services/notificationService";
+import type { BackendNotification } from "@/lib/api";
 
 // ── Types ──
 
-type NotifType = "booking" | "confirmed" | "started" | "completed" | "cancelled" | "no_show";
+type NotifType =
+  | "booking"
+  | "confirmed"
+  | "started"
+  | "completed"
+  | "cancelled"
+  | "no_show"
+  | "leave_requested"
+  | "leave_approved"
+  | "leave_rejected";
 
 interface NotifItem {
   id: string;
@@ -29,7 +45,9 @@ interface NotifItem {
   description: string;
   time: string;
   date: string;
-  appointmentId: string;
+  appointmentId?: string;
+  leaveId?: string;
+  isRead: boolean;
 }
 
 interface StatusInfo {
@@ -110,7 +128,50 @@ const STATUS_MAP: Record<string, StatusInfo> = {
   },
 };
 
-function buildNotifications(appointments: any[]): NotifItem[] {
+const BACKEND_TYPE_MAP: Record<string, StatusInfo> = {
+  "appointment.status": {
+    type: "booking",
+    icon: <CalendarDays size={16} />,
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    label: "Appointment",
+  },
+  "leave.requested": {
+    type: "leave_requested",
+    icon: <CalendarOff size={16} />,
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    label: "Leave Request",
+  },
+  "leave.approved": {
+    type: "leave_approved",
+    icon: <CalendarCheck size={16} />,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+    label: "Leave Approved",
+  },
+  "leave.rejected": {
+    type: "leave_rejected",
+    icon: <CalendarX2 size={16} />,
+    color: "text-red-500",
+    bg: "bg-red-50",
+    label: "Leave Rejected",
+  },
+};
+
+interface AppointmentLike {
+  _id: string;
+  customerId?: unknown;
+  serviceId?: unknown;
+  staffId?: unknown;
+  date: string;
+  startTime?: string;
+  statusHistory?: Array<{ status: string; changedAt: string }>;
+}
+
+function buildAppointmentNotifications(
+  appointments: AppointmentLike[],
+): NotifItem[] {
   const notifications: NotifItem[] = [];
 
   appointments.forEach((appt) => {
@@ -119,7 +180,7 @@ function buildNotifications(appointments: any[]): NotifItem[] {
     const staffName = getName(appt.staffId);
     const history = appt.statusHistory || [];
 
-    history.forEach((entry: any, index: number) => {
+    history.forEach((entry, index) => {
       // Skip duplicate consecutive entries
       if (index > 0 && history[index - 1]?.status === entry.status) return;
 
@@ -164,12 +225,35 @@ function buildNotifications(appointments: any[]): NotifItem[] {
         time: entry.changedAt,
         date: appt.date,
         appointmentId: appt._id,
+        isRead: false,
       });
     });
   });
 
-  notifications.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
   return notifications;
+}
+
+function buildBackendNotifications(
+  backend: BackendNotification[],
+): NotifItem[] {
+  return backend.map((n) => {
+    const info = BACKEND_TYPE_MAP[n.type] || BACKEND_TYPE_MAP["appointment.status"];
+    return {
+      id: n._id,
+      type: info.type,
+      title: n.title,
+      description: n.body,
+      time: n.createdAt,
+      date: n.createdAt,
+      leaveId:
+        typeof n.data?.leaveId === "string" ? n.data.leaveId : undefined,
+      appointmentId:
+        typeof n.data?.appointmentId === "string"
+          ? n.data.appointmentId
+          : undefined,
+      isRead: n.isRead,
+    };
+  });
 }
 
 // ── Page ──
@@ -181,14 +265,43 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [hasBackend, setHasBackend] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiClient.get("/appointments", { params: { limit: 200 } });
-      const apptData = data.data as any;
-      const apptList = Array.isArray(apptData) ? apptData : apptData?.appointments || [];
-      setNotifications(buildNotifications(apptList));
+      // Backend notifications (leave requests/approvals, etc.)
+      let backend: BackendNotification[] = [];
+      try {
+        const { notifications: backendNotifs } = await getNotifications({
+          limit: 200,
+        });
+        backend = backendNotifs;
+        setHasBackend(true);
+      } catch {
+        // backend notification endpoint unavailable — fall back to derived only
+      }
+
+      // Appointment status-history derived notifications
+      let apptNotifs: NotifItem[] = [];
+      try {
+        const { data } = await apiClient.get("/appointments", {
+          params: { limit: 200 },
+        });
+        const apptData = data.data as unknown;
+        const apptList = Array.isArray(apptData)
+          ? (apptData as AppointmentLike[])
+          : (apptData as { appointments?: AppointmentLike[] } | null)?.appointments || [];
+        apptNotifs = buildAppointmentNotifications(apptList);
+      } catch {
+        // silent
+      }
+
+      const merged = [...buildBackendNotifications(backend), ...apptNotifs];
+      merged.sort(
+        (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
+      );
+      setNotifications(merged);
     } catch {
       // silent
     } finally {
@@ -200,40 +313,46 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Load read state from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem("notification_read_ids");
-    if (stored) {
+  function markAsRead(item: NotifItem) {
+    if (item.isRead || readIds.has(item.id)) return;
+    setReadIds((prev) => new Set(prev).add(item.id));
+    if (hasBackend && item.id.length > 10) {
+      markNotificationRead(item.id).catch(() => {});
+    }
+  }
+
+  async function markAllAsRead() {
+    setReadIds(new Set(notifications.map((n) => n.id)));
+    if (hasBackend) {
       try {
-        setReadIds(new Set(JSON.parse(stored)));
+        await markAllNotificationsRead();
+        setNotifications((prev) =>
+          prev.map((n) => ({ ...n, isRead: true })),
+        );
       } catch {
-        // ignore
+        // silent
       }
     }
-  }, []);
-
-  function markAsRead(id: string) {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      localStorage.setItem("notification_read_ids", JSON.stringify([...next]));
-      return next;
-    });
   }
 
-  function markAllAsRead() {
-    const allIds = new Set(notifications.map((n) => n.id));
-    setReadIds(allIds);
-    localStorage.setItem("notification_read_ids", JSON.stringify([...allIds]));
+  function handleClick(item: NotifItem) {
+    markAsRead(item);
+    if (item.leaveId) {
+      router.push("/leaves");
+    } else {
+      router.push("/bookings");
+    }
   }
+
+  const isItemRead = (n: NotifItem) => n.isRead || readIds.has(n.id);
 
   const filtered = notifications.filter((n) => {
-    if (filter === "unread") return !readIds.has(n.id);
+    if (filter === "unread") return !isItemRead(n);
     if (filter === "all") return true;
     return n.type === filter;
   });
 
-  const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
+  const unreadCount = notifications.filter((n) => !isItemRead(n)).length;
 
   // Group by date
   const grouped: Record<string, NotifItem[]> = {};
@@ -288,6 +407,9 @@ export default function NotificationsPage() {
             { value: "confirmed", label: "Confirmed" },
             { value: "completed", label: "Completed" },
             { value: "cancelled", label: "Cancelled" },
+            { value: "leave_requested", label: "Leave Requests" },
+            { value: "leave_approved", label: "Leaves Approved" },
+            { value: "leave_rejected", label: "Leaves Rejected" },
           ].map((opt) => (
             <button
               key={opt.value}
@@ -327,15 +449,13 @@ export default function NotificationsPage() {
                         (k) => STATUS_MAP[k].type === n.type,
                       ) || ""
                     ];
-                    const isRead = readIds.has(n.id);
+                    const isRead = isItemRead(n);
+                    const isLeave = !!n.leaveId;
 
                     return (
                       <div
                         key={n.id}
-                        onClick={() => {
-                          markAsRead(n.id);
-                          router.push("/bookings");
-                        }}
+                        onClick={() => handleClick(n)}
                         className={`
                           flex items-start gap-4 px-5 py-4 rounded-xl cursor-pointer transition-all
                           ${isRead ? "bg-white hover:bg-smoke/30" : "bg-white border-l-2 border-gold hover:bg-smoke/30"}
@@ -344,10 +464,18 @@ export default function NotificationsPage() {
                         {/* Icon */}
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            statusInfo?.bg || "bg-gray-50"
-                          } ${statusInfo?.color || "text-gray-500"}`}
+                            (statusInfo?.bg ||
+                              BACKEND_TYPE_MAP[isLeave ? "leave.requested" : "appointment.status"]?.bg) ||
+                            "bg-gray-50"
+                          } ${
+                            (statusInfo?.color ||
+                              BACKEND_TYPE_MAP[isLeave ? "leave.requested" : "appointment.status"]?.color) ||
+                            "text-gray-500"
+                          }`}
                         >
-                          {statusInfo?.icon || <Bell size={16} />}
+                          {(isLeave
+                            ? BACKEND_TYPE_MAP["leave.requested"]?.icon
+                            : statusInfo?.icon) || <Bell size={16} />}
                         </div>
 
                         {/* Content */}

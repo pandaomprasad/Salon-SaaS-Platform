@@ -13,6 +13,7 @@ import {
   LayoutAnimation,
   UIManager,
   Animated,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,6 +26,7 @@ import ServiceCard from "../components/ServiceCard";
 import ErrorCardModal from "../components/ErrorCardModal";
 import ReviewsSection from "../components/ReviewsSection";
 import AddReviewModal from "../components/AddReviewModal";
+import { ServiceCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { paiseToINR } from "../services/apiClient";
 import { useSharedElement } from "../context/SharedElementContext";
@@ -59,15 +61,19 @@ const GALLERY_THUMBNAILS = [
   "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=300&auto=format&fit=crop",
 ];
 
-const ServiceList = memo(({ services, selectedService, onSelect }) => {
-  return services.map((svc) => (
-    <ServiceCard
-      key={svc._id || svc.id}
-      service={svc}
-      selected={(selectedService?._id || selectedService?.id) === (svc._id || svc.id)}
-      onSelect={onSelect}
-    />
-  ));
+const ServiceList = memo(({ services, selectedServices = [], onSelect }) => {
+  return services.map((svc) => {
+    const svcId = svc._id || svc.id;
+    const isSelected = selectedServices.some((s) => (s._id || s.id) === svcId);
+    return (
+      <ServiceCard
+        key={svcId}
+        service={svc}
+        selected={isSelected}
+        onSelect={onSelect}
+      />
+    );
+  });
 });
 
 function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
@@ -76,7 +82,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const { isAuthenticated } = useAuth();
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [services, setServices] = useState([]);
-  const [selectedService, setSelectedService] = useState(null);
+  const [selectedServices, setSelectedServices] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [loading, setLoading] = useState(true);
   const [fetchingSalon, setFetchingSalon] = useState(false);
@@ -86,6 +92,26 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
   const [reviewsList, setReviewsList] = useState([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const totalPrice = useMemo(() => {
+    return selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
+  }, [selectedServices]);
+
+  const totalDuration = useMemo(() => {
+    return selectedServices.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0);
+  }, [selectedServices]);
+
+  const handleCallSalon = useCallback(() => {
+    const phone = selectedBranch?.phone || salonData?.phone || "9876543210";
+    Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
+  }, [selectedBranch, salonData]);
+
+  const handleGetDirections = useCallback(() => {
+    const rawAddress = selectedBranch?.address || salonData?.address || salonData?.name || "Salon Luxe";
+    const addressStr = typeof rawAddress === "string" ? rawAddress : `${rawAddress.street || ""}, ${rawAddress.city || ""}`;
+    const query = encodeURIComponent(addressStr);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  }, [selectedBranch, salonData]);
 
   const handleOpenAddReview = useCallback(() => {
     if (!isAuthenticated) {
@@ -97,16 +123,16 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     setShowAddReviewModal(true);
   }, [isAuthenticated, navigate, salonData]);
 
-  const animVal = useRef(new Animated.Value(selectedService ? 1 : 0)).current;
+  const animVal = useRef(new Animated.Value(selectedServices.length > 0 ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.spring(animVal, {
-      toValue: selectedService ? 1 : 0,
+      toValue: selectedServices.length > 0 ? 1 : 0,
       tension: 65,
       friction: 9,
       useNativeDriver: false,
     }).start();
-  }, [selectedService]);
+  }, [selectedServices]);
 
   const priceWidth = animVal.interpolate({
     inputRange: [0, 1],
@@ -226,32 +252,35 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   }, [services, selectedCategory]);
 
   const handleSelectService = useCallback((svc) => {
-    setSelectedService((prev) => {
-      const prevId = prev?._id || prev?.id;
+    setSelectedServices((prev) => {
       const currentId = svc?._id || svc?.id;
-      if (prevId && prevId === currentId) {
-        return null;
+      const exists = prev.some((item) => (item._id || item.id) === currentId);
+      if (exists) {
+        return prev.filter((item) => (item._id || item.id) !== currentId);
+      } else {
+        return [...prev, svc];
       }
-      return svc;
     });
   }, []);
 
   const handleBranchChange = useCallback((b) => {
     setSelectedBranch(b);
-    setSelectedService(null);
+    setSelectedServices([]);
   }, []);
 
   const handleBookNow = useCallback(() => {
     if (!selectedBranch) return;
-    const targetService = selectedService || (services.length > 0 ? services[0] : null);
+    const targetServices = selectedServices.length > 0 ? selectedServices : (services.length > 0 ? [services[0]] : []);
+    if (targetServices.length === 0) return;
     if (navigate) {
       navigate("Booking", {
         salon: salonData,
         branch: selectedBranch,
-        service: targetService,
+        service: targetServices[0],
+        selectedServices: targetServices,
       });
     }
-  }, [selectedService, services, selectedBranch, navigate, salonData]);
+  }, [selectedServices, services, selectedBranch, navigate, salonData]);
 
   const styles = getStyles();
 
@@ -334,6 +363,19 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               <Text style={styles.ratingSubtext}>(142)</Text>
             </View>
           </View>
+
+          {/* Quick Actions: Call & Directions */}
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity style={styles.quickActionBtn} onPress={handleCallSalon} activeOpacity={0.8}>
+              <Ionicons name="call-outline" size={14} color={C.ink} />
+              <Text style={styles.quickActionText}>Call Salon</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.quickActionBtn} onPress={handleGetDirections} activeOpacity={0.8}>
+              <Ionicons name="navigate-outline" size={14} color={C.ink} />
+              <Text style={styles.quickActionText}>Directions</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.hairline} />
@@ -383,91 +425,88 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           </ScrollView>
         </View>
 
-        {fetchingSalon ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color={C.main} />
+        {/* Select Branch */}
+        {(salonData?.branches || []).length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionLabel}>Select location</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.branchRow}>
+              {(salonData?.branches || []).map((b) => {
+                const isSelected = (b._id || b.id) === (selectedBranch?._id || selectedBranch?.id);
+                return (
+                  <TouchableOpacity
+                    key={b._id || b.id}
+                    style={[styles.branchPill, isSelected && styles.branchPillSelected]}
+                    onPress={() => handleBranchChange(b)}
+                    activeOpacity={0.88}
+                  >
+                    <Text style={[styles.branchTitle, isSelected && styles.branchTitleSelected]}>
+                      {b.name || "Main Branch"}
+                    </Text>
+                    {b.address?.city ? (
+                      <Text style={[styles.branchCity, isSelected && styles.branchCitySelected]}>
+                        {b.address.city}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
-        ) : (
-          <>
-            {branches.length > 0 ? (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>Select location</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.branchRow}>
-                  {branches.map((b) => {
-                    const isSelected = (b._id || b.id) === (selectedBranch?._id || selectedBranch?.id);
-                    return (
-                      <TouchableOpacity
-                        key={b._id || b.id}
-                        style={[styles.branchPill, isSelected && styles.branchPillSelected]}
-                        onPress={() => handleBranchChange(b)}
-                        activeOpacity={0.88}
-                      >
-                        <Text style={[styles.branchTitle, isSelected && styles.branchTitleSelected]}>
-                          {b.name || "Main Branch"}
-                        </Text>
-                        {b.address?.city ? (
-                          <Text style={[styles.branchCity, isSelected && styles.branchCitySelected]}>
-                            {b.address.city}
-                          </Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            ) : null}
+        ) : null}
 
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>Services menu</Text>
+        {/* Services Menu */}
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionLabel}>Services menu</Text>
 
-              {categories.length > 1 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catTabRow}>
-                  {categories.map((cat) => {
-                    const isSelected = selectedCategory === cat;
-                    return (
-                      <TouchableOpacity
-                        key={cat}
-                        style={styles.catTab}
-                        onPress={() => setSelectedCategory(cat)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.catTabText, isSelected && styles.catTabTextSelected]}>
-                          {cat === "all" ? "All services" : cat.charAt(0).toUpperCase() + cat.slice(1)}
-                        </Text>
-                        <View style={[styles.catTabUnderline, isSelected && styles.catTabUnderlineActive]} />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              ) : null}
+          {categories.length > 1 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catTabRow}>
+              {categories.map((cat) => {
+                const isSelected = selectedCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={styles.catTab}
+                    onPress={() => setSelectedCategory(cat)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.catTabText, isSelected && styles.catTabTextSelected]}>
+                      {cat === "all" ? "All services" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </Text>
+                    <View style={[styles.catTabUnderline, isSelected && styles.catTabUnderlineActive]} />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : null}
 
-              {loading ? (
-                <View style={styles.loadingBox}>
-                  <ActivityIndicator size="small" color={C.main} />
-                </View>
-              ) : filteredServices.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <Text style={styles.emptyText}>No services listed in this category.</Text>
-                </View>
-              ) : (
-                <ServiceList
-                  services={filteredServices}
-                  selectedService={selectedService}
-                  onSelect={handleSelectService}
-                />
-              )}
+          {loading ? (
+            <View style={{ gap: S.xs }}>
+              <ServiceCardSkeleton />
+              <ServiceCardSkeleton />
+              <ServiceCardSkeleton />
             </View>
-
-            <View style={{ paddingHorizontal: S.md }}>
-              <ReviewsSection
-                reviews={reviewsList}
-                overallRating={rating}
-                totalReviews={142}
-                onOpenAddReview={handleOpenAddReview}
-              />
+          ) : filteredServices.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No services listed in this category.</Text>
             </View>
-          </>
-        )}
+          ) : (
+            <ServiceList
+              services={filteredServices}
+              selectedServices={selectedServices}
+              onSelect={handleSelectService}
+            />
+          )}
+        </View>
+
+        {/* Reviews Section */}
+        <View style={{ paddingHorizontal: S.md }}>
+          <ReviewsSection
+            reviews={reviewsList}
+            overallRating={rating}
+            totalReviews={142}
+            onOpenAddReview={handleOpenAddReview}
+          />
+        </View>
       </ScrollView>
 
       <AddReviewModal
@@ -1115,6 +1154,28 @@ function getStyles() {
       color: "#FFFFFF",
       fontSize: 15,
       fontWeight: "600",
+    },
+    quickActionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      marginTop: S.sm,
+    },
+    quickActionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: R.pill,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      gap: 6,
+    },
+    quickActionText: {
+      fontSize: 12,
+      fontWeight: FW.medium,
+      color: C.ink,
     },
   });
 }

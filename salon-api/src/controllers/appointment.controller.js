@@ -6,8 +6,38 @@ const User = require("../models/user.model");
 const AppError = require("../utils/AppError");
 const dayjs = require("dayjs");
 const { getIO } = require("../config/socket");
+const { slotOverlapsLeave } = require("../utils/staffLeaveHelper");
+const { getActiveStaffLeaves } = require("../utils/staffLeaveQueries");
 
 const { delCachePattern } = require("../services/cache.service");
+const { sendPushToUser } = require("../services/push.service");
+
+// Build a human push notification for an appointment status change.
+// Returns null when the status has no customer-facing push to send.
+const buildStatusPush = (appointment, serviceName = "appointment", salonName = "Salon") => {
+  const copy = {
+    CONFIRMED: { title: "Booking accepted", body: `${salonName} accepted your ${serviceName} appointment.` },
+    PENDING: { title: "Booking pending", body: `Your ${serviceName} booking at ${salonName} is awaiting confirmation.` },
+    IN_PROGRESS: { title: "Service started", body: `Your ${serviceName} at ${salonName} has started.` },
+    COMPLETED: { title: "Service completed", body: `Your ${serviceName} at ${salonName} was completed. Don't forget to rate it.` },
+    CANCELLED: { title: "Booking cancelled", body: `Your ${serviceName} appointment at ${salonName} was cancelled.` },
+    REJECTED: { title: "Booking rejected", body: `Your ${serviceName} booking at ${salonName} was not accepted.` },
+    NO_SHOW: { title: "Missed appointment", body: `You missed your ${serviceName} appointment at ${salonName}.` },
+  }[appointment.status];
+
+  if (!copy) return null;
+
+  return {
+    userId: appointment.customerId?._id || appointment.customerId,
+    title: copy.title,
+    body: copy.body,
+    data: {
+      appointmentId: String(appointment._id),
+      status: appointment.status,
+      type: "appointment.status",
+    },
+  };
+};
 
 // ================================
 // POST /api/v1/appointments
@@ -28,6 +58,29 @@ const bookAppointment = async (req, res, next) => {
 
     if (slot.status !== "AVAILABLE") {
       return next(new AppError("This slot is no longer available", 400));
+    }
+
+    // --------------------------------
+    // Step 1b — staff availability (leave) check
+    // a slot may still be AVAILABLE in DB but the staff is on leave
+    // for this window — never allow a hard conflict
+    // --------------------------------
+    const staffLeaves = await getActiveStaffLeaves({
+      staffId: slot.staffId,
+      startDate: slot.date,
+      endDate: slot.date,
+    });
+
+    if (
+      staffLeaves.length > 0 &&
+      slotOverlapsLeave(slot.startTime, slot.endTime, staffLeaves, slot.date)
+    ) {
+      return next(
+        new AppError(
+          "This staff member is not available at that time. Please pick another slot.",
+          400,
+        ),
+      );
     }
 
     const slotDateTime = dayjs(`${slot.date} ${slot.startTime}`);
@@ -124,7 +177,7 @@ const bookAppointment = async (req, res, next) => {
               date: slot.date,
               startTime: slot.startTime,
               endTime: slot.endTime,
-              price: service.price,
+              pricePaid: req.body.pricePaid ?? service.price ?? 0,
               currency: service.currency || "INR",
               customerNotes,
               status: "CONFIRMED",
@@ -160,6 +213,49 @@ const bookAppointment = async (req, res, next) => {
     // enough, and the next customer that books this branch still sees the
     // just-invalidated slots on the booking screen.
     delCachePattern(`branch:slots:${slot.branchId}:${slot.date}:*`);
+
+    // Emit real-time WebSocket event for new appointment
+    try {
+      const io = getIO();
+      if (io) {
+        const customerIdStr = String(appointment.customerId);
+        const branchIdStr = String(appointment.branchId);
+        const salonIdStr = String(appointment.salonId);
+
+        const populatedAppt = await Appointment.findById(appointment._id)
+          .populate("customerId", "name email phone")
+          .populate("serviceId", "name durationMinutes price")
+          .populate("staffId", "name")
+          .populate("branchId", "name")
+          .populate("salonId", "name");
+
+        const eventData = {
+          appointmentId: appointment._id,
+          status: appointment.status,
+          appointment: populatedAppt || appointment,
+        };
+
+        console.log(`⚡ [SOCKET EMIT] Emitting new appointment (${appointment._id}) to branch_${branchIdStr}`);
+        io.to(`customer_${customerIdStr}`).emit("appointment_created", eventData);
+        io.to(`customer_${customerIdStr}`).emit("appointment_status_changed", eventData);
+        io.to(`branch_${branchIdStr}`).emit("appointment_created", eventData);
+        io.to(`branch_${branchIdStr}`).emit("appointment_updated", eventData);
+        if (salonIdStr) {
+          io.to(`salon_${salonIdStr}`).emit("appointment_created", eventData);
+          io.to(`salon_${salonIdStr}`).emit("appointment_updated", eventData);
+        }
+      }
+    } catch (e) {
+      console.log("WebSocket emit error:", e.message);
+    }
+
+    // send the customer a push notification for the new booking
+    try {
+      const push = buildStatusPush(appointment, service?.name || "appointment");
+      if (push) await sendPushToUser(push);
+    } catch (e) {
+      console.log("Push notification error:", e.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -421,22 +517,38 @@ const updateAppointmentStatus = async (req, res, next) => {
       if (io) {
         const customerIdStr = String(appointment.customerId?._id || appointment.customerId);
         const branchIdStr = String(appointment.branchId?._id || appointment.branchId);
+        const salonIdStr = String(appointment.salonId?._id || appointment.salonId);
 
-        console.log(`⚡ [SOCKET EMIT] Emitting status change (${appointment.status}) to room customer_${customerIdStr}`);
+        console.log(`⚡ [SOCKET EMIT] Emitting status change (${appointment.status}) to room customer_${customerIdStr} & branch_${branchIdStr}`);
 
-        io.to(`customer_${customerIdStr}`).emit("appointment_status_changed", {
+        const eventPayload = {
           appointmentId: appointment._id,
           status: appointment.status,
           appointment,
-        });
-        io.to(`branch_${branchIdStr}`).emit("appointment_updated", {
-          appointmentId: appointment._id,
-          status: appointment.status,
-          appointment,
-        });
+        };
+
+        io.to(`customer_${customerIdStr}`).emit("appointment_status_changed", eventPayload);
+        io.to(`branch_${branchIdStr}`).emit("appointment_updated", eventPayload);
+        if (salonIdStr) {
+          io.to(`salon_${salonIdStr}`).emit("appointment_updated", eventPayload);
+        }
       }
     } catch (e) {
       console.log("WebSocket emit error:", e.message);
+    }
+
+    // notify the customer via push — but not when THEY were the one who changed it
+    try {
+      if (role !== "customer") {
+        const push = buildStatusPush(
+          appointment,
+          appointment.serviceId?.name || "appointment",
+          appointment.salonId?.name || "Salon",
+        );
+        if (push) await sendPushToUser(push);
+      }
+    } catch (e) {
+      console.log("Push notification error:", e.message);
     }
 
     res.status(200).json({
@@ -580,6 +692,25 @@ const rescheduleAppointment = async (req, res, next) => {
       return next(new AppError("Selected slot is not available", 400));
     }
 
+    // staff availability — a slot may be marked AVAILABLE but the staff
+    // is on leave for this window; never allow a hard conflict
+    const newStaffLeaves = await getActiveStaffLeaves({
+      staffId: newSlot.staffId,
+      startDate: newSlot.date,
+      endDate: newSlot.date,
+    });
+    if (
+      newStaffLeaves.length > 0 &&
+      slotOverlapsLeave(newSlot.startTime, newSlot.endTime, newStaffLeaves, newSlot.date)
+    ) {
+      return next(
+        new AppError(
+          "Selected staff member is not available at that time. Please pick another slot.",
+          400,
+        ),
+      );
+    }
+
     // new slot must be in the future
     const slotDateTime = dayjs(`${newSlot.date} ${newSlot.startTime}`);
     if (slotDateTime.isBefore(dayjs())) {
@@ -689,6 +820,56 @@ const rescheduleAppointment = async (req, res, next) => {
     });
 
     await appointment.save();
+
+    // Emit real-time WebSocket event for rescheduled appointment
+    try {
+      const io = getIO();
+      if (io) {
+        const customerIdStr = String(appointment.customerId?._id || appointment.customerId);
+        const branchIdStr = String(appointment.branchId?._id || appointment.branchId);
+        const salonIdStr = String(appointment.salonId?._id || appointment.salonId);
+
+        const populatedAppt = await Appointment.findById(appointment._id)
+          .populate("customerId", "name email phone")
+          .populate("serviceId", "name durationMinutes price")
+          .populate("staffId", "name")
+          .populate("branchId", "name")
+          .populate("salonId", "name");
+
+        const eventData = {
+          appointmentId: appointment._id,
+          status: appointment.status,
+          appointment: populatedAppt || appointment,
+        };
+
+        console.log(`⚡ [SOCKET EMIT] Emitting rescheduled appointment (${appointment._id}) to branch_${branchIdStr}`);
+        io.to(`customer_${customerIdStr}`).emit("appointment_updated", eventData);
+        io.to(`customer_${customerIdStr}`).emit("appointment_status_changed", eventData);
+        io.to(`branch_${branchIdStr}`).emit("appointment_updated", eventData);
+        if (salonIdStr) {
+          io.to(`salon_${salonIdStr}`).emit("appointment_updated", eventData);
+        }
+      }
+    } catch (e) {
+      console.log("WebSocket emit error:", e.message);
+    }
+
+    // notify the customer their appointment was moved
+    try {
+      const reschedulePush = {
+        userId: appointment.customerId?._id || appointment.customerId,
+        title: "Appointment rescheduled",
+        body: `Your appointment moved to ${newSlot.date} at ${newSlot.startTime}. Awaiting confirmation.`,
+        data: {
+          appointmentId: String(appointment._id),
+          status: appointment.status,
+          type: "appointment.status",
+        },
+      };
+      await sendPushToUser(reschedulePush);
+    } catch (e) {
+      console.log("Push notification error:", e.message);
+    }
 
     res.status(200).json({
       success: true,

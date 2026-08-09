@@ -4,31 +4,38 @@ import Constants from "expo-constants";
 
 // Dynamically determine the host machine IP address when running via Expo Go / Metro
 const getBaseUrl = () => {
-  // 1. In standalone built APKs or when configured, prioritize environment variable
+  // 1. In local dev mode (__DEV__), default to local server on port 6969
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    if (process.env.EXPO_PUBLIC_DEV_API_URL) {
+      return process.env.EXPO_PUBLIC_DEV_API_URL;
+    }
+
+    try {
+      const hostUri =
+        Constants.expoConfig?.hostUri ||
+        Constants.manifest2?.extra?.expoGo?.developer?.manifest?.debuggerHost ||
+        Constants.manifest?.debuggerHost;
+
+      if (hostUri) {
+        const ip = hostUri.split(":")[0];
+        if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
+          return `http://${ip}:6969/api/v1`;
+        }
+      }
+    } catch (e) {
+      console.log("Could not extract hostUri from Constants", e);
+    }
+
+    if (Platform.OS === "android") {
+      return "http://10.0.2.2:6969/api/v1";
+    }
+
+    return "http://localhost:6969/api/v1";
+  }
+
+  // 2. Production API URL
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
-  }
-
-  // 2. In Metro / Expo Go dev mode, dynamically use host computer's IP
-  try {
-    const hostUri =
-      Constants.expoConfig?.hostUri ||
-      Constants.manifest2?.extra?.expoGo?.developer?.manifest?.debuggerHost ||
-      Constants.manifest?.debuggerHost;
-
-    if (hostUri) {
-      const ip = hostUri.split(":")[0];
-      if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
-        return `http://${ip}:6969/api/v1`;
-      }
-    }
-  } catch (e) {
-    console.log("Could not extract hostUri from Constants", e);
-  }
-
-  // 3. Fallback for standalone Android APK on local Wi-Fi
-  if (Platform.OS === "android") {
-    return "http://192.168.1.39:6969/api/v1";
   }
 
   return "http://localhost:6969/api/v1";

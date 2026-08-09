@@ -6,6 +6,7 @@ When an appointment is booked/confirmed/cancelled — should the customer get an
 Currently a customer can only cancel. Should they be able to reschedule to a different slot?
 4. Staff schedule / availability
 A way for staff to set their own availability — like "I'm off on Thursday" — separate from the branch working hours.
+✅ DONE — StaffLeave model + /branches/:branchId/staff/:staffId/leaves CRUD (SINGLE/RANGE/RECURRING, all-day or time-window). Slot generators skip leave days/windows; existing AVAILABLE slots are auto-BLOCKED on leave creation and released on cancel; booking & reschedule hard-block conflicts.
 5. Customer appointment history
 Customers can view appointments but is there a dedicated GET /api/v1/customers/me/appointments route needed?
 6. Password reset
@@ -13,6 +14,9 @@ No forgot password / reset password flow yet.
 7. Branch-level analytics dashboard
 Manager sees their branch stats — already covered in reports but should manager have a dedicated dashboard endpoint?
 8.In app notification 
+✅ DONE — GET/PATCH/POST /notifications endpoints, Notification model (tenant-scoped), notification.service.js (create + Socket.io push on user_<id> room), wired leave.requested/leave.approved/leave.rejected into leave hooks. Salon-panel sidebar badge polls /unread-count + real-time via socket. 
+9. Push notifications
+✅ DONE — Expo remote push. POST/DELETE /customers/me/push-token register/remove device tokens on the User model (pushTokens[]). src/services/push.service.js validates exponent format, sends via Expo API (batched), auto-prunes DeviceNotRegistered/invalid tokens. Wired into appointment book/status-change/reschedule flows (buildStatusPush). Customer app: notificationService.js registers token (guarded for Expo Go), AuthContext logs-token out on logout, AppNavigator deep-links to Bookings on push tap. 
 
 ---------Add later--------
 TTL-based locks, expired lock cleanup, Redis dependency

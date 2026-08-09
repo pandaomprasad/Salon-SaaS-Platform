@@ -5,6 +5,8 @@ import { User, Role } from '@/lib/types'
 import { USERS } from '@/lib/data'
 import { getRoleStyle } from '@/lib/utils'
 
+const roleOf = (role: string): Role => role as Role
+
 const ROLE_DESCRIPTIONS: Record<Role, string> = {
   owner:   'Full access — reports, settings & everything',
   manager: 'Bookings, staff, customers & services',
@@ -58,12 +60,12 @@ export default function RoleSwitcher({ currentUser, onSelect, onClose }: RoleSwi
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{u.name}</p>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize ${active ? 'bg-white/20 text-paper' : getRoleStyle(u.role)}`}>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize ${active ? 'bg-white/20 text-paper' : getRoleStyle(roleOf(u.role))}`}>
                       {u.role}
                     </span>
                   </div>
                   <p className={`text-[11px] mt-0.5 ${active ? 'text-silver' : 'text-ash'}`}>
-                    {ROLE_DESCRIPTIONS[u.role]}
+                    {ROLE_DESCRIPTIONS[roleOf(u.role)]}
                   </p>
                 </div>
                 {active && <Check size={15} className="text-paper shrink-0" />}

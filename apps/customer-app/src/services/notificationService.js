@@ -1,6 +1,8 @@
 // src/services/notificationService.js
 import { LogBox, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import { apiClient } from "./apiClient";
+import { storage } from "./storage";
 
 // Silence Expo Go SDK 53+ push notification warning banner
 LogBox.ignoreLogs([
@@ -28,6 +30,22 @@ if (!isExpoGo && Platform.OS !== "web") {
 }
 
 export const notificationService = {
+  // Create the Android notification channel (required for >= API 26).
+  // No-op elsewhere. Safe to call multiple times.
+  initAndroidChannel: async () => {
+    try {
+      if (Platform.OS !== "android" || isExpoGo || !Notifications) return;
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "Appointment updates",
+        importance: Notifications.AndroidImportance?.HIGH || 4,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    } catch {
+      // ignore
+    }
+  },
+
   requestPermissions: async () => {
     try {
       if (Platform.OS === "web") {
@@ -53,6 +71,61 @@ export const notificationService = {
     } catch (err) {
       return true;
     }
+  },
+
+  // Fetch the device's Expo push token and register it with the backend
+  // so the server can send remote (APNs/FCM) notifications even when the
+  // app is closed. No-op in Expo Go / web — remote push needs a dev build.
+  registerPushToken: async () => {
+    try {
+      if (Platform.OS === "web" || isExpoGo || !Notifications) return null;
+
+      const permission = await notificationService.requestPermissions();
+      if (!permission) return null;
+
+      const projectId =
+        Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
+
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+
+      if (!token?.data) return null;
+
+      await apiClient.post("/customers/me/push-token", { token: token.data });
+      await storage.setItem("@salon_app_push_token", token.data);
+      return token.data;
+    } catch (err) {
+      console.warn("Push token registration failed:", err.message);
+      return null;
+    }
+  },
+
+  // Remove the registered push token from the backend (e.g. on logout).
+  unregisterPushToken: async () => {
+    try {
+      const token = await storage.getItem("@salon_app_push_token");
+      if (!token) return;
+      try {
+        await apiClient.delete(`/customers/me/push-token/${encodeURIComponent(token)}`);
+      } catch {
+        // ignore — server may be down while logging out
+      }
+      await storage.removeItem("@salon_app_push_token");
+    } catch {
+      // ignore
+    }
+  },
+
+  // Subscribe to notification taps → navigate to the bookings screen later.
+  // Returns an unsubscribe function.
+  onNotificationTap: (callback) => {
+    if (Platform.OS === "web" || isExpoGo || !Notifications) return () => {};
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const { data } = response?.notification?.request?.content || {};
+      callback(data);
+    });
+    return () => sub.remove();
   },
 
   sendPushNotification: async ({ title, body, data = {} }) => {

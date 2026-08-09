@@ -101,6 +101,7 @@ export default function LayoutWrapper({
           name={user.name}
           email={user.email}
           initials={user.initials}
+          userId={user.id}
           salonName={salon?.name || "Salon"}
           isOpen={sidebarOpen}
           onNavigate={(page) => {

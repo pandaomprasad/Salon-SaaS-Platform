@@ -11,7 +11,8 @@ export type Page =
   | "reports"
   | "notifications"
   | "branches"
-  | "staff";
+  | "staff"
+  | "leaves";
 
 // ─── Users ────────────────────────────────────────────────────
 
@@ -19,9 +20,11 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password: string;
+  password?: string;
   role: string;
   initials: string;
+  salonId?: string;
+  branchId?: string;
   salon?: {
     name: string;
   };

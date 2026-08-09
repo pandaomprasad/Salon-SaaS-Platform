@@ -20,10 +20,24 @@ function initSocket(server) {
       }
     });
 
+    // Join room for a specific authenticated user (salon panel staff,
+    // managers, owners) — receives personal notifications
+    socket.on("join_user", (userId) => {
+      if (userId) {
+        socket.join(`user_${userId}`);
+      }
+    });
+
     // Join room for specific salon/branch (for salon panel)
     socket.on("join_branch", (branchId) => {
       if (branchId) {
         socket.join(`branch_${branchId}`);
+      }
+    });
+
+    socket.on("join_salon", (salonId) => {
+      if (salonId) {
+        socket.join(`salon_${salonId}`);
       }
     });
 

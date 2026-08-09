@@ -5,6 +5,7 @@ const Appointment = require("../models/appointment.model");
 const Role = require("../models/role.model");
 const AppError = require("../utils/AppError");
 const { generateDaySlots } = require("../utils/slotGenerator");
+const { getActiveStaffLeaves } = require("../utils/staffLeaveQueries");
 const dayjs = require("dayjs");
 
 // ================================
@@ -53,13 +54,20 @@ const generateSlots = async (req, res, next) => {
       );
     }
 
+    // fetch active leaves for this staff so leave days/windows aren't generated
+    const staffLeaves = await getActiveStaffLeaves({
+      staffId,
+      startDate: start.format("YYYY-MM-DD"),
+      endDate: end.format("YYYY-MM-DD"),
+    });
+
     // generate slots for each day in range
     const slotsToInsert = [];
     let current = start;
 
     while (current.isBefore(end.add(1, "day"))) {
       const date = current.format("YYYY-MM-DD");
-      const daySlots = generateDaySlots(branch, date);
+      const daySlots = generateDaySlots(branch, date, staffLeaves);
 
       daySlots.forEach((slot) => {
         slotsToInsert.push({

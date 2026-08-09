@@ -23,10 +23,15 @@ import { paiseToINR } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
 
 
-export default function BookingScreen({ salon, branch, service, goBack, navigate }) {
+export default function BookingScreen({ salon, branch, service, selectedServices, goBack, navigate }) {
   const { isAuthenticated } = useAuth();
   const todayObj = new Date();
   const todayStr = todayObj.toISOString().split("T")[0];
+
+  const allServices = selectedServices && selectedServices.length > 0 ? selectedServices : (service ? [service] : []);
+  const rawTotalPrice = allServices.reduce((sum, s) => sum + (s.price || 0), 0);
+  const totalDurationMinutes = allServices.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0);
+  const servicesSummaryText = allServices.map((s) => s.name).join(" + ");
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [calendarMonth, setCalendarMonth] = useState(new Date(todayObj.getFullYear(), todayObj.getMonth(), 1));
@@ -364,7 +369,7 @@ export default function BookingScreen({ salon, branch, service, goBack, navigate
         <View style={styles.floatingBar}>
           <View style={styles.floatingPriceBlock}>
             <Text style={styles.floatingPriceLabel}>Total:</Text>
-            <Text style={styles.floatingPriceAmount}>{totalPrice}</Text>
+            <Text style={styles.floatingPriceAmount}>{paiseToINR(rawTotalPrice)}</Text>
           </View>
 
           <TouchableOpacity
