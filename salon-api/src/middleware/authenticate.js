@@ -1,5 +1,4 @@
 const User = require('../models/user.model')
-const Role = require('../models/role.model')
 const AppError = require('../utils/AppError')
 const { verifyAccessToken } = require('../utils/token')
 const logger = require('../utils/logger')
@@ -72,15 +71,11 @@ const authenticate = async (req, res, next) => {
     }
 
     // --------------------------------
-    // Step 4 — get role name
+    // Step 4 — role name comes from the JWT payload (signed at login),
+    // so we avoid a second DB query per request. The user doc is still
+    // loaded above for the isActive/tokenVersion revocation checks.
     // --------------------------------
-    // role on user is an ObjectId — we need the name string
-    // for permission checks downstream
-    const role = await Role.findById(user.role).select('name').lean()
-
-    if (!role) {
-      return next(new AppError('User role not found.', 401))
-    }
+    const roleName = decoded.role || "customer";
 
     // --------------------------------
     // Attach to req.user — available in all downstream middleware
@@ -89,13 +84,13 @@ const authenticate = async (req, res, next) => {
       userId: user._id,
       name: user.name,
       email: user.email,
-      role: role.name,           // "owner", "manager", "staff", "customer"
+      role: roleName,            // "owner", "manager", "staff", "customer"
       salonId: user.salonId,     // null for customer
       branchId: user.branchId,   // null for owner + customer
       tokenVersion: user.tokenVersion
     }
 
-    logger.info(`Authenticated: ${user.email} [${role.name}]`)
+    logger.info(`Authenticated: ${user.email} [${roleName}]`)
     // --------------------------------
     // Step 6 — wrap request in tenant context
     // --------------------------------
@@ -105,7 +100,7 @@ const authenticate = async (req, res, next) => {
     setTenantContext(
       {
         userId: user._id,
-        role: role.name,
+        role: roleName,
         salonId: user.salonId || null,
         branchId: user.branchId || null
       },

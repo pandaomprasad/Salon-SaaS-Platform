@@ -345,18 +345,15 @@ const googleLogin = async (req, res, next) => {
         });
       } catch (createErr) {
         if (createErr.code === 11000) {
-          try {
-            await User.collection.dropIndex("phone_1");
-          } catch (e) {}
-          const newUserData = {
-            name: name || email.split("@")[0],
-            email: email.toLowerCase(),
-            googleId,
-            avatar: picture || null,
-            role: targetRole._id,
-          };
-          delete newUserData.phone;
-          user = await User.create(newUserData);
+          // Duplicate key — most likely a race where another request
+          // created the same user between our findOne and create.
+          // Re-fetch instead of dropping indexes (the phone unique index
+          // is sparse, so Google users without a phone never conflict).
+          user = await User.findOne({ email: email.toLowerCase() }).populate(
+            "role",
+            "name",
+          );
+          if (!user) throw createErr;
         } else {
           throw createErr;
         }

@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
@@ -155,17 +156,23 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
           />
         </View>
 
-        {/* button-primary: Cursor Orange #f54e00, 8px radius */}
+        {/* button-primary: Cursor Orange gradient */}
         <BouncyButton
-          style={styles.submitBtn}
           disabled={loading}
           onPress={handleRegister}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitBtnText}>Create Account</Text>
-          )}
+          <LinearGradient
+            colors={["#f54e00", "#d04200"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.submitBtnGradient}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitBtnText}>Create Account</Text>
+            )}
+          </LinearGradient>
         </BouncyButton>
 
         <View style={styles.footerRow}>
@@ -270,13 +277,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  submitBtn: {
-    backgroundColor: C.main, // Cursor Orange
-    borderRadius: R.md, // 8px radius
+  submitBtnGradient: {
+    borderRadius: R.md,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
     marginTop: S.sm,
+    paddingHorizontal: S.md,
   },
   submitBtnText: {
     color: "#FFFFFF",

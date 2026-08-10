@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { appointmentService } from "../services/appointmentService";
 import { paiseToINR } from "../services/apiClient";
@@ -266,11 +267,17 @@ export default function BookingsScreen({ navigate, onScroll }) {
           Log in to track your upcoming salon visits, view booking history, and manage your schedule.
         </Text>
         <TouchableOpacity
-          style={styles.signInBtn}
           onPress={() => navigate && navigate("Login")}
           activeOpacity={0.88}
         >
-          <Text style={styles.signInBtnText}>Sign In Now</Text>
+          <LinearGradient
+            colors={["#f54e00", "#d04200"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.signInBtnGradient}
+          >
+            <Text style={styles.signInBtnText}>Sign In Now</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     );
@@ -330,10 +337,24 @@ export default function BookingsScreen({ navigate, onScroll }) {
         onClose={() => setReviewModalAppt(null)}
         onSubmit={handleAddReviewSubmit}
         appointment={reviewModalAppt}
+        onSuccess={() => {
+          setReviewModalAppt(null);
+          setStatusToast({
+            type: "success",
+            title: "🌟 Review Submitted!",
+            message: "Thank you for rating your salon experience.",
+          });
+          fetchAppointments(true);
+        }}
       />
 
       {statusToast ? (
-        <View style={styles.toastBanner}>
+        <LinearGradient
+          colors={["#059669", "#10B981"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.toastBanner}
+        >
           <View style={{ flex: 1 }}>
             <Text style={styles.toastTitle}>{statusToast.title}</Text>
             <Text style={styles.toastMessage}>{statusToast.message}</Text>
@@ -341,7 +362,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
           <TouchableOpacity style={styles.toastCloseBtn} onPress={() => setStatusToast(null)}>
             <Ionicons name="close" size={16} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       ) : null}
 
       <View style={styles.header}>
@@ -354,13 +375,23 @@ export default function BookingsScreen({ navigate, onScroll }) {
             return (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tab, isSelected ? styles.tabSelected : styles.tabUnselected]}
                 onPress={() => setActiveTab(tab)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                <Text style={[styles.tabText, isSelected ? styles.tabTextSelected : styles.tabTextUnselected]}>
-                  {tab}
-                </Text>
+                {isSelected ? (
+                  <LinearGradient
+                    colors={["#f54e00", "#d04200"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.tabSelectedGradient}
+                  >
+                    <Text style={styles.tabTextSelected}>{tab}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.tabUnselected}>
+                    <Text style={styles.tabTextUnselected}>{tab}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -567,23 +598,32 @@ function getStyles() {
       alignItems: "center",
       borderRadius: 24,
     },
-    tabSelected: {
-      backgroundColor: C.ink,
+    tabSelectedGradient: {
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.pill,
+      alignItems: "center",
+      justifyContent: "center",
     },
     tabUnselected: {
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.pill,
       backgroundColor: C.surface,
       borderWidth: 1,
       borderColor: C.border,
-    },
-    tabText: {
-      fontSize: 12,
-      fontWeight: "700",
+      alignItems: "center",
+      justifyContent: "center",
     },
     tabTextSelected: {
       color: "#FFFFFF",
+      fontSize: 12,
+      fontWeight: "700",
     },
     tabTextUnselected: {
       color: C.muted,
+      fontSize: 12,
+      fontWeight: "700",
     },
     listContent: {
       paddingHorizontal: S.lg,
@@ -637,11 +677,12 @@ function getStyles() {
       marginBottom: S.lg,
       lineHeight: 20,
     },
-    signInBtn: {
-      backgroundColor: C.main,
+    signInBtnGradient: {
       paddingHorizontal: S.xl,
       paddingVertical: 10,
       borderRadius: R.md,
+      alignItems: "center",
+      justifyContent: "center",
     },
     signInBtnText: {
       color: "#FFFFFF",

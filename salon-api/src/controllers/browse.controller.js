@@ -487,9 +487,10 @@ const getBranchSlotsPublic = async (req, res, next) => {
       return res.status(200).json({ success: true, cached: true, data: cached })
     }
 
-    const filter = {
+const filter = {
       branchId,
-      date
+      date,
+      status: "AVAILABLE",
     }
 
     if (staffId) {

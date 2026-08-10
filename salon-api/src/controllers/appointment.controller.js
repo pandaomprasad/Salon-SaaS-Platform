@@ -185,13 +185,13 @@ const bookAppointment = async (req, res, next) => {
               date: slot.date,
               startTime: slot.startTime,
               endTime: slot.endTime,
-              pricePaid: req.body.pricePaid ?? service.price ?? 0,
+              pricePaid: service.price ?? 0,
               currency: service.currency || "INR",
               customerNotes,
-              status: "CONFIRMED",
+              status: "PENDING",
               history: [
                 {
-                  status: "CONFIRMED",
+                  status: "PENDING",
                   changedBy: userId,
                   changedAt: new Date(),
                   note: "Appointment booked by customer",
@@ -221,6 +221,20 @@ const bookAppointment = async (req, res, next) => {
     // enough, and the next customer that books this branch still sees the
     // just-invalidated slots on the booking screen.
     delCachePattern(`branch:slots:${slot.branchId}:${slot.date}:*`);
+
+    // Selectively invalidate the initial_load cache for THIS branch's city
+    // (instead of flushing every city) so the home screen shows fresh
+    // slot availability without a full rebuild of all cities.
+    try {
+      const branchForCache = await Branch.findById(slot.branchId)
+        .select("citySlug")
+        .lean();
+      if (branchForCache?.citySlug) {
+        delCachePattern(`initial_load:${branchForCache.citySlug}:*`);
+      }
+    } catch (e) {
+      console.log("initial_load invalidation error:", e.message);
+    }
 
     // Emit real-time WebSocket event for new appointment
     try {
@@ -509,63 +523,119 @@ const updateAppointmentStatus = async (req, res, next) => {
       return next(new AppError("Access denied", 403));
     }
 
-    // Update slot status in DB to match appointment status
-    if (appointment.slotId) {
-      if (status === "CANCELLED") {
-        await Slot.findByIdAndUpdate(appointment.slotId, {
-          status: "AVAILABLE",
-          appointmentId: null,
-        });
-        appointment.cancellation = {
-          cancelledBy: userId,
-          reason: note || "No reason provided",
-          cancelledAt: new Date(),
-        };
-      } else if (status === "COMPLETED") {
-        // Free the slot time — the appointment is done, so the slot
-        // becomes bookable again for another customer
-        const freedSlot = await Slot.findByIdAndUpdate(appointment.slotId, {
-          status: "AVAILABLE",
-          appointmentId: null,
-        });
-        if (freedSlot) {
-          delCachePattern(`branch:slots:${freedSlot.branchId}:${freedSlot.date}:*`);
+    // Update slot status in DB + appointment status inside a transaction
+    // so the two writes can never drift out of sync
+    const session = await mongoose.startSession();
+
+    try {
+      await session.withTransaction(async () => {
+        if (appointment.slotId) {
+          if (status === "CANCELLED") {
+            await Slot.findByIdAndUpdate(
+              appointment.slotId,
+              {
+                status: "AVAILABLE",
+                appointmentId: null,
+              },
+              { session },
+            );
+            appointment.cancellation = {
+              cancelledBy: userId,
+              reason: note || "No reason provided",
+              cancelledAt: new Date(),
+            };
+          } else if (status === "COMPLETED") {
+            // Free the slot time — the appointment is done, so the slot
+            // becomes bookable again for another customer
+            const freedSlot = await Slot.findByIdAndUpdate(
+              appointment.slotId,
+              {
+                status: "AVAILABLE",
+                appointmentId: null,
+              },
+              { session, new: true },
+            );
+            if (freedSlot) {
+              delCachePattern(`branch:slots:${freedSlot.branchId}:${freedSlot.date}:*`);
+              // refresh the home-screen dataset for this city too
+              try {
+                const branchForCache = await Branch.findById(freedSlot.branchId)
+                  .select("citySlug")
+                  .lean();
+                if (branchForCache?.citySlug) {
+                  delCachePattern(`initial_load:${branchForCache.citySlug}:*`);
+                }
+              } catch (e) {
+                console.log("initial_load invalidation error:", e.message);
+              }
+            }
+          } else if (status === "NO_SHOW") {
+            // NO_SHOW is a correction recorded after COMPLETED, by which point
+            // the slot was already freed. The time has passed, so the slot stays
+            // AVAILABLE — the nightly cron marks past AVAILABLE slots as COMPLETED.
+            // Do nothing to the slot.
+          } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
+            await Slot.findByIdAndUpdate(
+              appointment.slotId,
+              {
+                status: "BOOKED",
+                appointmentId: appointment._id,
+              },
+              { session },
+            );
+          }
+        } else if (
+          appointment.staffId &&
+          appointment.date &&
+          appointment.startTime
+        ) {
+          if (status === "CANCELLED") {
+            await Slot.updateMany(
+              {
+                staffId: appointment.staffId,
+                date: appointment.date,
+                startTime: appointment.startTime,
+              },
+              { status: "AVAILABLE", appointmentId: null },
+              { session },
+            );
+          } else if (status === "COMPLETED") {
+            await Slot.updateMany(
+              {
+                staffId: appointment.staffId,
+                date: appointment.date,
+                startTime: appointment.startTime,
+              },
+              { status: "AVAILABLE", appointmentId: null },
+              { session },
+            );
+          } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
+            await Slot.updateMany(
+              {
+                staffId: appointment.staffId,
+                date: appointment.date,
+                startTime: appointment.startTime,
+              },
+              { status: "BOOKED", appointmentId: appointment._id },
+              { session },
+            );
+          }
         }
-      } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
-        await Slot.findByIdAndUpdate(appointment.slotId, {
-          status: "BOOKED",
-          appointmentId: appointment._id,
+
+        // update status — pre-save hook records it in statusHistory
+        appointment.status = status;
+        appointment.statusHistory.push({
+          status,
+          changedBy: userId,
+          changedAt: new Date(),
+          note: note || null,
         });
-      }
-    } else if (appointment.staffId && appointment.date && appointment.startTime) {
-      if (status === "CANCELLED") {
-        await Slot.updateMany(
-          { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
-          { status: "AVAILABLE", appointmentId: null }
-        );
-      } else if (status === "COMPLETED") {
-        await Slot.updateMany(
-          { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
-          { status: "AVAILABLE", appointmentId: null }
-        );
-      } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
-        await Slot.updateMany(
-          { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
-          { status: "BOOKED", appointmentId: appointment._id }
-        );
-      }
+
+        await appointment.save({ session });
+      });
+    } finally {
+      session.endSession();
     }
-
-    // update status — pre-save hook records it in statusHistory
-    appointment.status = status;
-    appointment.statusHistory.push({
-      status,
-      changedBy: userId,
-      changedAt: new Date(),
-      note: note || null,
-    });
-
-    await appointment.save();
 
     // Emit real-time WebSocket event to customer and branch
     try {
@@ -868,34 +938,9 @@ const rescheduleAppointment = async (req, res, next) => {
     }
 
     // --------------------------------
-    // Step 7 — atomic slot swap
-    // free old slot + book new slot atomically
-    // --------------------------------
-
-    // atomically book new slot — prevents double booking
-    const bookedNewSlot = await Slot.findOneAndUpdate(
-      { _id: targetSlotId, status: "AVAILABLE" },
-      { status: "BOOKED", appointmentId: appointment._id },
-      { new: true },
-    );
-
-    if (!bookedNewSlot) {
-      return next(
-        new AppError(
-          "This slot was just booked by someone else. Please choose another.",
-          400,
-        ),
-      );
-    }
-
-    // free the old slot
-    await Slot.findByIdAndUpdate(appointment.slotId, {
-      status: "AVAILABLE",
-      appointmentId: null,
-    });
-
-    // --------------------------------
-    // Step 8 — update appointment
+    // Step 7 — atomic slot swap inside a transaction
+    // book new slot + free old slot + update appointment atomically
+    // if ANY step fails, ALL steps roll back
     // --------------------------------
     const oldSlotInfo = {
       slotId: appointment.slotId,
@@ -904,28 +949,60 @@ const rescheduleAppointment = async (req, res, next) => {
       endTime: appointment.endTime,
     };
 
-    appointment.slotId = targetSlotId;
-    appointment.date = newSlot.date;
-    appointment.startTime = newSlot.startTime;
-    appointment.endTime = newSlot.endTime;
-    appointment.staffId = finalStaffId;
-    appointment.serviceId = finalServiceId;
-    appointment.pricePaid = finalPrice;
+    const session = await mongoose.startSession();
 
-    // reset to PENDING after reschedule — needs reconfirmation
-    appointment.status = "PENDING";
+    try {
+      await session.withTransaction(async () => {
+        // atomically book new slot — prevents double booking
+        const bookedNewSlot = await Slot.findOneAndUpdate(
+          { _id: targetSlotId, status: "AVAILABLE" },
+          { status: "BOOKED", appointmentId: appointment._id },
+          { new: true, session },
+        );
 
-    // record in history
-    appointment.statusHistory.push({
-      status: "PENDING",
-      changedBy: userId,
-      changedAt: new Date(),
-      note: reason
-        ? `Rescheduled: ${reason}. Was: ${oldSlotInfo.date} ${oldSlotInfo.startTime}`
-        : `Rescheduled from ${oldSlotInfo.date} ${oldSlotInfo.startTime} to ${newSlot.date} ${newSlot.startTime}`,
-    });
+        if (!bookedNewSlot) {
+          throw new AppError(
+            "This slot was just booked by someone else. Please choose another.",
+            400,
+          );
+        }
 
-    await appointment.save();
+        // free the old slot
+        await Slot.findByIdAndUpdate(
+          appointment.slotId,
+          { status: "AVAILABLE", appointmentId: null },
+          { session },
+        );
+
+        // --------------------------------
+        // Step 8 — update appointment
+        // --------------------------------
+        appointment.slotId = targetSlotId;
+        appointment.date = newSlot.date;
+        appointment.startTime = newSlot.startTime;
+        appointment.endTime = newSlot.endTime;
+        appointment.staffId = finalStaffId;
+        appointment.serviceId = finalServiceId;
+        appointment.pricePaid = finalPrice;
+
+        // reset to PENDING after reschedule — needs reconfirmation
+        appointment.status = "PENDING";
+
+        // record in history
+        appointment.statusHistory.push({
+          status: "PENDING",
+          changedBy: userId,
+          changedAt: new Date(),
+          note: reason
+            ? `Rescheduled: ${reason}. Was: ${oldSlotInfo.date} ${oldSlotInfo.startTime}`
+            : `Rescheduled from ${oldSlotInfo.date} ${oldSlotInfo.startTime} to ${newSlot.date} ${newSlot.startTime}`,
+        });
+
+        await appointment.save({ session });
+      });
+    } finally {
+      session.endSession();
+    }
 
     // Emit real-time WebSocket event for rescheduled appointment
     try {
@@ -990,8 +1067,8 @@ const rescheduleAppointment = async (req, res, next) => {
           customerName: custUser.name,
           salonName: salonDoc?.name || "Salon",
           serviceName: serviceDoc?.name || "Service",
-          oldDate: oldSlotDate || "Previous date",
-          oldTime: oldSlotTime || "Previous time",
+          oldDate: oldSlotInfo.date || "Previous date",
+          oldTime: oldSlotInfo.startTime || "Previous time",
           newDate: newSlot.date,
           newTime: newSlot.startTime,
           bookingId: appointment._id,

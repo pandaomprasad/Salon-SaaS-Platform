@@ -1,6 +1,6 @@
 // src/services/socketClient.js
 import { io } from "socket.io-client/dist/socket.io.js";
-import { API_BASE_URL } from "./apiClient";
+import { API_BASE_URL, getAuthToken } from "./apiClient";
 
 // Derive base WebSocket URL from API_BASE_URL (e.g. http://localhost:6969)
 const SOCKET_URL = API_BASE_URL.replace("/api/v1", "");
@@ -19,6 +19,9 @@ export const socketClient = {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      auth: {
+        token: getAuthToken() || "",
+      },
       extraHeaders: {
         "bypass-tunnel-reminder": "true",
         "ngrok-skip-browser-warning": "true",

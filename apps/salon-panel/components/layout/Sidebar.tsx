@@ -25,6 +25,8 @@ import {
 } from "@/api/services/notificationService";
 import { socketClient } from "@/lib/socket-client";
 
+import VerifiedBadge from "@/components/ui/VerifiedBadge";
+
 interface NavItem {
   page: AppPage;
   label: string;
@@ -151,8 +153,9 @@ export default function Sidebar({
               <p className="text-[9px] font-semibold tracking-[0.2em] text-muted uppercase">
                 Salon
               </p>
-              <h1 className="text-lg font-semibold text-ink mt-0.5 leading-tight truncate">
-                {salonName}
+              <h1 className="text-lg font-semibold text-ink mt-0.5 leading-tight truncate flex items-center gap-1.5">
+                <span>{salonName}</span>
+                <VerifiedBadge size={16} color="#3897F0" />
               </h1>
             </div>
           ) : (

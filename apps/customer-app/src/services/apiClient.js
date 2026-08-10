@@ -57,7 +57,7 @@ export const setUnauthorizedHandler = (handler) => {
 
 export const getAuthToken = () => userToken;
 
-async function request(endpoint, options = {}) {
+async function request(endpoint, options = {}, retries = 1) {
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers = {
@@ -72,16 +72,19 @@ async function request(endpoint, options = {}) {
   }
 
   const method = options.method || "GET";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || 15000);
 
   try {
     const fetchOptions = {
       method,
       headers,
+      signal: options.signal || controller.signal,
     };
     if (options.body) fetchOptions.body = options.body;
-    if (options.signal) fetchOptions.signal = options.signal;
 
     const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
     const rawText = await response.text();
 
     let data = {};
@@ -117,6 +120,25 @@ async function request(endpoint, options = {}) {
 
     return data;
   } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Retry once on network-level failures (timeout / no connection),
+    // but never on HTTP errors like 400/401/404
+    if (
+      retries > 0 &&
+      (error.name === "AbortError" ||
+        error.message === "Network request failed" ||
+        error.message === "Network request timed out")
+    ) {
+      console.warn(`API Error [${method} ${endpoint}]: ${error.message} — retrying once…`);
+      return request(endpoint, options, retries - 1);
+    }
+
+    if (error.name === "AbortError") {
+      const timeoutErr = new Error("Network request timed out. Please check your connection.");
+      timeoutErr.isTimeout = true;
+      throw timeoutErr;
+    }
     console.warn(`API Error [${method} ${endpoint}]:`, error.message);
     throw error;
   }

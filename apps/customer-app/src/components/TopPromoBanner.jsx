@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
-import { View, Text, Image, StyleSheet, Dimensions, Animated, Easing } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions, Animated, Easing, TouchableOpacity } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R } from "../theme";
 import BouncyButton from "./BouncyButton";
 
@@ -85,7 +86,10 @@ export default function TopPromoBanner({ onPressBanner }) {
           >
             <Image source={{ uri: banner.image }} style={styles.image} resizeMode="cover" />
 
-            <View style={styles.overlay}>
+            <LinearGradient
+              colors={["transparent", "rgba(0, 0, 0, 0.35)", "rgba(0, 0, 0, 0.88)"]}
+              style={styles.overlay}
+            >
               <View
                 style={[
                   styles.tagPill,
@@ -98,10 +102,17 @@ export default function TopPromoBanner({ onPressBanner }) {
               <Text style={styles.title}>{banner.title}</Text>
               <Text style={styles.sub}>{banner.subtitle}</Text>
 
-              <View style={styles.primaryCta}>
-                <Text style={styles.primaryCtaText}>{banner.cta}</Text>
-              </View>
-            </View>
+              <TouchableOpacity activeOpacity={0.88}>
+                <LinearGradient
+                  colors={["#f54e00", "#d04200"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryCta}
+                >
+                  <Text style={styles.primaryCtaText}>{banner.cta}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
           </BouncyButton>
         ))}
       </Animated.View>

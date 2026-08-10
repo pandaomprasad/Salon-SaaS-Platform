@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { tokenStorage } from "./api-client";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:6969/api/v1";
@@ -30,6 +31,9 @@ export const socketClient = {
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
+        auth: {
+          token: tokenStorage.getAccessToken() || "",
+        },
         extraHeaders: {
           "bypass-tunnel-reminder": "true",
           "ngrok-skip-browser-warning": "true",
@@ -45,6 +49,10 @@ export const socketClient = {
 
       socket.on("disconnect", (reason) => {
         console.log("⚡ [SOCKET] Disconnected:", reason);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.log("⚡ [SOCKET] Connection error:", err.message);
       });
     } else if (!socket.connected) {
       socket.connect();

@@ -11,6 +11,7 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");
 
@@ -261,15 +262,21 @@ export default function SplashScreen({ onFinish }) {
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          opacity: exitAnim,
-          transform: [{ scale: exitScale }],
-        },
-      ]}
+    <LinearGradient
+      colors={["#FFFDFB", "#F7F7F4", "#EFF1F8"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
     >
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            opacity: exitAnim,
+            transform: [{ scale: exitScale }],
+          },
+        ]}
+      >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.canvas} />
 
       {/* ── Background floating pastel orbs ──────────────── */}
@@ -397,7 +404,8 @@ export default function SplashScreen({ onFinish }) {
           />
         </View>
       </View>
-    </Animated.View>
+      </Animated.View>
+    </LinearGradient>
   );
 }
 

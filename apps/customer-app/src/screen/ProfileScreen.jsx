@@ -9,6 +9,7 @@ import {
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -33,11 +34,17 @@ export default function ProfileScreen({ navigate, onScroll }) {
         </Text>
 
         <TouchableOpacity
-          style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
           onPress={() => navigate && navigate("Login")}
           activeOpacity={0.88}
         >
-          <Text style={styles.primaryBtnText}>Sign In</Text>
+          <LinearGradient
+            colors={["#f54e00", "#d04200"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.primaryBtnGradient}
+          >
+            <Text style={styles.primaryBtnText}>Sign In</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -69,9 +76,14 @@ export default function ProfileScreen({ navigate, onScroll }) {
       >
         {/* Profile Header Card */}
         <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
-          <View style={[styles.avatarBox, { backgroundColor: theme.primary }]}>
+          <LinearGradient
+            colors={["#f54e00", "#d04200"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatarBoxGradient}
+          >
             <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          </LinearGradient>
           <Text style={[styles.userName, { color: theme.ink }]}>{user?.name || "Customer"}</Text>
           <Text style={[styles.userEmail, { color: theme.body }]}>{user?.email}</Text>
 
@@ -249,14 +261,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  avatarBox: {
+  avatarBoxGradient: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: C.main, // Cursor Orange
+    borderRadius: R.circle,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: S.sm,
+  },
+  primaryBtnGradient: {
+    height: 44,
+    borderRadius: R.md,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: S.md,
   },
   avatarText: {
     fontSize: 22,

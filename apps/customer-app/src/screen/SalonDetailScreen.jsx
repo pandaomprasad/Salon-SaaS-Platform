@@ -16,6 +16,7 @@ import {
   Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import VerifiedBadge from "../components/VerifiedBadge";
 import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 
@@ -347,7 +348,10 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
         <View style={styles.titleSection}>
           <Text style={styles.eyebrowLabel}>SALON & SPA</Text>
-          <Text style={styles.salonTitle}>{salonData?.name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <Text style={styles.salonTitle}>{salonData?.name}</Text>
+            <VerifiedBadge size={20} color="#3897F0" />
+          </View>
 
           <View style={styles.locationRatingRow}>
             <View style={styles.locationBlock}>

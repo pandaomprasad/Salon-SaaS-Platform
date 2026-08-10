@@ -12,6 +12,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import SalonCard from "../components/SalonCard";
@@ -122,14 +123,25 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
             return (
               <TouchableOpacity
                 key={cat.id}
-                style={[styles.catPill, isSelected ? styles.catPillActive : styles.catPillInactive]}
                 onPress={() => setSelectedCategory(cat.id)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
-                <Text style={[styles.catText, isSelected ? styles.catTextActive : styles.catTextInactive]}>
-                  {cat.label}
-                </Text>
+                {isSelected ? (
+                  <LinearGradient
+                    colors={["#f54e00", "#d04200"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.catPillActiveGradient}
+                  >
+                    <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
+                    <Text style={styles.catTextActive}>{cat.label}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.catPillInactive}>
+                    <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
+                    <Text style={styles.catTextInactive}>{cat.label}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -258,10 +270,21 @@ function buildStyles(isDark) {
       borderRadius: R.pill,
       marginRight: 6,
     },
-    catPillActive: {
-      backgroundColor: C.ink,
+    catPillActiveGradient: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: S.sm + 2,
+      paddingVertical: 6,
+      borderRadius: R.pill,
+      marginRight: 6,
     },
     catPillInactive: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: S.sm + 2,
+      paddingVertical: 6,
+      borderRadius: R.pill,
+      marginRight: 6,
       backgroundColor: C.surface,
       borderWidth: 1,
       borderColor: C.border,

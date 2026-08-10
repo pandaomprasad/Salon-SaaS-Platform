@@ -1,6 +1,7 @@
 import React, { useRef, memo, useCallback } from "react";
 import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import VerifiedBadge from "./VerifiedBadge";
 import { C, S, FS, FW, R, TYPO, SHADOWS } from "../theme";
 import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
@@ -86,7 +87,7 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
       <View style={styles.info}>
         <View style={styles.titleRow}>
           <Text style={styles.name} numberOfLines={1}>{salon.name}</Text>
-          <Ionicons name="checkmark-circle" size={14} color={C.main} />
+          <VerifiedBadge size={15} color="#3897F0" />
         </View>
 
         <Text style={styles.description} numberOfLines={1}>

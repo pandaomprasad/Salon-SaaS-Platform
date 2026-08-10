@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
@@ -159,17 +160,23 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             </View>
           </View>
 
-          {/* button-primary: Cursor Orange #f54e00, 8px radius */}
+          {/* button-primary: Cursor Orange gradient */}
           <BouncyButton
-            style={styles.submitBtn}
             disabled={loading}
             onPress={handleLogin}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitBtnText}>Sign In</Text>
-            )}
+            <LinearGradient
+              colors={["#f54e00", "#d04200"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitBtnGradient}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitBtnText}>Sign In</Text>
+              )}
+            </LinearGradient>
           </BouncyButton>
 
           <View style={styles.footerRow}>
@@ -290,13 +297,13 @@ const styles = StyleSheet.create({
     padding: S.xxs,
   },
   // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
-  submitBtn: {
-    backgroundColor: C.main, // Cursor Orange
-    borderRadius: R.md, // 8px radius
+  submitBtnGradient: {
+    borderRadius: R.md,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
     marginTop: S.sm,
+    paddingHorizontal: S.md,
   },
   submitBtnText: {
     color: "#FFFFFF",

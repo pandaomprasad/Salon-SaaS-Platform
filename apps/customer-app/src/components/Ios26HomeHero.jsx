@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
@@ -28,7 +29,12 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
   });
 
   return (
-    <View style={styles.hero}>
+    <LinearGradient
+      colors={isDark ? ["#1f1f23", "#121215"] : ["#FFFDFB", "#F8F8F5", "#F0F3F8"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.hero}
+    >
       {/* Top bar: Location selector & actions */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.locationChip} onPress={onLocationClick} activeOpacity={0.7}>
@@ -76,7 +82,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
         onSelectSuggestion={(term) => onSearchSubmit && onSearchSubmit(term)}
         onSearchSubmit={(term) => onSearchSubmit && onSearchSubmit(term)}
       />
-    </View>
+    </LinearGradient>
   );
 }
 
