@@ -37,8 +37,9 @@ export function FavoritesProvider({ children }) {
     const itemId = salonOrBranch.id || salonOrBranch._id;
     if (!itemId) return;
 
+    const exists = isFavorite(itemId);
     let updated;
-    if (isFavorite(itemId)) {
+    if (exists) {
       updated = favorites.filter((item) => (item.id || item._id) !== itemId);
     } else {
       updated = [...favorites, salonOrBranch];
@@ -47,8 +48,15 @@ export function FavoritesProvider({ children }) {
     setFavorites(updated);
     try {
       await storage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
+      const { customerService } = require("../services/customerService");
+      if (exists) {
+        await customerService.removeFavoriteSalon(itemId);
+      } else {
+        await customerService.addFavoriteSalon(itemId);
+      }
     } catch (err) {
-      console.warn("Failed to persist favorites:", err);
+      // safe fallback if offline or storage warning
+      console.log("Favorites sync note:", err.message);
     }
   };
 

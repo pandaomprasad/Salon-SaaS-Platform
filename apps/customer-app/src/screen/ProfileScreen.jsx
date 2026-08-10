@@ -106,11 +106,21 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: theme.hairlineSoft }]}
-            onPress={() => setShowFavModal(true)}
+            onPress={() => navigate && navigate("NotificationCenter")}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🔔</Text>
+            <Text style={[styles.menuLabel, { color: theme.ink }]}>Notifications &amp; Alerts</Text>
+            <Text style={[styles.menuArrow, { color: theme.muted }]}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: theme.hairlineSoft }]}
+            onPress={() => navigate && navigate("SavedSalons")}
             activeOpacity={0.7}
           >
             <Text style={styles.menuIcon}>❤️</Text>
-            <Text style={[styles.menuLabel, { color: theme.ink }]}>Saved Favorites ({favorites.length})</Text>
+            <Text style={[styles.menuLabel, { color: theme.ink }]}>Saved Salons ({favorites.length})</Text>
             <Text style={[styles.menuArrow, { color: theme.muted }]}>→</Text>
           </TouchableOpacity>
 

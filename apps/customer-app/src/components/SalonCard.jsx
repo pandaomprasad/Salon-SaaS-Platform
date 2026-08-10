@@ -1,8 +1,7 @@
-// src/components/SalonCard.jsx
 import React, { useRef, memo, useCallback } from "react";
-import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R, TYPO } from "../theme";
+import { C, S, FS, FW, R, TYPO, SHADOWS } from "../theme";
 import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
 import BouncyButton from "./BouncyButton";
@@ -66,13 +65,13 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
         <Image source={{ uri: coverImage }} style={styles.image} resizeMode="cover" />
 
         {/* Favorite Heart Button */}
-        <BouncyButton style={styles.favBtn} onPress={handleFavPress}>
+        <TouchableOpacity style={styles.favBtn} onPress={handleFavPress} activeOpacity={0.8}>
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={16}
             color={isFav ? "#EF4444" : C.ink}
           />
-        </BouncyButton>
+        </TouchableOpacity>
 
         {/* Distance badge pill per cursor/DESIGN.md */}
         {salon.distanceKm ? (
@@ -118,10 +117,10 @@ function getStyles() {
     card: {
       backgroundColor: C.surface,
       borderRadius: R.lg,
-      overflow: "hidden",
       marginBottom: S.md,
       borderWidth: 1,
       borderColor: C.border,
+      ...SHADOWS.md,
     },
     horizontal: {
       width: SCREEN_WIDTH * 0.72,
@@ -134,6 +133,9 @@ function getStyles() {
       height: 160,
       backgroundColor: C.lifted,
       position: "relative",
+      borderTopLeftRadius: R.lg,
+      borderTopRightRadius: R.lg,
+      overflow: "hidden",
     },
     image: {
       width: "100%",
@@ -141,17 +143,18 @@ function getStyles() {
     },
     favBtn: {
       position: "absolute",
-      top: S.xs,
-      left: S.xs,
-      width: 32,
-      height: 32,
+      top: 10,
+      left: 10,
+      width: 34,
+      height: 34,
       borderRadius: R.pill,
       backgroundColor: C.surface,
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1,
       borderColor: C.border,
-      zIndex: 2,
+      zIndex: 10,
+      elevation: 4,
     },
     distanceBadge: {
       position: "absolute",
@@ -213,7 +216,7 @@ function getStyles() {
     },
     bookBtn: {
       backgroundColor: C.main,
-      paddingHorizontal: S.sm + 2,
+      paddingHorizontal: 14,
       paddingVertical: 6,
       borderRadius: R.md,
     },

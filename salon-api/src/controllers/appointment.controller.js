@@ -3,6 +3,8 @@ const Appointment = require("../models/appointment.model");
 const Slot = require("../models/slot.model");
 const Service = require("../models/service.model");
 const User = require("../models/user.model");
+const Salon = require("../models/salon.model");
+const Branch = require("../models/branch.model");
 const AppError = require("../utils/AppError");
 const dayjs = require("dayjs");
 const { getIO } = require("../config/socket");
@@ -11,6 +13,12 @@ const { getActiveStaffLeaves } = require("../utils/staffLeaveQueries");
 
 const { delCachePattern } = require("../services/cache.service");
 const { sendPushToUser } = require("../services/push.service");
+const { notifyUser } = require("../services/notification.service");
+const {
+  sendBookingConfirmationEmail,
+  sendAppointmentStatusEmail,
+  sendRescheduleConfirmationEmail,
+} = require("../services/email.service");
 
 // Build a human push notification for an appointment status change.
 // Returns null when the status has no customer-facing push to send.
@@ -257,6 +265,44 @@ const bookAppointment = async (req, res, next) => {
       console.log("Push notification error:", e.message);
     }
 
+    // send confirmation email to customer
+    try {
+      const customerUser = await User.findById(appointment.customerId).select("name email").lean();
+      const salonDoc = await Salon.findById(appointment.salonId).select("name").lean();
+      const branchDoc = await Branch.findById(appointment.branchId).select("name").lean();
+      const staffUser = appointment.staffId ? await User.findById(appointment.staffId).select("name").lean() : null;
+
+      if (customerUser?.email) {
+        await sendBookingConfirmationEmail({
+          to: customerUser.email,
+          customerName: customerUser.name,
+          salonName: salonDoc?.name || "Salon",
+          branchName: branchDoc?.name || "Main Branch",
+          serviceName: service?.name || "Service",
+          staffName: staffUser?.name || "Any Staff",
+          date: slot.date,
+          bookingId: appointment._id,
+        });
+      }
+    } catch (e) {
+      console.log("Email dispatch error:", e.message);
+    }
+
+    // save persistent in-app notification for customer
+    try {
+      await notifyUser({
+        recipientId: appointment.customerId,
+        type: "appointment.created",
+        title: "Booking Received",
+        body: `Your appointment for ${service?.name || "Service"} has been booked for ${slot.date} at ${slot.startTime}.`,
+        data: { appointmentId: appointment._id, status: appointment.status },
+        branchId: appointment.branchId,
+        salonId: appointment.salonId,
+      });
+    } catch (e) {
+      console.log("In-app notification save error:", e.message);
+    }
+
     res.status(201).json({
       success: true,
       message: "Appointment booked successfully",
@@ -476,10 +522,15 @@ const updateAppointmentStatus = async (req, res, next) => {
           cancelledAt: new Date(),
         };
       } else if (status === "COMPLETED") {
-        await Slot.findByIdAndUpdate(appointment.slotId, {
-          status: "COMPLETED",
-          appointmentId: appointment._id,
+        // Free the slot time — the appointment is done, so the slot
+        // becomes bookable again for another customer
+        const freedSlot = await Slot.findByIdAndUpdate(appointment.slotId, {
+          status: "AVAILABLE",
+          appointmentId: null,
         });
+        if (freedSlot) {
+          delCachePattern(`branch:slots:${freedSlot.branchId}:${freedSlot.date}:*`);
+        }
       } else if (["CONFIRMED", "PENDING", "IN_PROGRESS"].includes(status)) {
         await Slot.findByIdAndUpdate(appointment.slotId, {
           status: "BOOKED",
@@ -488,6 +539,11 @@ const updateAppointmentStatus = async (req, res, next) => {
       }
     } else if (appointment.staffId && appointment.date && appointment.startTime) {
       if (status === "CANCELLED") {
+        await Slot.updateMany(
+          { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
+          { status: "AVAILABLE", appointmentId: null }
+        );
+      } else if (status === "COMPLETED") {
         await Slot.updateMany(
           { staffId: appointment.staffId, date: appointment.date, startTime: appointment.startTime },
           { status: "AVAILABLE", appointmentId: null }
@@ -551,6 +607,47 @@ const updateAppointmentStatus = async (req, res, next) => {
       console.log("Push notification error:", e.message);
     }
 
+    // send status change email to customer
+    try {
+      const custId = appointment.customerId?._id || appointment.customerId;
+      const custUser = await User.findById(custId).select("name email").lean();
+      const salonName = appointment.salonId?.name || "Salon";
+      const serviceName = appointment.serviceId?.name || "Service";
+
+      if (custUser?.email) {
+        await sendAppointmentStatusEmail({
+          to: custUser.email,
+          customerName: custUser.name,
+          status: appointment.status,
+          salonName,
+          serviceName,
+          date: appointment.date,
+          bookingId: appointment._id,
+        });
+      }
+    } catch (e) {
+      console.log("Email dispatch error:", e.message);
+    }
+
+    // save persistent in-app notification for customer
+    try {
+      const custId = appointment.customerId?._id || appointment.customerId;
+      const salonName = appointment.salonId?.name || "Salon";
+      const serviceName = appointment.serviceId?.name || "Service";
+
+      await notifyUser({
+        recipientId: custId,
+        type: `appointment.${appointment.status.toLowerCase()}`,
+        title: `Appointment ${appointment.status}`,
+        body: `Your ${serviceName} booking at ${salonName} status has been updated to ${appointment.status}.`,
+        data: { appointmentId: appointment._id, status: appointment.status },
+        branchId: appointment.branchId?._id || appointment.branchId,
+        salonId: appointment.salonId?._id || appointment.salonId,
+      });
+    } catch (e) {
+      console.log("In-app notification save error:", e.message);
+    }
+
     res.status(200).json({
       success: true,
       message: `Appointment ${status.toLowerCase()} successfully`,
@@ -569,7 +666,7 @@ const rateAppointment = async (req, res, next) => {
   try {
     const { appointmentId } = req.params;
     const { score, review } = req.body;
-    const { userId } = req.user;
+    const userId = req.user.userId || req.user._id;
 
     const appointment = await Appointment.findById(appointmentId);
     if (!appointment) {
@@ -584,21 +681,30 @@ const rateAppointment = async (req, res, next) => {
       return next(new AppError("Can only rate completed appointments", 400));
     }
 
-    if (appointment.rating.score) {
+    if (appointment.rating && appointment.rating.score) {
       return next(new AppError("Appointment already rated", 400));
     }
 
-    if (!score || score < 1 || score > 5) {
+    const numScore = Number(score);
+    if (!numScore || numScore < 1 || numScore > 5) {
       return next(new AppError("Score must be between 1 and 5", 400));
     }
 
     appointment.rating = {
-      score,
-      review: review || null,
+      score: numScore,
+      review: review ? String(review).trim() : null,
       ratedAt: new Date(),
     };
 
     await appointment.save();
+
+    // Invalidate public browse review caches
+    try {
+      if (appointment.salonId) delCachePattern(`salon:reviews:${appointment.salonId}*`);
+      if (appointment.branchId) delCachePattern(`branch:reviews:${appointment.branchId}*`);
+    } catch (cacheErr) {
+      console.log("Cache clear error on rating submission:", cacheErr.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -869,6 +975,46 @@ const rescheduleAppointment = async (req, res, next) => {
       await sendPushToUser(reschedulePush);
     } catch (e) {
       console.log("Push notification error:", e.message);
+    }
+
+    // send reschedule email to customer
+    try {
+      const custId = appointment.customerId?._id || appointment.customerId;
+      const custUser = await User.findById(custId).select("name email").lean();
+      const salonDoc = await Salon.findById(appointment.salonId).select("name").lean();
+      const serviceDoc = await Service.findById(appointment.serviceId).select("name").lean();
+
+      if (custUser?.email) {
+        await sendRescheduleConfirmationEmail({
+          to: custUser.email,
+          customerName: custUser.name,
+          salonName: salonDoc?.name || "Salon",
+          serviceName: serviceDoc?.name || "Service",
+          oldDate: oldSlotDate || "Previous date",
+          oldTime: oldSlotTime || "Previous time",
+          newDate: newSlot.date,
+          newTime: newSlot.startTime,
+          bookingId: appointment._id,
+        });
+      }
+    } catch (e) {
+      console.log("Email dispatch error:", e.message);
+    }
+
+    // save persistent in-app notification for customer
+    try {
+      const custId = appointment.customerId?._id || appointment.customerId;
+      await notifyUser({
+        recipientId: custId,
+        type: "appointment.rescheduled",
+        title: "Appointment Rescheduled",
+        body: `Your appointment moved to ${newSlot.date} at ${newSlot.startTime}.`,
+        data: { appointmentId: appointment._id, status: appointment.status },
+        branchId: appointment.branchId?._id || appointment.branchId,
+        salonId: appointment.salonId?._id || appointment.salonId,
+      });
+    } catch (e) {
+      console.log("In-app notification save error:", e.message);
     }
 
     res.status(200).json({

@@ -151,9 +151,12 @@ function HomeScreen({ navigate, onScroll }) {
     if (!isAuthenticated) return;
     const userId = user?._id || user?.id;
     if (userId) socketClient.connect(userId);
-    const unsubscribe = socketClient.onAppointmentStatusChanged(() => loadData(true));
-    const interval = setInterval(() => loadData(true), 8000);
-    return () => { unsubscribe(); clearInterval(interval); };
+    const unsubscribeStatus = socketClient.onAppointmentStatusChanged(() => loadData(true));
+    const unsubscribeUpdated = socketClient.onAppointmentUpdated(() => loadData(true));
+    return () => {
+      if (typeof unsubscribeStatus === "function") unsubscribeStatus();
+      if (typeof unsubscribeUpdated === "function") unsubscribeUpdated();
+    };
   }, [isAuthenticated, user, loadData]);
 
   const onRefresh = useCallback(() => { setRefreshing(true); loadData(false); }, [loadData]);
@@ -190,6 +193,7 @@ function HomeScreen({ navigate, onScroll }) {
           selectedCity={selectedCity}
           onSearchClick={handleSearchClick}
           onLocationClick={handleLocationClick}
+          onNotificationClick={() => navigate && navigate("NotificationCenter")}
           onSearchSubmit={handleSearchSubmit}
         />
 

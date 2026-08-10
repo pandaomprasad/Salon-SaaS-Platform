@@ -9,6 +9,12 @@ const {
   removeMyPushToken,
 } = require('../controllers/push.controller')
 
+const {
+  getMyFavorites,
+  addFavorite,
+  removeFavorite,
+} = require('../controllers/customer.controller')
+
 const authenticate = require('../middleware/authenticate')
 
 router.use(authenticate)
@@ -26,6 +32,13 @@ router.get('/me/appointments', (req, res, next) => {
   }
   next()
 }, getMyAppointmentHistory)
+
+// ================================
+// Favorites / Bookmarks
+// ================================
+router.get('/me/favorites', getMyFavorites)
+router.post('/me/favorites/:salonId', addFavorite)
+router.delete('/me/favorites/:salonId', removeFavorite)
 
 // POST /api/v1/customers/me/push-token
 // register this device's Expo push token (any authenticated user, idempotent)

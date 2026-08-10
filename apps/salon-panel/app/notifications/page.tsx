@@ -22,6 +22,8 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  bumpUnreadCount,
+  seedUnreadCount,
 } from "@/api/services/notificationService";
 import type { BackendNotification } from "@/lib/api";
 
@@ -316,6 +318,7 @@ export default function NotificationsPage() {
   function markAsRead(item: NotifItem) {
     if (item.isRead || readIds.has(item.id)) return;
     setReadIds((prev) => new Set(prev).add(item.id));
+    bumpUnreadCount(-1);
     if (hasBackend && item.id.length > 10) {
       markNotificationRead(item.id).catch(() => {});
     }
@@ -323,6 +326,7 @@ export default function NotificationsPage() {
 
   async function markAllAsRead() {
     setReadIds(new Set(notifications.map((n) => n.id)));
+    seedUnreadCount(0);
     if (hasBackend) {
       try {
         await markAllNotificationsRead();

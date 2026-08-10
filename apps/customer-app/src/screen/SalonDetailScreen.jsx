@@ -603,18 +603,22 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           >
             <Animated.View style={{ transform: [{ translateX: priceTranslateX }] }}>
               <Text style={styles.floatingPriceLabel} numberOfLines={1}>
-                {selectedService ? selectedService.name : ""}
+                {selectedServices.length > 0
+                  ? selectedServices.length === 1
+                    ? selectedServices[0].name
+                    : `${selectedServices.length} Services Selected`
+                  : ""}
               </Text>
               <Text style={styles.floatingPriceAmount} numberOfLines={1}>
-                {selectedService ? paiseToINR(selectedService.price || 0) : ""}
+                {selectedServices.length > 0 ? paiseToINR(totalPrice) : ""}
               </Text>
             </Animated.View>
           </Animated.View>
 
           <TouchableOpacity
-            disabled={!selectedService}
+            disabled={selectedServices.length === 0}
             onPress={handleBookNow}
-            activeOpacity={selectedService ? 0.85 : 1}
+            activeOpacity={selectedServices.length > 0 ? 0.85 : 1}
             style={styles.animatedBookTouchable}
           >
             <View style={styles.animatedBookBtn}>

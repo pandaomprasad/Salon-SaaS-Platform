@@ -35,7 +35,14 @@ export const appointmentService = {
   },
 
   rateAppointment: async (id, score, review) => {
-    return await apiClient.patch(`/appointments/${id}/rate`, {
+    return await apiClient.post(`/appointments/${id}/review`, {
+      score,
+      review,
+    });
+  },
+
+  submitReview: async (id, score, review) => {
+    return await apiClient.post(`/appointments/${id}/review`, {
       score,
       review,
     });

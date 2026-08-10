@@ -29,6 +29,7 @@ export default function Header({
   currentPage, initials, onNavigate, onMenuClick,
 }: HeaderProps) {
   const [unread, setUnread] = useState(0)
+  const UNREAD_POLL_MS = 120000
 
   useEffect(() => {
     let cancelled = false
@@ -41,7 +42,7 @@ export default function Header({
       }
     }
     poll()
-    const timer = setInterval(poll, 30000)
+    const timer = setInterval(poll, UNREAD_POLL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)

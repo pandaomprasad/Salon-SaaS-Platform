@@ -32,6 +32,15 @@ const connectDB = async () => {
     if (backfill.matchedCount > 0) {
       console.log(`🏙️ Backfilled citySlug on ${backfill.modifiedCount} branch(es)`)
     }
+
+    // Drop legacy non-sparse phone_1 index if present
+    try {
+      const User = require('../models/user.model')
+      await User.collection.dropIndex('phone_1')
+      console.log('✅ Dropped legacy non-sparse phone_1 index from MongoDB')
+    } catch (indexErr) {
+      // Index didn't exist or was already replaced — non-fatal
+    }
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`)
     logger.error(`MongoDB connection error: ${error.message}`)

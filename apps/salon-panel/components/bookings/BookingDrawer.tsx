@@ -125,7 +125,7 @@ export default function BookingDrawer({
           {canManage && a.status === "PENDING" && (
             <>
               <Button className="flex-1" onClick={() => onUpdateStatus(a._id, "CONFIRMED")} loading={isUpdating}>
-                Confirm
+                Accept Appointment
               </Button>
               <Button className="flex-1" variant="danger" onClick={() => onUpdateStatus(a._id, "CANCELLED")} loading={isUpdating}>
                 Cancel

@@ -15,6 +15,7 @@ import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
 import BouncyButton from "../components/BouncyButton";
+import GoogleSignInModal from "../components/GoogleSignInModal";
 
 export default function RegisterScreen({ navigate, goBack, routeParams }) {
   const { register, loginWithGoogle } = useAuth();
@@ -47,86 +48,11 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+
+  const handleGoogleLogin = () => {
     setError("");
-    try {
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        if (!window.google?.accounts?.id) {
-          await new Promise((resolve) => {
-            const script = document.createElement("script");
-            script.src = "https://accounts.google.com/gsi/client";
-            script.async = true;
-            script.onload = resolve;
-            document.body.appendChild(script);
-          });
-        }
-
-        const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "GOOGLE_CLIENT_ID";
-
-        window.google?.accounts?.id?.initialize({
-          client_id: clientId,
-          callback: async (response) => {
-            if (response.credential) {
-              const res = await loginWithGoogle({ idToken: response.credential });
-              setGoogleLoading(false);
-              if (res.success) {
-                if (routeParams?.redirectTo && navigate) {
-                  navigate(routeParams.redirectTo, routeParams.redirectData);
-                } else if (navigate) {
-                  navigate("Profile");
-                }
-              } else {
-                setError(res.error || "Google login failed");
-              }
-            }
-          },
-        });
-
-        window.google?.accounts?.id?.prompt(async (notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            const res = await loginWithGoogle({
-              googleUser: {
-                email: `customer_${Math.floor(1000 + Math.random() * 9000)}@gmail.com`,
-                name: "Google Member",
-                sub: `google_${Date.now()}`,
-              },
-            });
-            setGoogleLoading(false);
-            if (res.success) {
-              if (routeParams?.redirectTo && navigate) {
-                navigate(routeParams.redirectTo, routeParams.redirectData);
-              } else if (navigate) {
-                navigate("Profile");
-              }
-            } else {
-              setError(res.error || "Google login failed");
-            }
-          }
-        });
-      } else {
-        const res = await loginWithGoogle({
-          googleUser: {
-            email: `customer_${Math.floor(1000 + Math.random() * 9000)}@gmail.com`,
-            name: "Google Member",
-            sub: `google_${Date.now()}`,
-          },
-        });
-        setGoogleLoading(false);
-        if (res.success) {
-          if (routeParams?.redirectTo && navigate) {
-            navigate(routeParams.redirectTo, routeParams.redirectData);
-          } else if (navigate) {
-            navigate("Profile");
-          }
-        } else {
-          setError(res.error || "Google login failed");
-        }
-      }
-    } catch (err) {
-      setGoogleLoading(false);
-      setError("Google sign-in error: " + (err.message || err));
-    }
+    setShowGoogleModal(true);
   };
 
   return (
@@ -248,6 +174,18 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
             <Text style={styles.footerLink}> Sign In</Text>
           </TouchableOpacity>
         </View>
+
+        <GoogleSignInModal
+          visible={showGoogleModal}
+          onClose={() => setShowGoogleModal(false)}
+          onSuccess={() => {
+            if (routeParams?.redirectTo && navigate) {
+              navigate(routeParams.redirectTo, routeParams.redirectData);
+            } else if (navigate) {
+              navigate("Profile");
+            }
+          }}
+        />
       </View>
     </ScrollView>
   );

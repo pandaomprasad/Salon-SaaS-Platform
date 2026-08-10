@@ -5,7 +5,7 @@ import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
 
-export default function Ios26HomeHero({ onSearchClick, onLocationClick, userName, selectedCity, onSearchSubmit }) {
+export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, userName, selectedCity, onSearchSubmit }) {
   const { isDark, toggleTheme, toggleAnim } = useTheme();
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -54,7 +54,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, userName
             </Animated.View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.notifBtn} onPress={onNotificationClick} activeOpacity={0.7}>
             <Ionicons name="notifications-outline" size={18} color={C.ink} />
           </TouchableOpacity>
         </View>

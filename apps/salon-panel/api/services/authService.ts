@@ -22,6 +22,16 @@ export async function loginSalon(
   return data;
 }
 
+export async function googleLoginSalon(
+  payload: { idToken?: string; googleUser?: any; role?: string },
+): Promise<ApiResponse<LoginResponse>> {
+  const { data } = await apiClient.post<ApiResponse<LoginResponse>>(
+    "/auth/google",
+    payload,
+  );
+  return data;
+}
+
 export async function registerCustomer(
   payload: RegisterPayload,
 ): Promise<ApiResponse<LoginResponse>> {

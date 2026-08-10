@@ -18,7 +18,11 @@ import {
 import type { UserRole } from "@/lib/api";
 import { type AppPage, PAGE_ACCESS } from "@/lib/rbac";
 import { useState, useEffect } from "react";
-import { getUnreadCount } from "@/api/services/notificationService";
+import {
+  bumpUnreadCount,
+  getUnreadCount,
+  seedUnreadCount,
+} from "@/api/services/notificationService";
 import { socketClient } from "@/lib/socket-client";
 
 interface NavItem {
@@ -70,6 +74,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [unread, setUnread] = useState(0);
+  const UNREAD_POLL_MS = 120000;
 
   useEffect(() => {
     if (!userId) return;
@@ -78,18 +83,24 @@ export default function Sidebar({
     const poll = async () => {
       try {
         const count = await getUnreadCount();
-        if (!cancelled) setUnread(count);
+        if (!cancelled) {
+          setUnread(count);
+          seedUnreadCount(count);
+        }
       } catch {
         // endpoint unavailable — badge stays 0
       }
     };
     poll();
-    const timer = setInterval(poll, 30000);
+    const timer = setInterval(poll, UNREAD_POLL_MS);
 
     socketClient.connect();
     socketClient.setUserId(userId);
     const offNotif = socketClient.onNotificationNew(() => {
-      setUnread((prev) => prev + 1);
+      setUnread((prev) => {
+        bumpUnreadCount(1);
+        return prev + 1;
+      });
     });
 
     return () => {

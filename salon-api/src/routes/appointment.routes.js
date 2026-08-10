@@ -41,6 +41,11 @@ router.patch('/:appointmentId/rate',
   rateAppointment
 )
 
+router.post('/:appointmentId/review',
+  checkPermission('appointment:read'),
+  rateAppointment
+)
+
 router.patch('/:appointmentId/reschedule',
   checkPermission('appointment:update'),
   rescheduleAppointment

@@ -8,10 +8,12 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { logout } from "@/store/slices/authSlice";
 import { useEffect, useState } from "react";
+import BookingNotificationToast from "@/components/ui/BookingNotificationToast";
 import { tokenStorage } from "@/lib/api-client";
 import { pathnameToPage, canAccess } from "@/lib/rbac";
 import type { UserRole } from "@/lib/api";
 import apiClient from "@/lib/api-client";
+import { clearUnreadCountCache } from "@/api/services/notificationService";
 
 export default function LayoutWrapper({
   children,
@@ -110,6 +112,7 @@ export default function LayoutWrapper({
           }}
           onLogout={() => {
             tokenStorage.clearTokens();
+            clearUnreadCountCache();
             dispatch(logout());
             router.replace("/login");
           }}
@@ -142,6 +145,7 @@ export default function LayoutWrapper({
             {children}
           </main>
           <BranchSelectorModal />
+          <BookingNotificationToast />
         </div>
       ) : (
         <>{children}</>

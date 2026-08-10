@@ -16,6 +16,8 @@ import EditProfileScreen from "../screen/EditProfileScreen";
 import SavedAddressesScreen from "../screen/SavedAddressesScreen";
 import SupportScreen from "../screen/SupportScreen";
 import AllSalonsScreen from "../screen/AllSalonsScreen";
+import NotificationCenterScreen from "../screen/NotificationCenterScreen";
+import SavedSalonsScreen from "../screen/SavedSalonsScreen";
 import OnboardingScreen from "../screen/OnboardingScreen";
 import SplashScreen from "../screen/SplashScreen";
 import ScreenTransition from "../components/ScreenTransition";
@@ -70,7 +72,13 @@ export default function AppNavigator() {
         setScreenStack([]);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === "function") {
+        try {
+          unsubscribe();
+        } catch (e) {}
+      }
+    };
   }, []);
 
   const handleScroll = (event) => {
@@ -199,6 +207,12 @@ export default function AppNavigator() {
             routeParams={screenParams}
             onScroll={handleScroll}
           />
+        )}
+        {activeScreen === "NotificationCenter" && (
+          <NotificationCenterScreen onBack={goBack} navigate={navigate} />
+        )}
+        {activeScreen === "SavedSalons" && (
+          <SavedSalonsScreen onBack={goBack} navigate={navigate} />
         )}
       </View>
     );

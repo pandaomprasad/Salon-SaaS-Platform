@@ -44,6 +44,14 @@ export const socketClient = {
     };
   },
 
+  onAppointmentUpdated: (callback) => {
+    if (!socket) return () => {};
+    socket.on("appointment_updated", callback);
+    return () => {
+      if (socket) socket.off("appointment_updated", callback);
+    };
+  },
+
   disconnect: () => {
     if (socket) {
       socket.disconnect();

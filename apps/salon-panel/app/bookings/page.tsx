@@ -11,18 +11,28 @@ import { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import BookingDrawer from "@/components/bookings/BookingDrawer";
-import { Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { paiseToINR } from "@/lib/api";
+import {
+  Search,
+  RefreshCw,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Volume2,
+  VolumeX,
+  Sparkles,
+} from "lucide-react";
 import type { Appointment, AppointmentStatus, UserRole } from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { getCached, setCache, invalidateCache } from "@/lib/cache";
 import { socketClient } from "@/lib/socket-client";
-
+import { isSoundEnabled, setSoundEnabled, testSound, playBookingChime } from "@/lib/sound";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
-  { value: "PENDING", label: "Pending" },
   { value: "CONFIRMED", label: "Confirmed" },
+  { value: "PENDING", label: "Pending" },
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "COMPLETED", label: "Completed" },
   { value: "CANCELLED", label: "Cancelled" },
@@ -61,10 +71,9 @@ function getPrice(a: any): string {
   return `₹${price.toLocaleString("en-IN")}`;
 }
 
-
 export default function BookingsPage() {
   const { selectedBranch: globalBranch } = useSelector((state: RootState) => state.auth);
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, salon } = useSelector((state: RootState) => state.auth);
   const role = (user?.role || "staff") as UserRole;
   const canManage = role === "owner" || role === "manager";
 
@@ -82,7 +91,25 @@ export default function BookingsPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Sound & Socket indicators
+  const [soundOn, setSoundOn] = useState(true);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
   const branchId = globalBranch?._id || null;
+
+  useEffect(() => {
+    setSoundOn(isSoundEnabled());
+  }, []);
+
+  const handleToggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    if (next) {
+      testSound();
+    }
+  };
 
   const fetchAppointments = useCallback(async () => {
     const cacheKey = `bookings_${statusFilter}_b${branchId || "all"}_p${currentPage}_l${pageSize}`;
@@ -159,23 +186,43 @@ export default function BookingsPage() {
 
   // Real-time auto-fetch via WebSockets when new appointments are created/updated
   useEffect(() => {
-    socketClient.connect({ branchId, salonId: (user as any)?.salonId || null });
+    const salonId = (salon as any)?._id || (user as any)?.salonId || null;
+    socketClient.connect({ branchId, salonId });
+    setIsLiveConnected(socketClient.isConnected());
+
+    const unsubConn = socketClient.onConnect(() => setIsLiveConnected(true));
+    const unsubDisconn = socketClient.onDisconnect(() => setIsLiveConnected(false));
+
+    const handleRealtimeNewBooking = (data: any) => {
+      console.log("⚡ [BOOKINGS SCREEN] Realtime appointment event received:", data);
+      invalidateCache("bookings_");
+
+      const newId = data?.appointment?._id || data?.appointmentId;
+      if (newId) {
+        setHighlightedId(newId);
+        setTimeout(() => setHighlightedId(null), 4000);
+      }
+
+      fetchAppointments();
+    };
 
     const handleRealtimeUpdate = () => {
       invalidateCache("bookings_");
       fetchAppointments();
     };
 
-    const unsubCreated = socketClient.onAppointmentCreated(handleRealtimeUpdate);
+    const unsubCreated = socketClient.onAppointmentCreated(handleRealtimeNewBooking);
     const unsubUpdated = socketClient.onAppointmentUpdated(handleRealtimeUpdate);
     const unsubStatus = socketClient.onAppointmentStatusChanged(handleRealtimeUpdate);
 
     return () => {
+      unsubConn();
+      unsubDisconn();
       unsubCreated();
       unsubUpdated();
       unsubStatus();
     };
-  }, [branchId, user?.salonId, fetchAppointments]);
+  }, [branchId, salon, user, fetchAppointments]);
 
   // Reset to page 1 when filters or branch change
   useEffect(() => {
@@ -195,7 +242,7 @@ export default function BookingsPage() {
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
     setUpdatingId(id);
     try {
-      const res = await updateAppointmentStatus(id, { status });
+      await updateAppointmentStatus(id, { status });
       invalidateCache("bookings_");
       setAppointments((prev) =>
         prev.map((a: any) => (a._id === id ? { ...a, status } : a)),
@@ -240,22 +287,62 @@ export default function BookingsPage() {
     <ProtectedRoute page="bookings">
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-3xl font-display">Bookings</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-3xl font-display">Bookings</h2>
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                  isLiveConnected
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}
+                title="Real-time Socket.io updates"
+              >
+                <span className={`w-2 h-2 rounded-full ${isLiveConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                {isLiveConnected ? "Realtime Live" : "Connecting..."}
+              </span>
+            </div>
             <p className="text-sm text-ash mt-1">
               {loading ? "Loading..." : `${totalItems} bookings found`}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<RefreshCw size={13} />}
-            onClick={fetchAppointments}
-            loading={loading}
-          >
-            Refresh
-          </Button>
+
+          <div className="flex items-center gap-2">
+            {/* Sound Notification Toggle Button */}
+            <button
+              onClick={handleToggleSound}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-all ${
+                soundOn
+                  ? "bg-emerald-500/10 text-emerald-700 border-emerald-300 hover:bg-emerald-500/20"
+                  : "bg-ash/10 text-ash border-ash/20 hover:bg-ash/20"
+              }`}
+              title={soundOn ? "Sound notifications enabled for new bookings" : "Sound notifications muted"}
+            >
+              {soundOn ? <Volume2 size={15} className="text-emerald-600" /> : <VolumeX size={15} />}
+              <span>{soundOn ? "Sound On" : "Sound Muted"}</span>
+            </button>
+
+            {soundOn && (
+              <button
+                onClick={() => testSound()}
+                className="px-2.5 py-1.5 text-xs text-ash hover:text-ink border border-smoke hover:bg-smoke/30 rounded-xl transition-all"
+                title="Test notification sound chime"
+              >
+                Test Sound
+              </button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<RefreshCw size={13} />}
+              onClick={fetchAppointments}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -301,7 +388,7 @@ export default function BookingsPage() {
         {/* Table */}
         <div className="bg-white border border-smoke rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full border-separate border-spacing-y-3 text-sm">
               <thead>
                 <tr className="border-b border-smoke bg-smoke/40">
                   {["Client", "Service", "Staff", "Date", "Time", "Duration", "Price", "Status", "Actions"].map((h) => (
@@ -314,7 +401,7 @@ export default function BookingsPage() {
               <tbody>
                 {loading ? (
                   Array.from({ length: pageSize }).map((_, i) => (
-                    <tr key={i} className="border-b border-border/50">
+                    <tr key={i} className="bg-transparent">
                       {Array.from({ length: 9 }).map((_, j) => (
                         <td key={j} className="px-5 py-4">
                           <div className="animate-pulse bg-border/50 rounded h-3.5 w-full" />
@@ -329,46 +416,56 @@ export default function BookingsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((a: any) => (
-                    <tr
-                      key={a._id}
-                      onClick={() => setSelected(a)}
-                      className="border-b border-smoke/50 hover:bg-smoke/20 transition-colors cursor-pointer"
-                    >
-                      <td className="px-5 py-3.5 font-medium">{getName(a.customerId)}</td>
-                      <td className="px-5 py-3.5 text-ash">{getName(a.serviceId)}</td>
-                      <td className="px-5 py-3.5 text-ash">{getName(a.staffId)}</td>
-                      <td className="px-5 py-3.5 text-ash">{a.date || "—"}</td>
-                      <td className="px-5 py-3.5 text-ash">{a.startTime || "—"}</td>
-                      <td className="px-5 py-3.5 text-ash">{formatDuration(getDurationMins(a))}</td>
-                      <td className="px-5 py-3.5 font-medium">{getPrice(a)}</td>
-                      <td className="px-5 py-3.5">
-                        <StatusBadge status={a.status} />
-                      </td>
-                      <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
-                        {canManage && a.status === "PENDING" && (
-                          <div className="flex gap-1.5">
-                            <Button size="sm" onClick={() => handleUpdateStatus(a._id, "CONFIRMED")} loading={updatingId === a._id}>
-                              Confirm
+                  filtered.map((a: any) => {
+                    const isNew = a._id === highlightedId;
+                    return (
+                      <tr
+                        key={a._id}
+                        onClick={() => setSelected(a)}
+                        className={`bg-white shadow-sm transition-colors cursor-pointer ${
+                          isNew
+                            ? "bg-emerald-50/90 font-medium animate-pulse"
+                            : "hover:bg-smoke/20"
+                        }`}
+                      >
+                        <td className="bg-white px-5 py-3.5 font-medium flex items-center gap-1.5 rounded-l-2xl">
+                          {isNew && <Sparkles size={13} className="text-emerald-600 shrink-0" />}
+                          <span>{getName(a.customerId)}</span>
+                        </td>
+                        <td className="bg-white px-5 py-3.5 text-ash">{getName(a.serviceId)}</td>
+                        <td className="bg-white px-5 py-3.5 text-ash">{getName(a.staffId)}</td>
+                        <td className="bg-white px-5 py-3.5 text-ash">{a.date || "—"}</td>
+                        <td className="bg-white px-5 py-3.5 text-ash">{a.startTime || "—"}</td>
+                        <td className="bg-white px-5 py-3.5 text-ash">{formatDuration(getDurationMins(a))}</td>
+                        <td className="bg-white px-5 py-3.5 font-medium">{getPrice(a)}</td>
+                        <td className="bg-white px-5 py-3.5">
+                          <StatusBadge status={a.status} />
+                        </td>
+                        <td className="bg-white px-5 py-3.5 rounded-r-2xl" onClick={(e) => e.stopPropagation()}>
+                          {canManage && a.status === "PENDING" && (
+                            <div className="flex gap-1.5">
+                              <Button size="sm" onClick={() => handleUpdateStatus(a._id, "CONFIRMED")} loading={updatingId === a._id}>
+                                Accept Appointment
+                              </Button>
+                              <Button size="sm" variant="danger" onClick={() => handleUpdateStatus(a._id, "CANCELLED")} loading={updatingId === a._id}>
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                          {canManage && a.status === "CONFIRMED" && (
+                            <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "IN_PROGRESS")} loading={updatingId === a._id}>
+                              Start Service
                             </Button>
-                            <Button size="sm" variant="danger" onClick={() => handleUpdateStatus(a._id, "CANCELLED")} loading={updatingId === a._id}>
-                              Cancel
+                          )}
+                          {(role === "staff" || canManage) && a.status === "IN_PROGRESS" && (
+                            <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "COMPLETED")} loading={updatingId === a._id}>
+                              Complete
                             </Button>
-                          </div>
-                        )}
-                        {canManage && a.status === "CONFIRMED" && (
-                          <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "IN_PROGRESS")} loading={updatingId === a._id}>
-                            Start
-                          </Button>
-                        )}
-                        {(role === "staff" || canManage) && a.status === "IN_PROGRESS" && (
-                          <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "COMPLETED")} loading={updatingId === a._id}>
-                            Complete
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -467,3 +564,4 @@ export default function BookingsPage() {
     </ProtectedRoute>
   );
 }
+

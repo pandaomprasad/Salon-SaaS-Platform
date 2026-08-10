@@ -78,6 +78,8 @@ export default function BookingsScreen({ navigate, onScroll }) {
   const [statusToast, setStatusToast] = useState(null);
 
   const promptedReviewIdsRef = React.useRef(new Set());
+  const selectedApptRef = React.useRef(selectedAppt);
+  selectedApptRef.current = selectedAppt;
   const styles = getStyles();
 
   const handleAddReviewSubmit = async ({ rating, comment }) => {
@@ -171,6 +173,14 @@ export default function BookingsScreen({ navigate, onScroll }) {
       }
 
       setAppointments(newApptList);
+      if (selectedApptRef.current) {
+        const updatedSelected = newApptList.find(
+          (a) => (a._id || a.id) === (selectedApptRef.current._id || selectedApptRef.current.id)
+        );
+        if (updatedSelected) {
+          setSelectedAppt(updatedSelected);
+        }
+      }
 
       // Auto-popup review modal for the last completed appointment
       const lastUnratedCompleted = newApptList
@@ -200,7 +210,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
     fetchAppointments(false);
   }, [isAuthenticated]);
 
-  // Real-Time Event-Driven WebSockets + Automatic Polling Fallback
+  // Real-Time Event-Driven WebSockets
   useEffect(() => {
     if (!isAuthenticated) return;
     const userId = user?._id || user?.id;
@@ -208,17 +218,16 @@ export default function BookingsScreen({ navigate, onScroll }) {
       socketClient.connect(userId);
     }
 
-    const unsubscribe = socketClient.onAppointmentStatusChanged((data) => {
+    const unsubscribeStatus = socketClient.onAppointmentStatusChanged(() => {
+      fetchAppointments(true);
+    });
+    const unsubscribeUpdated = socketClient.onAppointmentUpdated(() => {
       fetchAppointments(true);
     });
 
-    const interval = setInterval(() => {
-      fetchAppointments(true);
-    }, 8000);
-
     return () => {
-      unsubscribe();
-      clearInterval(interval);
+      if (typeof unsubscribeStatus === "function") unsubscribeStatus();
+      if (typeof unsubscribeUpdated === "function") unsubscribeUpdated();
     };
   }, [isAuthenticated, user]);
 

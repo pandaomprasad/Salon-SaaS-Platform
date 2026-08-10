@@ -14,8 +14,8 @@ export const socketClient = {
     branchId?: string | null;
     salonId?: string | null;
   }) => {
-    if (params?.branchId) currentBranchId = params.branchId;
-    if (params?.salonId) currentSalonId = params.salonId;
+    if (params?.branchId !== undefined) currentBranchId = params.branchId;
+    if (params?.salonId !== undefined) currentSalonId = params.salonId;
 
     if (socket && socket.connected) {
       if (currentBranchId) socket.emit("join_branch", currentBranchId);
@@ -58,6 +58,26 @@ export const socketClient = {
     if (userId && socket?.connected) {
       socket.emit("join_user", userId);
     }
+  },
+
+  isConnected: (): boolean => {
+    return !!(socket && socket.connected);
+  },
+
+  onConnect: (callback: () => void) => {
+    if (!socket) return () => {};
+    socket.on("connect", callback);
+    return () => {
+      if (socket) socket.off("connect", callback);
+    };
+  },
+
+  onDisconnect: (callback: (reason: string) => void) => {
+    if (!socket) return () => {};
+    socket.on("disconnect", callback);
+    return () => {
+      if (socket) socket.off("disconnect", callback);
+    };
   },
 
   onNotificationNew: (callback: (data: { type: string; title: string; body: string; data?: unknown }) => void) => {

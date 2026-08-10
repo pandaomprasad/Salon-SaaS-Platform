@@ -1,6 +1,6 @@
 // src/components/BouncyButton.jsx
 import React, { useRef } from "react";
-import { Animated, Pressable } from "react-native";
+import { Animated, Pressable, StyleSheet } from "react-native";
 
 export default function BouncyButton({ children, onPress, style }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -33,11 +33,25 @@ export default function BouncyButton({ children, onPress, style }) {
     ]).start();
   };
 
+  const flatStyle = StyleSheet.flatten(style) || {};
+  const isAbsolute = flatStyle.position === "absolute";
+  const pressableStyle = isAbsolute
+    ? {
+        position: "absolute",
+        top: flatStyle.top,
+        left: flatStyle.left,
+        right: flatStyle.right,
+        bottom: flatStyle.bottom,
+        zIndex: flatStyle.zIndex,
+      }
+    : null;
+
   return (
     <Pressable
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={onPress}
+      style={pressableStyle}
     >
       <Animated.View style={[style, { transform: [{ scale }] }]}>
         {children}

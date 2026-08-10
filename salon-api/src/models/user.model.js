@@ -26,7 +26,6 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: false,
-      default: null,
       trim: true,
     },
 
@@ -119,6 +118,14 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
+    // Bookmarked favorite salons for 1-tap quick booking
+    favoriteSalons: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Salon",
+      },
+    ],
+
     // permissions explicitly denied for this user
     // even if their role has it — these are blocked
     // e.g. deny "staff:delete" for a specific manager
@@ -154,6 +161,8 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ branchId: 1 });
 // we query all users under a salon often
 userSchema.index({ salonId: 1 });
+// sparse unique index allows multiple users with no phone number (e.g. Google OAuth)
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 
 // ================================
 // Hash password before saving

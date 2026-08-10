@@ -2,6 +2,7 @@
   "expo": {
     "name": "customer-app",
     "slug": "customer-app",
+    "scheme": "customerapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -35,7 +36,8 @@
             "extraProguardRules": "-keep class expo.modules.kotlin.** { *; }\n-keep interface expo.modules.kotlin.** { *; }\n-dontwarn expo.modules.kotlin.**"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

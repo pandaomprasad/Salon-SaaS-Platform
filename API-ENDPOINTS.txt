@@ -1,0 +1,178 @@
+============================================================
+SALON SAAS PLATFORM - ALL API ENDPOINTS
+Base URL (local dev): http://<LAN-IP>:6969/api/v1
+============================================================
+
+------------------------------------------------------------
+1. HEALTH (public)
+------------------------------------------------------------
+GET    /health                     Server health check
+
+------------------------------------------------------------
+2. AUTH  /api/v1/auth
+------------------------------------------------------------
+POST   /auth/register              Register new account            [public]
+POST   /auth/login                 Login, get tokens               [public]
+POST   /auth/google                Google OAuth login              [public]
+POST   /auth/refresh               Refresh access token            [public]
+POST   /auth/logout                Logout                          [auth]
+GET    /auth/me                    Get current user profile        [auth]
+
+------------------------------------------------------------
+3. ADMIN  /api/v1/admin  (superadmin only, all [auth+superadmin])
+------------------------------------------------------------
+GET    /admin/stats                Platform stats (dashboard)
+GET    /admin/salons               List all salons
+POST   /admin/salons               Create salon
+GET    /admin/salons/:salonId      Get salon
+GET    /admin/salons/:salonId/staff  Get salon staff
+PATCH  /admin/salons/:salonId      Update salon
+DELETE /admin/salons/:salonId      Delete salon
+PATCH  /admin/salons/:salonId/branches/:branchId  Update branch
+GET    /admin/activity             Platform activity log
+GET    /admin/owners               List all owners
+POST   /admin/owners               Create owner
+PATCH  /admin/owners/:ownerId      Update owner
+DELETE /admin/owners/:ownerId      Deactivate owner
+GET    /admin/customers            List all customers
+GET    /admin/growth               Growth stats
+
+------------------------------------------------------------
+4. BROWSE  /api/v1/browse  (ALL PUBLIC - customer app)
+------------------------------------------------------------
+GET    /browse/initial-load        Initial load (salons, locations, services, staff, slots)
+GET    /browse/salons              Browse salons (?city=, ?query=)
+GET    /browse/salons/:salonId     Public salon detail
+GET    /browse/salons/:salonId/reviews  Salon reviews
+GET    /browse/branches            Browse branches
+GET    /browse/branches/:branchId  Public branch detail
+GET    /browse/branches/:branchId/slots    Branch slots (?date=&staffId=&serviceId=)
+GET    /browse/branches/:branchId/services Branch services
+GET    /browse/branches/:branchId/staff    Branch staff
+GET    /browse/branches/:branchId/reviews  Branch reviews
+
+------------------------------------------------------------
+5. SALONS  /api/v1/salons  (owner, [auth])
+------------------------------------------------------------
+POST   /salons                     Create salon   (salon:create)
+GET    /salons                     Get my salons  (salon:read)
+GET    /salons/:salonId            Get salon      (salon:read)
+PATCH  /salons/:salonId            Update salon   (salon:update)
+DELETE /salons/:salonId            Delete salon   (salon:delete)
+
+------------------------------------------------------------
+6. BRANCHES  /api/v1/salons/:salonId/branches  ([auth])
+------------------------------------------------------------
+POST   /salons/:salonId/branches   Create branch   (branch:create)
+GET    /salons/:salonId/branches   List branches   (branch:read)
+GET    /salons/:salonId/branches/:branchId   Get branch (branch:read)
+PATCH  /salons/:salonId/branches/:branchId   Update branch (branch:update)
+DELETE /salons/:salonId/branches/:branchId   Delete branch (branch:delete)
+
+------------------------------------------------------------
+7. STAFF  /api/v1/branches/:branchId/staff  ([auth])
+------------------------------------------------------------
+POST   /branches/:branchId/staff   Create staff   (staff:create)
+GET    /branches/:branchId/staff   List staff     (staff:read)
+GET    /branches/:branchId/staff/:staffId   Get staff (staff:read)
+PATCH  /branches/:branchId/staff/:staffId   Update staff (staff:update)
+DELETE /branches/:branchId/staff/:staffId   Delete staff (staff:delete)
+GET    /branches/:branchId/staff/:staffId/permissions  Get staff permissions
+PATCH  /branches/:branchId/staff/:staffId/permissions  Update staff permissions
+
+------------------------------------------------------------
+8. STAFF LEAVE  /api/v1/branches/:branchId/staff  ([auth])
+------------------------------------------------------------
+POST   /branches/:branchId/staff/:staffId/leaves              Create leave (staff:update)
+GET    /branches/:branchId/staff/:staffId/leaves              List staff leaves (staff:read)
+GET    /branches/:branchId/staff/:staffId/leaves/:leaveId     Get leave (staff:read)
+PATCH  /branches/:branchId/staff/:staffId/leaves/:leaveId     Update leave (staff:update)
+DELETE /branches/:branchId/staff/:staffId/leaves/:leaveId     Delete leave (staff:update)
+POST   /branches/:branchId/staff/:staffId/leaves/:leaveId/approve  Approve leave (staff:update)
+POST   /branches/:branchId/staff/:staffId/leaves/:leaveId/reject    Reject leave (staff:update)
+
+------------------------------------------------------------
+9. SERVICES  /api/v1/branches/:branchId/services  ([auth])
+------------------------------------------------------------
+POST   /branches/:branchId/services    Create service   (service:create)
+GET    /branches/:branchId/services    List services    (service:read)
+GET    /branches/:branchId/services/:serviceId  Get service (service:read)
+PATCH  /branches/:branchId/services/:serviceId  Update service (service:update)
+DELETE /branches/:branchId/services/:serviceId  Delete service (service:delete)
+PATCH  /branches/:branchId/services/:serviceId/staff  Assign staff to service (service:update)
+
+------------------------------------------------------------
+10. SLOTS  /api/v1/branches/:branchId/slots  ([auth])
+------------------------------------------------------------
+POST   /branches/:branchId/slots/generate     Generate slots (slot:create)
+GET    /branches/:branchId/slots              List slots     (slot:read)
+POST   /branches/:branchId/slots/block-check  Check block availability (slot:update)
+POST   /branches/:branchId/slots/block-bulk   Block slots in bulk (slot:update)
+POST   /branches/:branchId/slots/unblock-bulk Unblock slots in bulk (slot:update)
+PATCH  /branches/:branchId/slots/:slotId/block     Block slot (slot:update)
+PATCH  /branches/:branchId/slots/:slotId/unblock   Unblock slot (slot:update)
+
+------------------------------------------------------------
+11. APPOINTMENTS  /api/v1/appointments  ([auth])
+------------------------------------------------------------
+POST   /appointments                    Book appointment   (appointment:create)
+GET    /appointments                    List appointments  (appointment:read)  (?status=&fromDate=&toDate=)
+GET    /appointments/:appointmentId     Get appointment    (appointment:read)
+PATCH  /appointments/:appointmentId/status       Update status (appointment:update)
+PATCH  /appointments/:appointmentId/rate         Rate appointment (appointment:read)
+POST   /appointments/:appointmentId/review       Submit review  (appointment:read)
+PATCH  /appointments/:appointmentId/reschedule   Reschedule appointment (appointment:update)
+
+------------------------------------------------------------
+12. CUSTOMERS  /api/v1/customers  ([auth])
+------------------------------------------------------------
+GET    /customers/me/appointments      My appointment history (customer only)  (?status=&fromDate=&toDate=&sort=&page=&limit=)
+GET    /customers/me/favorites         My favorite salons
+POST   /customers/me/favorites/:salonId  Add salon to favorites
+DELETE /customers/me/favorites/:salonId  Remove salon from favorites
+POST   /customers/me/push-token        Register push token
+DELETE /customers/me/push-token        Remove all push tokens
+DELETE /customers/me/push-token/:token Remove one push token
+
+------------------------------------------------------------
+13. STAFF SELF-SERVICE  /api/v1/staff  ([auth])
+------------------------------------------------------------
+GET    /staff/me/leaves                My leaves (staff)
+POST   /staff/me/leaves                Create my own leave (staff)
+DELETE /staff/me/leaves/:leaveId       Cancel my own leave (staff)
+
+------------------------------------------------------------
+14. NOTIFICATIONS  /api/v1/notifications  ([auth])
+------------------------------------------------------------
+GET    /notifications                  My notifications (?unread=true, ?limit=N)
+GET    /notifications/unread-count     Unread count badge
+PATCH  /notifications/:notificationId/read  Mark one as read
+POST   /notifications/read-all         Mark all as read
+
+------------------------------------------------------------
+15. REPORTS  /api/v1/reports  ([auth + report:read])
+------------------------------------------------------------
+GET    /reports/overview            Business overview report
+GET    /reports/popular-services    Popular services report
+GET    /reports/staff-performance   Staff performance report
+GET    /reports/daily-bookings      Daily bookings report
+GET    /reports/slot-utilization    Slot utilization report
+
+------------------------------------------------------------
+16. LOCATION  /api/v1/location  (public)
+------------------------------------------------------------
+POST   /location/reverse-geocode    Reverse geocode lat/lng -> address/city
+GET    /location/search             Search locations (?query=)
+
+------------------------------------------------------------
+17. SALON STATUS  (defined in app.js, [auth])
+------------------------------------------------------------
+GET    /api/v1/salon-status/:salonId  Get salon status (superadmin)
+
+============================================================
+LEGEND
+============================================================
+[auth]             Bearer token required in Authorization header
+[public]           No authentication required
+(permission)       Required permission for role-based access
+All prices are in PAISE (1 INR = 100 paise)

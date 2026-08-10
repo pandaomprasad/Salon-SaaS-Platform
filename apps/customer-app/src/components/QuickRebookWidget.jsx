@@ -2,7 +2,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R } from "../theme";
+import { C, S, FS, FW, R, SHADOWS } from "../theme";
 import BouncyButton from "./BouncyButton";
 
 function formatDate(dateStr) {
@@ -110,6 +110,7 @@ function getStyles() {
       backgroundColor: C.surface,
       borderWidth: 1,
       borderColor: C.border,
+      ...SHADOWS.sm,
     },
     cardActive: {
       backgroundColor: C.surface,

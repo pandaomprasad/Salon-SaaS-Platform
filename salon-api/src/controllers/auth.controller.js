@@ -280,73 +280,87 @@ res.status(200).json({
 
 const { OAuth2Client } = require("google-auth-library");
 const googleClient = new OAuth2Client();
+const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
 
 // ================================
 // POST /api/v1/auth/google
 // ================================
 const googleLogin = async (req, res, next) => {
   try {
-    const { idToken, googleUser } = req.body;
+    const { idToken } = req.body;
 
     let email = null;
     let name = null;
     let googleId = null;
     let picture = null;
 
-    if (idToken) {
-      try {
-        const ticket = await googleClient.verifyIdToken({
-          idToken,
-        });
-        const payload = ticket.getPayload();
-        email = payload.email;
-        name = payload.name;
-        googleId = payload.sub;
-        picture = payload.picture;
-      } catch (tokenErr) {
-        try {
-          const axios = require("axios");
-          const resp = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-          if (resp.data && resp.data.email) {
-            email = resp.data.email;
-            name = resp.data.name || resp.data.email.split("@")[0];
-            googleId = resp.data.sub;
-            picture = resp.data.picture;
-          } else {
-            return next(new AppError("Invalid Google ID Token", 401));
-          }
-        } catch {
-          return next(new AppError("Failed to verify Google ID Token", 401));
-        }
+    if (!idToken) return next(new AppError("Google ID token required", 400));
+    if (!googleClientIds.length) {
+      return next(new AppError("Google sign-in is not configured on the server", 503));
+    }
+
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: googleClientIds,
+      });
+      const payload = ticket.getPayload();
+      if (!payload?.email || payload.email_verified !== true) {
+        return next(new AppError("Google email could not be verified", 401));
       }
-    } else if (googleUser && googleUser.email) {
-      email = googleUser.email;
-      name = googleUser.name || googleUser.email.split("@")[0];
-      googleId = googleUser.id || googleUser.sub;
-      picture = googleUser.picture;
-    } else {
-      return next(new AppError("Google ID token or user payload required", 400));
+      email = payload.email;
+      name = payload.name;
+      googleId = payload.sub;
+      picture = payload.picture;
+    } catch {
+      return next(new AppError("Invalid Google ID Token", 401));
     }
 
     if (!email) {
       return next(new AppError("Could not extract email from Google account", 400));
     }
 
-    const customerRole = await Role.findOne({ name: "customer" });
-    if (!customerRole) {
-      return next(new AppError("Customer role not found. Please run seeder.", 500));
+    const requestedRole = req.body.role || "customer";
+    let targetRole = await Role.findOne({ name: requestedRole });
+    if (!targetRole) {
+      targetRole = await Role.findOne({ name: "customer" });
+    }
+    if (!targetRole) {
+      return next(new AppError("User role not found. Please run database seeder.", 500));
     }
 
     let user = await User.findOne({ email }).populate("role", "name");
 
     if (!user) {
-      user = await User.create({
-        name: name || email.split("@")[0],
-        email: email.toLowerCase(),
-        googleId,
-        avatar: picture || null,
-        role: customerRole._id,
-      });
+      try {
+        user = await User.create({
+          name: name || email.split("@")[0],
+          email: email.toLowerCase(),
+          googleId,
+          avatar: picture || null,
+          role: targetRole._id,
+        });
+      } catch (createErr) {
+        if (createErr.code === 11000) {
+          try {
+            await User.collection.dropIndex("phone_1");
+          } catch (e) {}
+          const newUserData = {
+            name: name || email.split("@")[0],
+            email: email.toLowerCase(),
+            googleId,
+            avatar: picture || null,
+            role: targetRole._id,
+          };
+          delete newUserData.phone;
+          user = await User.create(newUserData);
+        } else {
+          throw createErr;
+        }
+      }
       user = await User.findById(user._id).populate("role", "name");
     } else {
       if (!user.isActive) {
