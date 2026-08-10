@@ -257,7 +257,7 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
   card: { backgroundColor: C.surface, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: S.lg, paddingBottom: Platform.OS === "ios" ? 40 : S.lg },
-  header: { flexDirection: "row", alignItems: "center", justifyBetween: "space-between", marginBottom: S.md },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: S.md },
   brand: { flexDirection: "row", alignItems: "center", gap: 12 },
   logo: { width: 40, height: 40, borderRadius: 10, backgroundColor: "#4285F4", alignItems: "center", justifyContent: "center" },
   logoText: { color: "#FFFFFF", fontSize: 22, fontWeight: FW.bold },
