@@ -7,7 +7,7 @@ import { apiClient } from "./apiClient";
  *      "Greater Mumbai Corporation" -> "Mumbai"
  */
 export function cleanCityName(rawName) {
-  if (!rawName) return "Mumbai";
+  if (!rawName) return "Brahmapur";
 
   let name = rawName.trim();
 

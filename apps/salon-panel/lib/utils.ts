@@ -3,7 +3,7 @@ import { BookingStatus, ServiceCategory, Role } from './types'
 // ─── Currency ─────────────────────────────────────────────────
 
 export function formatCurrency(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN')}`
+  return `₹${(amount / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 }
 
 // ─── Date & Time ──────────────────────────────────────────────

@@ -18,6 +18,7 @@ import SupportScreen from "../screen/SupportScreen";
 import AllSalonsScreen from "../screen/AllSalonsScreen";
 import NotificationCenterScreen from "../screen/NotificationCenterScreen";
 import SavedSalonsScreen from "../screen/SavedSalonsScreen";
+import LegalScreen from "../screen/LegalScreen";
 import OnboardingScreen from "../screen/OnboardingScreen";
 import SplashScreen from "../screen/SplashScreen";
 import ScreenTransition from "../components/ScreenTransition";
@@ -213,6 +214,9 @@ export default function AppNavigator() {
         )}
         {activeScreen === "SavedSalons" && (
           <SavedSalonsScreen onBack={goBack} navigate={navigate} />
+        )}
+        {activeScreen === "Legal" && (
+          <LegalScreen goBack={goBack} navigate={navigate} routeParams={screenParams} onScroll={handleScroll} />
         )}
       </View>
     );

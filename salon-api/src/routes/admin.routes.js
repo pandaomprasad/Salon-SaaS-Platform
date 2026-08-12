@@ -31,6 +31,11 @@ router.post('/owners', adminController.createOwner)
 router.patch('/owners/:ownerId', adminController.updateOwner)
 router.delete('/owners/:ownerId', adminController.deactivateOwner)
 
+// Owner registration requests (from public landing page)
+router.get('/owner-requests', adminController.listOwnerRequests)
+router.post('/owner-requests/:requestId/approve', adminController.approveOwnerRequest)
+router.post('/owner-requests/:requestId/reject', adminController.rejectOwnerRequest)
+
 // Customers (limited view)
 router.get('/customers', adminController.getAllCustomers)
 

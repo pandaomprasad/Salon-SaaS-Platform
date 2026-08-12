@@ -29,7 +29,14 @@ export default function FloatingSearchCapsule({
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState(value || "");
   const expandAnim = useRef(new Animated.Value(0)).current;
+  const debounceRef = useRef(null);
   const styles = getStyles();
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (isFocused) {
@@ -42,7 +49,10 @@ export default function FloatingSearchCapsule({
 
   const handleTextChange = (text) => {
     setQuery(text);
-    if (onChangeText) onChangeText(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (onChangeText) onChangeText(text);
+    }, 300);
   };
 
   const handleSelect = (item) => {

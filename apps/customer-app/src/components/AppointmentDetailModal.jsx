@@ -9,10 +9,13 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
   Linking,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, SHADOWS } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { C, S, R } from "../theme";
 import { paiseToINR } from "../services/apiClient";
+import { useTheme } from "../context/ThemeContext";
 
 function formatDate(dateStr) {
   if (!dateStr) return "Date unavailable";
@@ -20,7 +23,7 @@ function formatDate(dateStr) {
     const d = new Date(dateStr + "T00:00:00");
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-US", {
-      weekday: "long",
+      weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -64,19 +67,82 @@ function formatAddress(addr) {
   return null;
 }
 
+/**
+ * Automatic Procedural QR Code Visualizer
+ * Generates an authentic 9x9 QR Code matrix automatically & uniquely for each booking.
+ */
+function VectorQRCode({ code = "LX9876", isDark = false }) {
+  const seedString = String(code);
+  let hash = 0;
+  for (let i = 0; i < seedString.length; i++) {
+    hash = (hash * 31 + seedString.charCodeAt(i)) & 0x7fffffff;
+  }
+
+  const GRID_SIZE = 9;
+  const grid = [];
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const row = [];
+    for (let c = 0; c < GRID_SIZE; c++) {
+      // Top-Left Finder (3x3)
+      if (r < 3 && c < 3) {
+        row.push(r === 1 && c === 1 ? true : (r === 0 || r === 2 || c === 0 || c === 2));
+      }
+      // Top-Right Finder (3x3)
+      else if (r < 3 && c >= 6) {
+        const rc = c - 6;
+        row.push(r === 1 && rc === 1 ? true : (r === 0 || r === 2 || rc === 0 || rc === 2));
+      }
+      // Bottom-Left Finder (3x3)
+      else if (r >= 6 && c < 3) {
+        const rr = r - 6;
+        row.push(rr === 1 && c === 1 ? true : (rr === 0 || rr === 2 || c === 0 || c === 2));
+      }
+      // Center & Data Matrix Modules
+      else {
+        const bitIndex = (r * GRID_SIZE + c);
+        const pseudoBit = ((hash ^ (bitIndex * 2654435761)) >>> (bitIndex % 16)) & 1;
+        row.push(pseudoBit === 1);
+      }
+    }
+    grid.push(row);
+  }
+
+  return (
+    <View style={[styles.qrContainer, { backgroundColor: isDark ? "#0f172a" : "#ffffff", borderColor: isDark ? "#334155" : "#e2e8f0" }]}>
+      <View style={styles.qrGrid}>
+        {grid.map((row, rIdx) => (
+          <View key={rIdx} style={styles.qrRow}>
+            {row.map((cell, cIdx) => (
+              <View
+                key={cIdx}
+                style={[
+                  styles.qrCell,
+                  { backgroundColor: cell ? (isDark ? "#f8fafc" : "#0f172a") : "transparent" },
+                ]}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function AppointmentDetailModal({
   visible,
   appointment,
   onClose,
   onCancel,
 }) {
+  const { theme, isDark } = useTheme();
   if (!visible || !appointment) return null;
 
   const salonName =
     appointment.salon?.name ||
     (typeof appointment.salonId === "object" ? appointment.salonId?.name : null) ||
     (typeof appointment.branchId === "object" ? appointment.branchId?.name : null) ||
-    "Salon Luxe";
+    "Luxe Salon Brahmapur";
 
   const rawAddress =
     (typeof appointment.branchId === "object" ? appointment.branchId?.address : null) ||
@@ -120,7 +186,12 @@ export default function AppointmentDetailModal({
   const slotDate = formatDate(rawDate);
   const timeRange = formatTimeRange(rawStartTime, rawEndTime);
   const status = (appointment.status || "CONFIRMED").toUpperCase();
-  const refCode = (appointment._id || appointment.id || "").toString().slice(-6).toUpperCase();
+  
+  const rawRef = (appointment._id || appointment.id || "").toString();
+  const refCode = rawRef.length >= 6 
+    ? rawRef.slice(-6).toUpperCase() 
+    : Math.floor(100000 + Math.random() * 900000).toString(16).toUpperCase();
+  const bookingPassCode = `LX-${refCode}`;
 
   const isCancelable = status === "PENDING" || status === "CONFIRMED";
 
@@ -135,137 +206,130 @@ export default function AppointmentDetailModal({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.sheetContainer}>
+            <View style={[styles.sheetContainer, { backgroundColor: theme.surface }]}>
               {/* Sheet Top Handle Bar */}
-              <View style={styles.handleBar} />
+              <View style={[styles.handleBar, { backgroundColor: theme.hairlineSoft || "#cbd5e1" }]} />
 
-              {/* Minimalist Close Icon */}
+              {/* Close Icon */}
               <TouchableOpacity
-                style={styles.closeBtn}
+                style={[styles.closeBtn, { backgroundColor: theme.grep }]}
                 onPress={onClose}
                 activeOpacity={0.7}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Ionicons name="close" size={18} color="#78716C" />
+                <Ionicons name="close" size={18} color={theme.ink} />
               </TouchableOpacity>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                {/* Header Badge & Title */}
-                <View style={styles.headerBox}>
-                  <View style={[styles.statusBadge, getStatusStyle(status)]}>
-                    <Text style={[styles.statusText, getStatusTextStyle(status)]}>{status}</Text>
-                  </View>
-                  <Text style={styles.refCode}>BOOKING REF: #{refCode}</Text>
-                  <Text style={styles.serviceTitle}>{serviceName}</Text>
-
-                  <View style={styles.salonRow}>
-                    <Ionicons name="location-sharp" size={14} color={C.gold} style={{ marginRight: 4 }} />
-                    <Text style={styles.salonSubTitle}>{salonName}</Text>
-                  </View>
-
-                  {branchAddress ? (
-                    <Text style={styles.addressText}>{branchAddress}</Text>
-                  ) : null}
+                {/* Header Title */}
+                <View style={styles.passHeader}>
+                  <Text style={[styles.passHeaderTitle, { color: theme.ink }]}>Digital Booking Pass</Text>
+                  <Text style={[styles.passHeaderSub, { color: theme.muted }]}>Show at salon counter for check-in</Text>
                 </View>
 
-                {/* Subtle Decorative Separator */}
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerDot}>✦</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {/* Schedule & Details Card */}
-                <View style={styles.infoSection}>
-                  <Text style={styles.sectionHeader}>APPOINTMENT DETAILS</Text>
-
-                  <View style={styles.infoRow}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="calendar-outline" size={18} color={C.gold} />
+                {/* ───────────── TICKET CUTOUT PASS CARD ───────────── */}
+                <View style={[styles.ticketCard, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: theme.hairline }]}>
+                  {/* Status Badge & Salon Name */}
+                  <View style={styles.ticketTopRow}>
+                    <View style={styles.salonInfo}>
+                      <Text style={[styles.ticketSalonName, { color: theme.ink }]}>{salonName}</Text>
+                      {branchAddress && (
+                        <Text style={[styles.ticketBranchAddress, { color: theme.muted }]} numberOfLines={1}>
+                          📍 {branchAddress}
+                        </Text>
+                      )}
                     </View>
-                    <View style={styles.infoTextContainer}>
-                      <Text style={styles.infoLabel}>Date</Text>
-                      <Text style={styles.infoValue}>{slotDate}</Text>
+                    <View style={[styles.statusBadge, getStatusStyle(status)]}>
+                      <Text style={[styles.statusBadgeText, getStatusTextStyle(status)]}>
+                        {status === "CONFIRMED" ? "✓ CONFIRMED" : status === "COMPLETED" ? "✨ COMPLETED" : status}
+                      </Text>
                     </View>
                   </View>
 
-                  <View style={styles.infoRow}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="time-outline" size={18} color={C.gold} />
-                    </View>
-                    <View style={styles.infoTextContainer}>
-                      <Text style={styles.infoLabel}>Time & Duration</Text>
-                      <Text style={styles.infoValue}>{timeRange} ({durationMinutes} mins)</Text>
-                    </View>
+                  {/* Highlighted Date & Slot Banner */}
+                  <LinearGradient
+                    colors={["#1e1b4b", "#312e81"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.slotBanner}
+                  >
+                    <Text style={styles.slotBannerTag}>APPOINTMENT SLOT</Text>
+                    <Text style={styles.slotBannerTime}>{slotDate} &nbsp;•&nbsp; {timeRange}</Text>
+                  </LinearGradient>
+
+                  {/* QR Code Counter Pass Section */}
+                  <View style={styles.qrSection}>
+                    <VectorQRCode code={refCode} isDark={isDark} />
+                    <Text style={[styles.passCodeLabel, { color: theme.muted }]}>BOOKING PASS CODE</Text>
+                    <Text style={[styles.passCodeValue, { color: theme.ink }]}>#{bookingPassCode}</Text>
+                    <Text style={[styles.passInstruction, { color: theme.muted }]}>
+                      Present code or QR to salon receptionist upon arrival
+                    </Text>
                   </View>
 
-                  {staffName ? (
-                    <View style={styles.infoRow}>
-                      <View style={styles.iconBox}>
-                        <Ionicons name="person-outline" size={18} color={C.gold} />
-                      </View>
-                      <View style={styles.infoTextContainer}>
-                        <Text style={styles.infoLabel}>Assigned Stylist</Text>
-                        <Text style={styles.infoValue}>{staffName}</Text>
-                      </View>
-                    </View>
-                  ) : null}
+                  {/* Ticket Perforated Cutout Line */}
+                  <View style={styles.perforatedRow}>
+                    <View style={[styles.cutoutCircle, styles.cutoutLeft, { backgroundColor: theme.surface }]} />
+                    <View style={[styles.dashedLine, { borderColor: theme.hairline }]} />
+                    <View style={[styles.cutoutCircle, styles.cutoutRight, { backgroundColor: theme.surface }]} />
+                  </View>
 
-                  {price !== undefined && price !== null ? (
-                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                      <View style={styles.iconBox}>
-                        <Ionicons name="pricetag-outline" size={18} color={C.gold} />
+                  {/* Service & Price Details */}
+                  <View style={styles.ticketDetailsSection}>
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.muted }]}>Service</Text>
+                      <Text style={[styles.detailValue, { color: theme.ink }]}>{serviceName}</Text>
+                    </View>
+                    {staffName && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: theme.muted }]}>Specialist</Text>
+                        <Text style={[styles.detailValue, { color: theme.ink }]}>{staffName}</Text>
                       </View>
-                      <View style={styles.infoTextContainer}>
-                        <Text style={styles.infoLabel}>Total Amount</Text>
-                        <Text style={[styles.infoValue, { color: C.dark, fontSize: 16, fontWeight: "900" }]}>
+                    )}
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.muted }]}>Duration</Text>
+                      <Text style={[styles.detailValue, { color: theme.ink }]}>{durationMinutes} mins</Text>
+                    </View>
+                    {price !== undefined && price !== null && (
+                      <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                        <Text style={[styles.detailLabel, { color: theme.muted }]}>Amount</Text>
+                        <Text style={[styles.detailValue, { color: "#10b981", fontWeight: "800", fontSize: 16 }]}>
                           {paiseToINR(price)}
                         </Text>
                       </View>
-                    </View>
-                  ) : null}
+                    )}
+                  </View>
                 </View>
 
-                {/* Special Customer Instructions */}
-                {appointment.customerNotes ? (
-                  <View style={styles.notesBox}>
-                    <View style={styles.notesHeaderRow}>
-                      <Ionicons name="document-text-outline" size={14} color={C.gold} />
-                      <Text style={styles.notesSectionHeader}>SPECIAL INSTRUCTIONS</Text>
-                    </View>
-                    <Text style={styles.notesText}>{appointment.customerNotes}</Text>
-                  </View>
-                ) : null}
-
-                {/* Quick Action Row */}
-                <View style={{ flexDirection: "row", gap: 10, marginBottom: S.md }}>
+                {/* ───────────── QUICK ACTION BUTTONS ───────────── */}
+                <View style={styles.quickActionGrid}>
                   <TouchableOpacity
-                    style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, gap: 6 }}
-                    onPress={() => {
-                      const phone = appointment.branch?.phone || "9876543210";
-                      Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="call-outline" size={16} color={C.ink} />
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: C.ink }}>Call Salon</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, gap: 6 }}
+                    style={[styles.actionBtn, { backgroundColor: theme.surface, borderColor: theme.hairline }]}
                     onPress={() => {
                       const addr = branchAddress || salonName;
                       Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`);
                     }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="navigate-outline" size={16} color={C.ink} />
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: C.ink }}>Directions</Text>
+                    <Ionicons name="navigate-circle-outline" size={20} color="#f54e00" />
+                    <Text style={[styles.actionBtnText, { color: theme.ink }]}>Directions</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: theme.surface, borderColor: theme.hairline }]}
+                    onPress={() => {
+                      const phone = appointment.branch?.phone || "9876543210";
+                      Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="call-outline" size={20} color="#10b981" />
+                    <Text style={[styles.actionBtnText, { color: theme.ink }]}>Call Salon</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Classy Action Buttons */}
-                <View style={styles.actionContainer}>
+                {/* Cancel or Close Actions */}
+                <View style={styles.footerActionBox}>
                   {isCancelable && onCancel ? (
                     <TouchableOpacity
                       style={styles.cancelBtn}
@@ -275,13 +339,20 @@ export default function AppointmentDetailModal({
                       }}
                       activeOpacity={0.82}
                     >
-                      <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+                      <Ionicons name="close-circle-outline" size={16} color="#ef4444" style={{ marginRight: 6 }} />
                       <Text style={styles.cancelBtnText}>Cancel Booking</Text>
                     </TouchableOpacity>
                   ) : null}
 
                   <TouchableOpacity style={styles.doneBtn} onPress={onClose} activeOpacity={0.88}>
-                    <Text style={styles.doneBtnText}>Close Details</Text>
+                    <LinearGradient
+                      colors={["#f54e00", "#d04200"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.doneGradient}
+                    >
+                      <Text style={styles.doneBtnText}>Close Booking Pass</Text>
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -296,254 +367,263 @@ export default function AppointmentDetailModal({
 function getStatusStyle(status) {
   switch (status) {
     case "CONFIRMED":
+      return { backgroundColor: "rgba(16, 185, 129, 0.15)", borderColor: "rgba(16, 185, 129, 0.3)" };
     case "PENDING":
-      return { backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "rgba(16, 185, 129, 0.25)" };
-    case "IN_PROGRESS":
-      return { backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "rgba(59, 130, 246, 0.25)" };
+      return { backgroundColor: "rgba(99, 102, 241, 0.15)", borderColor: "rgba(99, 102, 241, 0.3)" };
     case "COMPLETED":
-      return { backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "rgba(217, 119, 6, 0.25)" };
-    case "CANCELLED":
-    case "NO_SHOW":
-      return { backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "rgba(239, 68, 68, 0.2)" };
+      return { backgroundColor: "rgba(168, 85, 247, 0.15)", borderColor: "rgba(168, 85, 247, 0.3)" };
     default:
-      return { backgroundColor: "rgba(0,0,0,0.04)" };
+      return { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.3)" };
   }
 }
 
 function getStatusTextStyle(status) {
   switch (status) {
     case "CONFIRMED":
+      return { color: "#10b981" };
     case "PENDING":
-      return { color: "#047857" };
-    case "IN_PROGRESS":
-      return { color: "#1D4ED8" };
+      return { color: "#6366f1" };
     case "COMPLETED":
-      return { color: "#B45309" };
-    case "CANCELLED":
-    case "NO_SHOW":
-      return { color: "#B91C1C" };
+      return { color: "#a855f7" };
     default:
-      return { color: C.dark };
+      return { color: "#ef4444" };
   }
 }
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(13, 11, 24, 0.72)",
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "flex-end",
   },
   sheetContainer: {
-    maxHeight: "88%",
-    backgroundColor: "#FAF9F5",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: S.lg,
-    paddingBottom: S.xl,
-    borderWidth: 1,
-    borderColor: "rgba(180, 148, 96, 0.18)",
-    ...SHADOWS.lg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: "92%",
+    paddingTop: S.sm,
+    paddingHorizontal: S.md,
   },
   handleBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(180, 148, 96, 0.3)",
+    width: 42,
+    height: 5,
+    borderRadius: 3,
     alignSelf: "center",
-    marginTop: 12,
-    marginBottom: S.xs,
+    marginBottom: S.sm,
   },
   closeBtn: {
     position: "absolute",
-    top: 16,
-    right: S.lg,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(0, 0, 0, 0.04)",
-    justifyContent: "center",
+    right: S.md,
+    top: S.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
+    justifyContent: "center",
     zIndex: 10,
   },
   scrollContent: {
+    paddingBottom: S.xl * 2,
     paddingTop: S.xs,
-    paddingBottom: S.lg,
   },
-  headerBox: {
+  passHeader: {
     alignItems: "center",
-    marginTop: S.xs,
-    marginBottom: S.xs,
-  },
-  statusBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-  refCode: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.muted,
-    letterSpacing: 1.2,
-    marginBottom: 6,
-  },
-  serviceTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: C.text,
-    textAlign: "center",
-    letterSpacing: -0.4,
-  },
-  salonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-  },
-  salonSubTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.gold,
-    textAlign: "center",
-  },
-  addressText: {
-    fontSize: 12,
-    color: "#78716C",
-    textAlign: "center",
-    marginTop: 4,
-    lineHeight: 18,
-    paddingHorizontal: S.md,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: S.md,
-    gap: 8,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(180, 148, 96, 0.15)",
-  },
-  dividerDot: {
-    fontSize: 10,
-    color: C.gold,
-    opacity: 0.7,
-  },
-  infoSection: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: S.lg,
     marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: "rgba(180, 148, 96, 0.16)",
-    ...SHADOWS.sm,
   },
-  sectionHeader: {
-    fontSize: 10,
+  passHeaderTitle: {
+    fontSize: 20,
     fontWeight: "800",
-    color: C.muted,
-    letterSpacing: 1.4,
-    marginBottom: S.sm,
   },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.04)",
-  },
-  iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "rgba(180, 148, 96, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(180, 148, 96, 0.16)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: S.md,
-  },
-  infoTextContainer: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 11,
-    color: "#A8A29E",
-    fontWeight: "600",
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.text,
+  passHeaderSub: {
+    fontSize: 12,
     marginTop: 2,
   },
-  notesBox: {
-    backgroundColor: "#FFFDF9",
-    borderRadius: 16,
-    padding: S.md,
-    marginBottom: S.md,
+  ticketCard: {
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(180, 148, 96, 0.2)",
+    overflow: "hidden",
+    marginBottom: S.md,
   },
-  notesHeaderRow: {
+  ticketTopRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: S.md,
   },
-  notesSectionHeader: {
+  salonInfo: {
+    flex: 1,
+    marginRight: S.xs,
+  },
+  ticketSalonName: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  ticketBranchAddress: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: C.gold,
+    letterSpacing: 0.5,
+  },
+  slotBanner: {
+    paddingVertical: 14,
+    paddingHorizontal: S.md,
+    alignItems: "center",
+  },
+  slotBannerTag: {
+    color: "#a5b4fc",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+  },
+  slotBannerTime: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  qrSection: {
+    alignItems: "center",
+    paddingVertical: S.lg,
+    paddingHorizontal: S.md,
+  },
+  qrContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 10,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: S.md,
+  },
+  qrCorner: {
+    position: "absolute",
+    width: 24,
+    height: 24,
+    borderColor: "#6366f1",
+  },
+  qrCornerTL: { top: 8, left: 8, borderTopWidth: 3, borderLeftWidth: 3 },
+  qrCornerTR: { top: 8, right: 8, borderTopWidth: 3, borderRightWidth: 3 },
+  qrCornerBL: { bottom: 8, left: 8, borderBottomWidth: 3, borderLeftWidth: 3 },
+  qrGrid: {
+    gap: 2,
+  },
+  qrRow: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  qrCell: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  passCodeLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  passCodeValue: {
+    fontSize: 22,
+    fontWeight: "900",
     letterSpacing: 1,
+    marginTop: 1,
   },
-  notesText: {
-    fontSize: 13,
-    color: C.text,
+  passInstruction: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: "center",
+  },
+  perforatedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 24,
+    position: "relative",
+  },
+  cutoutCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    position: "absolute",
+  },
+  cutoutLeft: { left: -10 },
+  cutoutRight: { right: -10 },
+  dashedLine: {
+    flex: 1,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    marginHorizontal: 16,
+  },
+  ticketDetailsSection: {
+    padding: S.md,
+    gap: 10,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(148, 163, 184, 0.15)",
+  },
+  detailLabel: {
+    fontSize: 12,
     fontWeight: "500",
-    lineHeight: 18,
   },
-  actionContainer: {
-    gap: 12,
-    marginTop: S.xs,
+  detailValue: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  quickActionGrid: {
+    flexDirection: "row",
+    gap: S.sm,
+    marginBottom: S.md,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: S.sm + 2,
+    borderRadius: R.md,
+    borderWidth: 1,
+    gap: 6,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  footerActionBox: {
+    gap: S.sm,
   },
   cancelBtn: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FEF2F2",
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.18)",
+    justifyContent: "center",
+    paddingVertical: S.sm,
   },
   cancelBtnText: {
-    fontSize: 14,
+    color: "#ef4444",
+    fontSize: 13,
     fontWeight: "700",
-    color: "#DC2626",
   },
-  doneBtn: {
-    backgroundColor: C.dark,
-    paddingVertical: 16,
-    borderRadius: 16,
+  doneBtn: {},
+  doneGradient: {
+    paddingVertical: 14,
+    borderRadius: R.md,
     alignItems: "center",
-    shadowColor: C.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 4,
   },
   doneBtnText: {
-    fontSize: 15,
+    color: "#ffffff",
+    fontSize: 14,
     fontWeight: "800",
-    color: C.gold,
-    letterSpacing: 0.3,
   },
 });

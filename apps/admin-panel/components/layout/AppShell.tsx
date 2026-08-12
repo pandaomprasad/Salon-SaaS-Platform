@@ -45,17 +45,14 @@ export default function AppShell() {
   return (
     <div className="min-h-screen bg-slate-50">
       <Sidebar
-        currentPage={currentPage}
+        currentPath={currentPage}
         name={currentUser.name}
         email={currentUser.email}
-        initials={currentUser.initials}
-        isOpen={sidebarOpen}
-        onNavigate={setCurrentPage}
+        onNavigate={(path) => setCurrentPage(path as Page)}
         onLogout={() => {
           setCurrentUser(null)
           setCurrentPage('dashboard')
         }}
-        onClose={() => setSidebarOpen(false)}
       />
       <div className="lg:ml-60 flex flex-col min-h-screen">
         <Header

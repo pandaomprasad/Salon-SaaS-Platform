@@ -62,7 +62,7 @@ export default function BookingDrawer({
     ["Date", a2.date || "—"],
     ["Time", `${a2.startTime || "—"} — ${a2.endTime || "—"}`],
     ["Duration", formatDuration(a2.serviceId?.durationMinutes || 0)],
-    ["Price", `₹${(a2.pricePaid || 0).toLocaleString("en-IN")}`],
+    ["Price", paiseToINR(a2.pricePaid || 0)],
   ];
 
   return (
@@ -104,6 +104,26 @@ export default function BookingDrawer({
           <div className="mt-4 bg-smoke rounded-xl p-3">
             <p className="text-xs text-ash mb-1">Customer Notes</p>
             <p className="text-sm">{a.customerNotes}</p>
+          </div>
+        )}
+
+        {/* Email Notification Status */}
+        {(a2.emailSent || (a2.emailLogs && a2.emailLogs.length > 0) || a.status === "PENDING" || a.status === "CONFIRMED" || a.status === "COMPLETED") && (
+          <div className="mt-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center text-xs font-bold shrink-0">
+                📧
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-emerald-700">Email Notification Sent</p>
+                <p className="text-[11px] text-emerald-600/90 mt-0.5">
+                  {a2.customerId?.email ? `Dispatched to ${a2.customerId.email}` : "Customer notified via email"}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 uppercase tracking-wider shrink-0">
+              {a.status === "PENDING" ? "Booking Recvd" : a.status === "CONFIRMED" ? "Accepted Mail" : a.status === "COMPLETED" ? "Thank You Mail" : "Dispatched"}
+            </span>
           </div>
         )}
 

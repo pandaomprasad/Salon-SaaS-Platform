@@ -62,7 +62,7 @@ interface DailyBooking {
 // ── Helpers ──
 
 function formatPrice(price: number): string {
-  return `₹${price.toLocaleString("en-IN")}`;
+  return `₹${(price / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function formatDateShort(dateStr: string): string {

@@ -139,7 +139,13 @@ async function request(endpoint, options = {}, retries = 1) {
       timeoutErr.isTimeout = true;
       throw timeoutErr;
     }
-    console.warn(`API Error [${method} ${endpoint}]:`, error.message);
+    const isAuthMessage =
+      error.message &&
+      (error.message.toLowerCase().includes("token expired") ||
+        error.message.toLowerCase().includes("no token provided"));
+    if (!isAuthMessage) {
+      console.warn(`API Error [${method} ${endpoint}]:`, error.message);
+    }
     throw error;
   }
 }

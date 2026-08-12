@@ -29,14 +29,23 @@ const CATEGORIES = [
 
 export default function AllSalonsScreen({ navigate, goBack, routeParams, onScroll }) {
   const { isDark } = useTheme();
-  const initialCity = routeParams?.city || "Mumbai";
+  const initialCity = routeParams?.city || "Brahmapur";
   const [selectedCity, setSelectedCity] = useState(initialCity);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+
+  // 300ms Search Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchSalons = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -44,8 +53,8 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
     try {
       const cleanCity = cleanCityName(selectedCity);
       const params = { city: cleanCity };
-      if (search.trim()) {
-        params.search = search.trim();
+      if (debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
       } else if (selectedCategory !== "all") {
         params.search = selectedCategory;
       }
@@ -58,7 +67,7 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCity, search, selectedCategory]);
+  }, [selectedCity, debouncedSearch, selectedCategory]);
 
   useEffect(() => {
     fetchSalons(false);

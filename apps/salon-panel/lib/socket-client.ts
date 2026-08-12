@@ -18,6 +18,12 @@ export const socketClient = {
     if (params?.branchId !== undefined) currentBranchId = params.branchId;
     if (params?.salonId !== undefined) currentSalonId = params.salonId;
 
+    const token = tokenStorage.getAccessToken() || "";
+
+    if (socket) {
+      socket.auth = { token };
+    }
+
     if (socket && socket.connected) {
       if (currentBranchId) socket.emit("join_branch", currentBranchId);
       if (currentSalonId) socket.emit("join_salon", currentSalonId);
@@ -31,8 +37,8 @@ export const socketClient = {
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        auth: {
-          token: tokenStorage.getAccessToken() || "",
+        auth: (cb) => {
+          cb({ token: tokenStorage.getAccessToken() || "" });
         },
         extraHeaders: {
           "bypass-tunnel-reminder": "true",
@@ -74,6 +80,9 @@ export const socketClient = {
 
   onConnect: (callback: () => void) => {
     if (!socket) return () => {};
+    if (socket.connected) {
+      callback();
+    }
     socket.on("connect", callback);
     return () => {
       if (socket) socket.off("connect", callback);
@@ -82,11 +91,15 @@ export const socketClient = {
 
   onDisconnect: (callback: (reason: string) => void) => {
     if (!socket) return () => {};
+    if (!socket.connected) {
+      callback("already_disconnected");
+    }
     socket.on("disconnect", callback);
     return () => {
       if (socket) socket.off("disconnect", callback);
     };
   },
+
 
   onNotificationNew: (callback: (data: { type: string; title: string; body: string; data?: unknown }) => void) => {
     if (!socket) return () => {};

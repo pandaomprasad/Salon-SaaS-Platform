@@ -52,8 +52,8 @@ const GLOBAL_SALON_CACHE = {};
 function HomeScreen({ navigate, onScroll }) {
   const { isDark } = useTheme();
   const { user, isAuthenticated } = useAuth();
-  const [selectedCity, setSelectedCity] = useState("Mumbai");
-  const initialCleanCity = cleanCityName("Mumbai");
+  const [selectedCity, setSelectedCity] = useState("Brahmapur");
+  const initialCleanCity = cleanCityName("Brahmapur");
   const initialSalons = GLOBAL_SALON_CACHE[initialCleanCity] || [];
   const [salons, setSalons] = useState(initialSalons);
   const [loading, setLoading] = useState(initialSalons.length === 0);

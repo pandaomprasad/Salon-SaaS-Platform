@@ -23,6 +23,39 @@ const registerValidator = [
     .matches(/[!@#$%^&*]/).withMessage('Password must contain a special character'),
 ]
 
+const ownerRegisterValidator = [
+  body('ownerName')
+    .trim()
+    .notEmpty().withMessage('Owner name is required')
+    .isLength({ min: 2, max: 50 }).withMessage('Name must be 2–50 characters'),
+
+  body('ownerEmail')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Must be a valid email'),
+
+  body('ownerPhone')
+    .trim()
+    .notEmpty().withMessage('Phone is required'),
+
+  body('salonName')
+    .trim()
+    .notEmpty().withMessage('Salon name is required')
+    .isLength({ min: 2, max: 100 }).withMessage('Salon name must be 2–100 characters'),
+
+  body('salonDescription')
+    .optional()
+    .trim()
+    .isLength({ max: 500 }).withMessage('Description cannot exceed 500 characters'),
+
+  body('password')
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain a number')
+    .matches(/[!@#$%^&*]/).withMessage('Password must contain a special character'),
+]
+
 const loginValidator = [
   body('email')
     .trim()
@@ -38,4 +71,4 @@ const refreshValidator = [
     .notEmpty().withMessage('Refresh token is required'),
 ]
 
-module.exports = { registerValidator, loginValidator, refreshValidator }
+module.exports = { registerValidator, ownerRegisterValidator, loginValidator, refreshValidator }

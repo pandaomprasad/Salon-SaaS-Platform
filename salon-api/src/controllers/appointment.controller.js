@@ -281,21 +281,53 @@ const bookAppointment = async (req, res, next) => {
 
     // send confirmation email to customer
     try {
-      const customerUser = await User.findById(appointment.customerId).select("name email").lean();
-      const salonDoc = await Salon.findById(appointment.salonId).select("name").lean();
-      const branchDoc = await Branch.findById(appointment.branchId).select("name").lean();
-      const staffUser = appointment.staffId ? await User.findById(appointment.staffId).select("name").lean() : null;
+      const fullAppt = await Appointment.findById(appointment._id)
+        .populate("customerId", "name email")
+        .populate("salonId", "name")
+        .populate("branchId", "name")
+        .populate("serviceId", "name price")
+        .populate("staffId", "name")
+        .populate("slotId", "date startTime endTime")
+        .lean();
 
-      if (customerUser?.email) {
+      const custUser = fullAppt?.customerId;
+      const salonName = fullAppt?.salonId?.name || "Luxe Salon";
+      const branchName = fullAppt?.branchId?.name || "Main Branch";
+      const serviceName = fullAppt?.serviceId?.name || service?.name || "Service";
+      const staffName = fullAppt?.staffId?.name || "Any Available Staff";
+      const apptDate = fullAppt?.date || slot.date;
+      const apptTime = fullAppt?.startTime || slot.startTime;
+      const priceInINR = fullAppt?.serviceId?.price
+        ? (fullAppt.serviceId.price / 100).toFixed(2)
+        : service?.price
+        ? (service.price / 100).toFixed(2)
+        : "0";
+
+      if (custUser?.email) {
         await sendBookingConfirmationEmail({
-          to: customerUser.email,
-          customerName: customerUser.name,
-          salonName: salonDoc?.name || "Salon",
-          branchName: branchDoc?.name || "Main Branch",
-          serviceName: service?.name || "Service",
-          staffName: staffUser?.name || "Any Staff",
-          date: slot.date,
+          to: custUser.email,
+          customerName: custUser.name,
+          salonName,
+          branchName,
+          serviceName,
+          staffName,
+          date: apptDate,
+          time: apptTime,
+          price: priceInINR,
           bookingId: appointment._id,
+        });
+
+        // Track email dispatch on appointment document
+        await Appointment.findByIdAndUpdate(appointment._id, {
+          emailSent: true,
+          lastEmailSentAt: new Date(),
+          $push: {
+            emailLogs: {
+              type: "BOOKING_SUBMITTED",
+              sentTo: custUser.email,
+              sentAt: new Date(),
+            },
+          },
         });
       }
     } catch (e) {
@@ -677,23 +709,49 @@ const updateAppointmentStatus = async (req, res, next) => {
       console.log("Push notification error:", e.message);
     }
 
-    // send status change email to customer
+    // send status change email to customer (skip IN_PROGRESS)
     try {
-      const custId = appointment.customerId?._id || appointment.customerId;
-      const custUser = await User.findById(custId).select("name email").lean();
-      const salonName = appointment.salonId?.name || "Salon";
-      const serviceName = appointment.serviceId?.name || "Service";
+      if (appointment.status !== "IN_PROGRESS") {
+        const fullAppt = await Appointment.findById(appointment._id)
+          .populate("customerId", "name email")
+          .populate("salonId", "name")
+          .populate("serviceId", "name")
+          .populate("slotId", "date startTime endTime")
+          .lean();
 
-      if (custUser?.email) {
-        await sendAppointmentStatusEmail({
-          to: custUser.email,
-          customerName: custUser.name,
-          status: appointment.status,
-          salonName,
-          serviceName,
-          date: appointment.date,
-          bookingId: appointment._id,
-        });
+        const custUser = fullAppt?.customerId;
+        const salonName = fullAppt?.salonId?.name || "Salon";
+        const serviceName = fullAppt?.serviceId?.name || "Service";
+        const apptDate = fullAppt?.date || fullAppt?.slotId?.date || "";
+        const apptTime = fullAppt?.startTime || fullAppt?.slotId?.startTime || "";
+
+        if (custUser?.email) {
+          await sendAppointmentStatusEmail({
+            to: custUser.email,
+            customerName: custUser.name,
+            status: appointment.status,
+            salonName,
+            serviceName,
+            date: apptDate,
+            time: apptTime,
+            bookingId: appointment._id,
+            cancellationReason: appointment.cancellation?.reason || note,
+          });
+
+          // Track email dispatch on appointment document
+          const logType = appointment.status === "CONFIRMED" ? "APPOINTMENT_ACCEPTED" : appointment.status === "COMPLETED" ? "THANK_YOU_SENT" : `STATUS_${appointment.status}`;
+          await Appointment.findByIdAndUpdate(appointment._id, {
+            emailSent: true,
+            lastEmailSentAt: new Date(),
+            $push: {
+              emailLogs: {
+                type: logType,
+                sentTo: custUser.email,
+                sentAt: new Date(),
+              },
+            },
+          });
+        }
       }
     } catch (e) {
       console.log("Email dispatch error:", e.message);

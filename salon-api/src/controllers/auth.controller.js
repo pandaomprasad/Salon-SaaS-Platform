@@ -1,12 +1,14 @@
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const AppError = require("../utils/AppError");
+const OwnerRegistrationRequest = require("../models/ownerRegistrationRequest.model");
 const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
 } = require("../utils/token");
 const bcrypt = require("bcryptjs");
+const { sendOwnerRegistrationReceivedEmail } = require("../services/email.service");
 
 // ================================
 // Helper — build user payload for token
@@ -84,6 +86,81 @@ const register = async (req, res, next) => {
   }
 };
 const Salon = require("../models/salon.model");
+
+// ================================
+// POST /api/v1/auth/register-owner
+// ================================
+// Public self-registration for salon owners from the landing page.
+// Does NOT create an account immediately — it creates a PENDING request
+// that a superadmin reviews in the admin panel. Once APPROVED the owner
+// can log in to the salon panel with the credentials they submitted.
+const registerOwner = async (req, res, next) => {
+  try {
+    const { ownerName, ownerEmail, ownerPhone, salonName, salonDescription, password } = req.body;
+
+    const email = ownerEmail.toLowerCase();
+
+    // an existing platform user (any role) already owns this email
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return next(new AppError("Email already registered", 400));
+    }
+
+    // an identical request is already waiting for review
+    const pending = await OwnerRegistrationRequest.findOne({
+      ownerEmail: email,
+      status: "PENDING",
+    });
+    if (pending) {
+      return next(
+        new AppError("You already have a pending request. Our team will review it shortly.", 400),
+      );
+    }
+
+    // an earlier request was approved for this email
+    const approved = await OwnerRegistrationRequest.findOne({
+      ownerEmail: email,
+      status: "APPROVED",
+    });
+    if (approved) {
+      return next(new AppError("This email is already registered as a salon owner. Please log in.", 400));
+    }
+
+    const request = await OwnerRegistrationRequest.create({
+      ownerName,
+      ownerEmail: email,
+      ownerPhone,
+      salonName,
+      salonDescription,
+      password,
+      status: "PENDING",
+    });
+
+    // Send thank-you & pending approval email asynchronously
+    sendOwnerRegistrationReceivedEmail({
+      to: email,
+      ownerName: request.ownerName,
+      salonName: request.salonName,
+    }).catch((err) => console.error("Error sending owner registration email:", err));
+
+    res.status(201).json({
+      success: true,
+      message: "Registration submitted. Our team will review and activate your salon account shortly.",
+      data: {
+        request: {
+          _id: request._id,
+          ownerName: request.ownerName,
+          ownerEmail: request.ownerEmail,
+          salonName: request.salonName,
+          status: request.status,
+          createdAt: request.createdAt,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // ================================
 // POST /api/v1/auth/login
@@ -405,4 +482,4 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, googleLogin, refresh, logout, me };
+module.exports = { register, registerOwner, login, googleLogin, refresh, logout, me };

@@ -7,6 +7,8 @@ import { Input, Select } from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import apiClient from "@/lib/api-client";
 import { useBranch } from "@/hooks/useBranch";
+import GooglePlaceSearch, { PlaceResult } from "@/components/GooglePlaceSearch";
+import LocationMapPreview from "@/components/LocationMapPreview";
 import {
   Search,
   RefreshCw,
@@ -33,6 +35,10 @@ interface Branch {
     state: string;
     pincode: string;
     country: string;
+    coordinates?: {
+      lat: number | null;
+      lng: number | null;
+    };
   };
   contactPhone: string;
   contactEmail: string;
@@ -48,6 +54,7 @@ interface Branch {
   isActive: boolean;
   createdAt: string;
 }
+
 
 // ── Helpers ──
 
@@ -122,6 +129,22 @@ export default function BranchesPage() {
     fetchBranches();
   }, [fetchBranches]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("addBranch") === "true" || params.get("openModal") === "true") {
+        setShowAddModal(true);
+      }
+    }
+
+    function handleOpenEvent() {
+      setShowAddModal(true);
+    }
+
+    window.addEventListener("open-add-branch-modal", handleOpenEvent);
+    return () => window.removeEventListener("open-add-branch-modal", handleOpenEvent);
+  }, []);
+
   const filtered = branches.filter((b) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -193,7 +216,18 @@ export default function BranchesPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center text-muted py-12 text-[13px]">No branches found.</div>
+          <div className="bg-white border border-border rounded-xl p-12 text-center max-w-md mx-auto my-6 animate-fade-in">
+            <div className="w-12 h-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mx-auto mb-3">
+              <Plus size={24} />
+            </div>
+            <h3 className="font-semibold text-ink text-[15px]">No branches registered yet</h3>
+            <p className="text-[12.5px] text-muted mt-1 leading-relaxed">
+              Create your first branch location to start managing staff, schedules, and customer appointments.
+            </p>
+            <Button className="mt-5" size="sm" icon={<Plus size={13} />} onClick={() => setShowAddModal(true)}>
+              Register Your First Branch
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filtered.map((b) => (
@@ -391,6 +425,13 @@ function BranchDrawer({
           ))}
         </div>
 
+        {b.address.coordinates && b.address.coordinates.lat && (
+          <div className="mt-4">
+            <LocationMapPreview coordinates={b.address.coordinates} address={`${b.address.street}, ${b.address.city}`} />
+          </div>
+        )}
+
+
         {/* Manager Section */}
         <div className="mt-5 border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
@@ -530,6 +571,12 @@ function AddBranchModal({
     name: "", street: "", city: "", state: "", pincode: "",
     contactPhone: "", contactEmail: "", slotDurationMinutes: "60",
   });
+  const [coordinates, setCoordinates] = useState<{ lat: number | null; lng: number | null }>({
+    lat: null,
+    lng: null,
+  });
+  const [formattedAddress, setFormattedAddress] = useState<string>("");
+
   const [workingHours, setWorkingHours] = useState(defaultHours);
   const [fieldErrors, setFieldErrors] = useState<{ field: string; message: string }[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -539,6 +586,22 @@ function AddBranchModal({
     setForm((prev) => ({ ...prev, [key]: value }));
     setFieldErrors((prev) => prev.filter((e) => !e.field.includes(key)));
     setServerError(null);
+  }
+
+  function handlePlaceSelect(place: PlaceResult) {
+    setForm((prev) => ({
+      ...prev,
+      street: place.street || prev.street,
+      city: place.city || prev.city,
+      state: place.state || prev.state,
+      pincode: place.pincode || prev.pincode,
+      name: prev.name.trim() ? prev.name : place.placeName || prev.name,
+    }));
+    if (place.latitude !== null && place.longitude !== null) {
+      setCoordinates({ lat: place.latitude, lng: place.longitude });
+    }
+    setFormattedAddress(place.formattedAddress);
+    setFieldErrors([]);
   }
 
   function getError(field: string): string | undefined {
@@ -565,7 +628,13 @@ function AddBranchModal({
     try {
       await apiClient.post(`/salons/${salonId}/branches`, {
         name: form.name.trim(),
-        address: { street: form.street.trim(), city: form.city.trim(), state: form.state.trim(), pincode: form.pincode.trim() },
+        address: {
+          street: form.street.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+          coordinates: coordinates.lat !== null && coordinates.lng !== null ? coordinates : undefined,
+        },
         contactPhone: form.contactPhone.trim(),
         contactEmail: form.contactEmail.trim() || undefined,
         slotDurationMinutes: parseInt(form.slotDurationMinutes) || 60,
@@ -594,13 +663,23 @@ function AddBranchModal({
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           <Input label="Branch Name" placeholder="e.g. Bandra West" value={form.name} onChange={(e) => set("name", e.target.value)} error={getError("name")} />
 
-          <div className="border border-border rounded-lg p-4 space-y-3">
-            <p className="text-[12px] font-medium text-slate">Address</p>
-            <Input placeholder="Street address" value={form.street} onChange={(e) => set("street", e.target.value)} error={getError("street")} />
-            <div className="grid grid-cols-3 gap-3">
-              <Input placeholder="City" value={form.city} onChange={(e) => set("city", e.target.value)} error={getError("city")} />
-              <Input placeholder="State" value={form.state} onChange={(e) => set("state", e.target.value)} error={getError("state")} />
-              <Input placeholder="Pincode" value={form.pincode} onChange={(e) => set("pincode", e.target.value)} error={getError("pincode")} />
+          <div className="border border-border rounded-lg p-4 space-y-4 bg-slate-50/40">
+            <GooglePlaceSearch
+              onPlaceSelect={handlePlaceSelect}
+              placeholder="Search location or address with Google Maps..."
+              label="Google Maps Place Search & GPS"
+            />
+
+            <div className="space-y-3 pt-2 border-t border-border/70">
+              <p className="text-[12px] font-semibold text-slate-700">Detailed Address (Auto-Filled)</p>
+              <Input placeholder="Street address" value={form.street} onChange={(e) => set("street", e.target.value)} error={getError("street")} />
+              <div className="grid grid-cols-3 gap-3">
+                <Input placeholder="City" value={form.city} onChange={(e) => set("city", e.target.value)} error={getError("city")} />
+                <Input placeholder="State" value={form.state} onChange={(e) => set("state", e.target.value)} error={getError("state")} />
+                <Input placeholder="Pincode" value={form.pincode} onChange={(e) => set("pincode", e.target.value)} error={getError("pincode")} />
+              </div>
+
+              <LocationMapPreview coordinates={coordinates} address={formattedAddress} />
             </div>
           </div>
 

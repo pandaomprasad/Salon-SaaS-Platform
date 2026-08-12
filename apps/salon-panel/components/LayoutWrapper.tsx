@@ -2,6 +2,7 @@
 
 import Sidebar from "@/components/layout/Sidebar";
 import BranchSelectorModal from "@/components/BranchSelectorModal";
+import NoBranchModal from "@/components/NoBranchModal";
 import BranchTopBar from "@/components/BranchTopBar";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
@@ -15,6 +16,9 @@ import type { UserRole } from "@/lib/api";
 import apiClient from "@/lib/api-client";
 import { clearUnreadCountCache } from "@/api/services/notificationService";
 
+// Public routes — accessible without an authenticated session
+const PUBLIC_PATHS = new Set(["/", "/login", "/register"]);
+
 export default function LayoutWrapper({
   children,
 }: {
@@ -24,7 +28,7 @@ export default function LayoutWrapper({
   const pathname = usePathname();
   const dispatch = useDispatch();
 
-  const { user, salon, isLoading } = useSelector(
+  const { user, salon, selectedBranch, isLoading } = useSelector(
     (state: RootState) => state.auth,
   );
 
@@ -32,12 +36,12 @@ export default function LayoutWrapper({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const currentPage = pathnameToPage(pathname);
-  const hideSidebar = pathname === "/login";
+  const hideSidebar = PUBLIC_PATHS.has(pathname);
 
   const [adminBlock, setAdminBlock] = useState<{ blocked: boolean; reason: string | null }>({ blocked: false, reason: null });
 
   useEffect(() => {
-  if (!user || pathname === "/login") return;
+  if (!user || PUBLIC_PATHS.has(pathname)) return;
 
   // Only check once per session, not on every navigation
   if (adminBlock.blocked !== undefined && sessionStorage.getItem("salon_status_checked")) return;
@@ -67,13 +71,13 @@ export default function LayoutWrapper({
   }, []);
 
   useEffect(() => {
-    if (mounted && !isLoading && !user && pathname !== "/login") {
+    if (mounted && !isLoading && !user && !PUBLIC_PATHS.has(pathname)) {
       router.replace("/login");
     }
   }, [user, isLoading, pathname, router, mounted]);
 
   useEffect(() => {
-    if (mounted && !isLoading && user && pathname !== "/login") {
+    if (mounted && !isLoading && user && !PUBLIC_PATHS.has(pathname)) {
       const role = user.role as UserRole;
       if (!canAccess(role, currentPage)) {
         router.replace("/dashboard");
@@ -83,7 +87,7 @@ export default function LayoutWrapper({
 
   if (!mounted || isLoading) return null;
 
-  if (!user && pathname !== "/login") {
+  if (!user && !PUBLIC_PATHS.has(pathname)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="flex items-center gap-2 text-muted">
@@ -141,10 +145,30 @@ export default function LayoutWrapper({
               </div>
             </div>
           )}
+          {selectedBranch && selectedBranch.isActive === false && (
+            <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-3.5">
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-amber-700">
+                    Branch Inactive — {selectedBranch.name}
+                  </p>
+                  <p className="text-[12px] text-amber-600/90 mt-0.5">
+                    {selectedBranch.deactivatedByAdmin
+                      ? `This branch was deactivated by the platform admin. ${selectedBranch.adminDeactivationReason || "Online customer bookings for this branch are currently suspended."}`
+                      : "This branch is currently deactivated. Customer bookings and online slots for this branch are suspended."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <main className="flex-1 p-5 md:p-7 lg:p-8">
             {children}
           </main>
           <BranchSelectorModal />
+          <NoBranchModal />
           <BookingNotificationToast />
         </div>
       ) : (

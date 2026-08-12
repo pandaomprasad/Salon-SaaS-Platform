@@ -5,12 +5,15 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { selectBranch } from "@/store/slices/authSlice";
 import apiClient from "@/lib/api-client";
-import { MapPin } from "lucide-react";
+import { MapPin, AlertCircle } from "lucide-react";
 
 interface BranchOption {
   _id: string;
   name: string;
-  address: {
+  isActive?: boolean;
+  deactivatedByAdmin?: boolean;
+  adminDeactivationReason?: string;
+  address?: {
     city: string;
     state: string;
   };
@@ -37,12 +40,21 @@ export default function BranchSelectorModal() {
       setLoading(true);
       try {
         const { data } = await apiClient.get(`/salons/${salonId}/branches`);
-        const list = data.data?.branches || data.data || [];
+        const list: BranchOption[] = data.data?.branches || data.data || [];
         setBranches(list);
 
         if (list.length === 1) {
           // Auto-select if only one branch
-          dispatch(selectBranch({ _id: list[0]._id, name: list[0].name }));
+          const b = list[0];
+          dispatch(
+            selectBranch({
+              _id: b._id,
+              name: b.name,
+              isActive: b.isActive,
+              deactivatedByAdmin: b.deactivatedByAdmin,
+              adminDeactivationReason: b.adminDeactivationReason,
+            })
+          );
         } else if (list.length > 1) {
           setShow(true);
         }
@@ -59,23 +71,31 @@ export default function BranchSelectorModal() {
   if (!show || branches.length === 0) return null;
 
   function handleSelect(branch: BranchOption) {
-    dispatch(selectBranch({ _id: branch._id, name: branch.name }));
+    dispatch(
+      selectBranch({
+        _id: branch._id,
+        name: branch.name,
+        isActive: branch.isActive,
+        deactivatedByAdmin: branch.deactivatedByAdmin,
+        adminDeactivationReason: branch.adminDeactivationReason,
+      })
+    );
     setShow(false);
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-ink/50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[60] bg-ink/50 flex items-center justify-center p-6 backdrop-blur-xs">
       <div className="bg-paper rounded-2xl w-full max-w-md shadow-2xl animate-slide-up">
         {/* Header */}
         <div className="px-6 pt-8 pb-2 text-center">
           <p className="text-[10px] uppercase tracking-[0.2em] text-ash mb-2">Welcome back</p>
           <h2 className="font-display text-2xl text-ink">Select a Branch</h2>
-          <p className="text-xs text-ash mt-2">Choose which branch you'd like to manage</p>
+          <p className="text-xs text-ash mt-2">Choose which branch you&apos;d like to manage</p>
           <div className="w-8 h-px bg-gold mx-auto mt-4" />
         </div>
 
         {/* Branch list */}
-        <div className="p-4 space-y-2">
+        <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
           {branches.map((b) => (
             <button
               key={b._id}
@@ -86,9 +106,16 @@ export default function BranchSelectorModal() {
                 <MapPin size={16} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium group-hover:text-ink">{b.name}</p>
-                <p className="text-[11px] text-ash">
-                  {b.address?.city}, {b.address?.state}
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium group-hover:text-ink">{b.name}</p>
+                  {b.isActive === false && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-danger/10 text-danger uppercase tracking-wider flex items-center gap-1">
+                      <AlertCircle size={9} /> Inactive
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-ash mt-0.5">
+                  {b.address?.city ? `${b.address.city}, ${b.address.state || ""}` : "No location"}
                 </p>
               </div>
             </button>

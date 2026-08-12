@@ -4,7 +4,7 @@ import styles from "./styles";
 import { C } from "../../theme";
 
 export default function HeroTopBar({
-    city = "Mumbai",
+    city = "Brahmapur",
     subCity = "Bandra West",
     onLocation,
     onNotif,

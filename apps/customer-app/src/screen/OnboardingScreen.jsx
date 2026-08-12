@@ -7,7 +7,6 @@ import {
   Dimensions,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   Animated,
   StatusBar,
   Platform,
@@ -579,7 +578,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.canvas} />
 
       {/* ── Header (staggered entrance: slide down + fade) ──── */}
@@ -763,7 +762,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
           </Text>
         )}
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 

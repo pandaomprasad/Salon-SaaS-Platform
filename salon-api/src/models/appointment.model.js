@@ -173,6 +173,25 @@ const appointmentSchema = new mongoose.Schema(
         },
         note: String
       }
+    ],
+
+    // ================================
+    // Email Notification Tracking
+    // ================================
+    emailSent: {
+      type: Boolean,
+      default: false
+    },
+    lastEmailSentAt: {
+      type: Date,
+      default: null
+    },
+    emailLogs: [
+      {
+        type: { type: String }, // "BOOKING_SUBMITTED", "APPOINTMENT_ACCEPTED", "THANK_YOU_SENT"
+        sentTo: String,
+        sentAt: { type: Date, default: Date.now }
+      }
     ]
   },
   {

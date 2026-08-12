@@ -7,6 +7,8 @@ import {
   getAppointments,
   updateAppointmentStatus,
 } from "@/api/services/appointmentService";
+import apiClient from "@/lib/api-client";
+
 import { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -68,7 +70,7 @@ function getDurationMins(a: any): number {
 
 function getPrice(a: any): string {
   const price = a.pricePaid || a.serviceId?.price || 0;
-  return `₹${price.toLocaleString("en-IN")}`;
+  return `₹${(price / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 export default function BookingsPage() {
@@ -82,6 +84,8 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
+  const [branchOptions, setBranchOptions] = useState<{ _id: string; name: string }[]>([]);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -102,6 +106,21 @@ export default function BookingsPage() {
     setSoundOn(isSoundEnabled());
   }, []);
 
+  // Fetch branch list for the dropdown filter
+  useEffect(() => {
+    const salonId = (salon as any)?._id || (user as any)?.salonId;
+    if (!salonId) return;
+
+    async function fetchBranchOptions() {
+      try {
+        const { data } = await apiClient.get(`/salons/${salonId}/branches`);
+        const list = data.data?.branches || data.data || [];
+        setBranchOptions(list);
+      } catch { }
+    }
+    fetchBranchOptions();
+  }, [salon, user]);
+
   const handleToggleSound = () => {
     const next = !soundOn;
     setSoundOn(next);
@@ -112,7 +131,8 @@ export default function BookingsPage() {
   };
 
   const fetchAppointments = useCallback(async () => {
-    const cacheKey = `bookings_${statusFilter}_b${branchId || "all"}_p${currentPage}_l${pageSize}`;
+    const activeBranchId = branchFilter !== "all" ? branchFilter : undefined;
+    const cacheKey = `bookings_${statusFilter}_b${branchFilter}_p${currentPage}_l${pageSize}`;
     const cached = getCached<{ list: any[]; total: number; pages: number }>(cacheKey);
 
     if (cached) {
@@ -127,7 +147,7 @@ export default function BookingsPage() {
           limit: pageSize,
         };
         if (statusFilter !== "all") params.status = statusFilter;
-        if (branchId) params.branchId = branchId;
+        if (activeBranchId) params.branchId = activeBranchId;
         const res = await getAppointments(params);
         const resData = res.data as any;
         const list = Array.isArray(resData) ? resData : resData?.appointments || [];
@@ -154,7 +174,7 @@ export default function BookingsPage() {
         limit: pageSize,
       };
       if (statusFilter !== "all") params.status = statusFilter;
-      if (branchId) params.branchId = branchId;
+      if (activeBranchId) params.branchId = activeBranchId;
       const res = await getAppointments(params);
       const resData = res.data as any;
       const list = Array.isArray(resData) ? resData : resData?.appointments || [];
@@ -178,7 +198,7 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, currentPage, pageSize, branchId]);
+  }, [statusFilter, currentPage, pageSize, branchFilter]);
 
   useEffect(() => {
     fetchAppointments();
@@ -187,11 +207,13 @@ export default function BookingsPage() {
   // Real-time auto-fetch via WebSockets when new appointments are created/updated
   useEffect(() => {
     const salonId = (salon as any)?._id || (user as any)?.salonId || null;
-    socketClient.connect({ branchId, salonId });
-    setIsLiveConnected(socketClient.isConnected());
 
     const unsubConn = socketClient.onConnect(() => setIsLiveConnected(true));
     const unsubDisconn = socketClient.onDisconnect(() => setIsLiveConnected(false));
+
+    socketClient.connect({ branchId, salonId });
+    setIsLiveConnected(socketClient.isConnected());
+
 
     const handleRealtimeNewBooking = (data: any) => {
       console.log("⚡ [BOOKINGS SCREEN] Realtime appointment event received:", data);
@@ -227,7 +249,7 @@ export default function BookingsPage() {
   // Reset to page 1 when filters or branch change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, search, branchId]);
+  }, [statusFilter, search, branchFilter]);
 
   const filtered = appointments.filter((a: any) => {
     if (!search) return true;
@@ -235,9 +257,11 @@ export default function BookingsPage() {
     return (
       getName(a.customerId).toLowerCase().includes(q) ||
       getName(a.serviceId).toLowerCase().includes(q) ||
-      getName(a.staffId).toLowerCase().includes(q)
+      getName(a.staffId).toLowerCase().includes(q) ||
+      getName(a.branchId).toLowerCase().includes(q)
     );
   });
+
 
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
     setUpdatingId(id);
@@ -349,10 +373,20 @@ export default function BookingsPage() {
         <div className="flex flex-wrap gap-3">
           <div className="flex-1 min-w-60">
             <Input
-              placeholder="Search by client, service, staff..."
+              placeholder="Search by client, service, staff, branch..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               icon={<Search size={14} />}
+            />
+          </div>
+          <div className="w-48">
+            <Select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              options={[
+                { value: "all", label: "All Branches" },
+                ...branchOptions.map((b) => ({ value: b._id, label: b.name })),
+              ]}
             />
           </div>
           <div className="w-44">
@@ -391,7 +425,7 @@ export default function BookingsPage() {
             <table className="w-full border-separate border-spacing-y-3 text-sm">
               <thead>
                 <tr className="border-b border-smoke bg-smoke/40">
-                  {["Client", "Service", "Staff", "Date", "Time", "Duration", "Price", "Status", "Actions"].map((h) => (
+                  {["Client", "Service", "Staff", "Branch", "Date", "Time", "Duration", "Price", "Status", "Actions"].map((h) => (
                     <th key={h} className="text-left text-xs font-medium text-ash px-5 py-3">
                       {h}
                     </th>
@@ -402,7 +436,7 @@ export default function BookingsPage() {
                 {loading ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <tr key={i} className="bg-transparent">
-                      {Array.from({ length: 9 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <td key={j} className="px-5 py-4">
                           <div className="animate-pulse bg-border/50 rounded h-3.5 w-full" />
                         </td>
@@ -411,7 +445,7 @@ export default function BookingsPage() {
                   ))
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center text-ash py-12 text-sm">
+                    <td colSpan={10} className="text-center text-ash py-12 text-sm">
                       No bookings found.
                     </td>
                   </tr>
@@ -434,12 +468,24 @@ export default function BookingsPage() {
                         </td>
                         <td className="bg-white px-5 py-3.5 text-ash">{getName(a.serviceId)}</td>
                         <td className="bg-white px-5 py-3.5 text-ash">{getName(a.staffId)}</td>
+                        <td className="bg-white px-5 py-3.5 text-ash">
+                          <span className="inline-flex items-center gap-1 bg-subtle/80 border border-border/60 px-2 py-0.5 rounded-md text-xs font-medium text-slate-800">
+                            {getName(a.branchId, "Main Branch")}
+                          </span>
+                        </td>
                         <td className="bg-white px-5 py-3.5 text-ash">{a.date || "—"}</td>
                         <td className="bg-white px-5 py-3.5 text-ash">{a.startTime || "—"}</td>
                         <td className="bg-white px-5 py-3.5 text-ash">{formatDuration(getDurationMins(a))}</td>
                         <td className="bg-white px-5 py-3.5 font-medium">{getPrice(a)}</td>
                         <td className="bg-white px-5 py-3.5">
-                          <StatusBadge status={a.status} />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <StatusBadge status={a.status} />
+                            {((a as any).emailSent || a.status === "PENDING" || a.status === "CONFIRMED" || a.status === "COMPLETED") && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 inline-flex items-center gap-1" title="Email notification dispatched to customer">
+                                <span>📧</span> Mail Sent
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="bg-white px-5 py-3.5 rounded-r-2xl" onClick={(e) => e.stopPropagation()}>
                           {canManage && a.status === "PENDING" && (
@@ -452,6 +498,7 @@ export default function BookingsPage() {
                               </Button>
                             </div>
                           )}
+
                           {canManage && a.status === "CONFIRMED" && (
                             <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "IN_PROGRESS")} loading={updatingId === a._id}>
                               Start Service

@@ -3,8 +3,10 @@ const Salon = require('../models/salon.model')
 const Branch = require('../models/branch.model')
 const Appointment = require('../models/appointment.model')
 const Role = require('../models/role.model')
+const OwnerRegistrationRequest = require('../models/ownerRegistrationRequest.model')
 const AppError = require('../utils/AppError')
 const bcrypt = require('bcryptjs')
+const { sendOwnerRegistrationApprovedEmail, sendOwnerRegistrationRejectedEmail } = require('../services/email.service')
 
 // ================================
 // GET /api/v1/admin/stats
@@ -584,6 +586,149 @@ const updateBranch = async (req, res, next) => {
     next(error)
   }
 }
+// ================================
+// GET /api/v1/admin/owner-requests
+// Registration requests submitted from the public landing page
+// ================================
+const listOwnerRequests = async (req, res, next) => {
+  try {
+    const status = (req.query.status || 'ALL').toUpperCase()
+    const filter = status === 'ALL' ? {} : { status }
+
+    const requests = await OwnerRegistrationRequest.find(filter)
+      .select('+password')
+      .sort({ createdAt: -1 })
+      .lean()
+
+    res.status(200).json({
+      success: true,
+      data: { requests },
+      count: requests.length,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// POST /api/v1/admin/owner-requests/:requestId/approve
+// Approve a pending request → creates the owner user + salon
+// ================================
+const approveOwnerRequest = async (req, res, next) => {
+  try {
+    const { requestId } = req.params
+    const request = await OwnerRegistrationRequest.findById(requestId).select('+password')
+
+    if (!request) return next(new AppError('Request not found', 404))
+    if (request.status !== 'PENDING') {
+      return next(new AppError(`Request is already ${request.status.toLowerCase()}`, 400))
+    }
+
+    // guards against duplicates by the time of review
+    const existingUser = await User.findOne({ email: request.ownerEmail })
+    if (existingUser) {
+      request.status = 'REJECTED'
+      request.adminNote = 'Email already in use'
+      request.reviewedBy = req.user.userId
+      request.reviewedAt = new Date()
+      await request.save()
+      return next(new AppError('Email already in use — request auto-rejected', 400))
+    }
+
+    const ownerRole = await Role.findOne({ name: 'owner' })
+    if (!ownerRole) return next(new AppError('Owner role not found. Please run seeder.', 500))
+
+    // create the owner — user.create() WITHOUT the password first, because the
+    // request.password is ALREADY hashed (hashed at request time). Passing it to
+    // User.create would go through the pre-save hook and double-hash it.
+    const owner = await User.create({
+      name: request.ownerName,
+      email: request.ownerEmail,
+      phone: request.ownerPhone || '',
+      role: ownerRole._id,
+      isActive: true,
+    })
+
+    // store the already-hashed password directly.
+    // findByIdAndUpdate is a query — it bypasses document pre-save hooks,
+    // so the stored hash stays the one the owner's plaintext compares against.
+    await User.findByIdAndUpdate(owner._id, { password: request.password })
+
+    // create + link their salon
+    const salon = await Salon.create({
+      name: request.salonName,
+      owner: owner._id,
+      description: request.salonDescription || '',
+      contactEmail: request.ownerEmail,
+      contactPhone: request.ownerPhone || '',
+    })
+
+    await User.findByIdAndUpdate(owner._id, { salonId: salon._id })
+
+    request.status = 'APPROVED'
+    request.reviewedBy = req.user.userId
+    request.reviewedAt = new Date()
+    request.adminNote = req.body.note || null
+    await request.save()
+
+    // Send approval email to owner
+    sendOwnerRegistrationApprovedEmail({
+      to: request.ownerEmail,
+      ownerName: request.ownerName,
+      salonName: request.salonName,
+    }).catch((err) => console.error('Error sending owner approval email:', err))
+
+    res.status(200).json({
+      success: true,
+      message: 'Request approved. Owner account and salon created.',
+      data: {
+        request: { _id: request._id, status: request.status, reviewedAt: request.reviewedAt },
+        salon: { _id: salon._id, name: salon.name },
+        owner: { _id: owner._id, name: owner.name, email: owner.email },
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// POST /api/v1/admin/owner-requests/:requestId/reject
+// ================================
+const rejectOwnerRequest = async (req, res, next) => {
+  try {
+    const { requestId } = req.params
+    const request = await OwnerRegistrationRequest.findById(requestId)
+
+    if (!request) return next(new AppError('Request not found', 404))
+    if (request.status !== 'PENDING') {
+      return next(new AppError(`Request is already ${request.status.toLowerCase()}`, 400))
+    }
+
+    request.status = 'REJECTED'
+    request.adminNote = req.body.note || null
+    request.reviewedBy = req.user.userId
+    request.reviewedAt = new Date()
+    await request.save()
+
+    // Send rejection email to owner
+    sendOwnerRegistrationRejectedEmail({
+      to: request.ownerEmail,
+      ownerName: request.ownerName,
+      salonName: request.salonName,
+      note: request.adminNote,
+    }).catch((err) => console.error('Error sending owner rejection email:', err))
+
+    res.status(200).json({
+      success: true,
+      message: 'Request rejected',
+      data: { request: { _id: request._id, status: request.status, reviewedAt: request.reviewedAt } },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   getPlatformStats,
   getAllSalons,
@@ -601,4 +746,7 @@ module.exports = {
   getActivity,
   getSalonStatus,
   adminUpdateBranch: updateBranch,
+  listOwnerRequests,
+  approveOwnerRequest,
+  rejectOwnerRequest,
 }

@@ -51,7 +51,7 @@ const getBranches = async (req, res, next) => {
     const { salonId } = req.params;
     const { role, branchId } = req.user;
 
-    let filter = { salonId, isActive: true };
+    let filter = { salonId };
 
     // manager and staff only see their own branch
     if (role === "manager" || role === "staff") {

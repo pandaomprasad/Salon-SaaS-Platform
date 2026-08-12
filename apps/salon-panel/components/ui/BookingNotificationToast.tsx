@@ -51,7 +51,7 @@ export default function BookingNotificationToast() {
     const cust = typeof appt.customerId === "object" ? appt.customerId?.name : appt.customerName || "Customer";
     const serv = typeof appt.serviceId === "object" ? appt.serviceId?.name : appt.serviceName || "Service";
     const priceVal = appt.pricePaid || appt.serviceId?.price || appt.amount || 0;
-    const priceStr = `₹${Number(priceVal).toLocaleString("en-IN")}`;
+    const priceStr = `₹${(Number(priceVal) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
     const info: NewBookingInfo = {
       id: appt._id || data.appointmentId || String(Date.now()),

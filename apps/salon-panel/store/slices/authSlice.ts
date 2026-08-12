@@ -15,6 +15,9 @@ import type { BackendUser, Salon } from "@/lib/api";
 interface SelectedBranch {
   _id: string;
   name: string;
+  isActive?: boolean;
+  deactivatedByAdmin?: boolean;
+  adminDeactivationReason?: string;
 }
 
 interface AuthState {

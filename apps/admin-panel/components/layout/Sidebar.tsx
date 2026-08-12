@@ -9,6 +9,7 @@ import {
   LogOut,
   Shield,
   Clock,
+  ClipboardCheck,
 } from "lucide-react";
 
 interface NavItem {
@@ -19,6 +20,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/approvals", label: "Approvals", icon: ClipboardCheck },
   { path: "/salons", label: "Salons", icon: Building2 },
   { path: "/owners", label: "Owners", icon: UserCog },
   { path: "/customers", label: "Customers", icon: Users },

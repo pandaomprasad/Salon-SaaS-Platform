@@ -37,16 +37,18 @@ if (!isEnabled || !isConfigured) {
     scan: async () => ['0', []],
   }
 } else {
+  const host = process.env.REDIS_HOST || process.env.REDISHOST || ''
+  const isUpstash = host.includes('upstash.io') || (process.env.REDIS_URL || '').includes('upstash.io')
+
   const redisConfig = process.env.REDIS_URL
     ? process.env.REDIS_URL
     : {
-        host: process.env.REDIS_HOST || process.env.REDISHOST,
+        host: host || 'localhost',
         port: Number(process.env.REDIS_PORT || process.env.REDISPORT) || 6379,
         password:
           process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined,
+        ...(isUpstash && { tls: { rejectUnauthorized: false } }),
         maxRetriesPerRequest: 2,
-        // Stop retrying after ~10 attempts. Keeps a down Redis from
-        // hammering the network and spamming logs forever.
         retryStrategy: (times) => (times > 10 ? null : Math.min(times * 50, 2000)),
       }
 

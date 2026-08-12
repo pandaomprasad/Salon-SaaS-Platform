@@ -321,7 +321,7 @@ export default function CustomersPage() {
                       </td>
                       <td className="px-5 py-3.5 text-ash">{c.completedVisits}</td>
                       <td className="px-5 py-3.5 font-medium">
-                        ₹{c.totalSpent.toLocaleString("en-IN")}
+                        ₹{(c.totalSpent / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-5 py-3.5">
                         {c.avgRating ? (
@@ -420,7 +420,7 @@ function CustomerDrawer({
             <p className="text-[10px] text-ash uppercase tracking-wide">Completed</p>
           </div>
           <div className="bg-smoke/50 rounded-xl p-3 text-center">
-            <p className="text-lg font-semibold">₹{c.totalSpent.toLocaleString("en-IN")}</p>
+            <p className="text-lg font-semibold">₹{(c.totalSpent / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
             <p className="text-[10px] text-ash uppercase tracking-wide">Total Spent</p>
           </div>
         </div>
@@ -453,7 +453,7 @@ function CustomerDrawer({
                     <span>{a.startTime}</span>
                     <span>with {a.staffName}</span>
                     <span className="ml-auto font-medium text-ink">
-                      ₹{a.price.toLocaleString("en-IN")}
+                      ₹{(a.price / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   {a.rating && (

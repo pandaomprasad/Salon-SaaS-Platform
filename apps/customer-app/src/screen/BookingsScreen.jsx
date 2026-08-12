@@ -482,6 +482,18 @@ export default function BookingsScreen({ navigate, onScroll }) {
                 {isPending || isConfirmed ? (
                   <View style={styles.cardActionsRow}>
                     <TouchableOpacity
+                      style={styles.passBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setSelectedAppt(appt);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="qr-code-outline" size={14} color="#f54e00" />
+                      <Text style={styles.passBtnText}>View Pass &amp; QR</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                       style={styles.rescheduleBtn}
                       onPress={(e) => {
                         e.stopPropagation();
@@ -785,6 +797,22 @@ function getStyles() {
       color: C.error,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
+    },
+    passBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: S.sm + 2,
+      paddingVertical: 6,
+      borderRadius: R.md,
+      backgroundColor: "rgba(245, 78, 0, 0.12)",
+      borderWidth: 1,
+      borderColor: "rgba(245, 78, 0, 0.3)",
+    },
+    passBtnText: {
+      color: "#f54e00",
+      fontSize: FS.bodySm - 1,
+      fontWeight: FW.bold,
     },
     rateBtn: {
       flexDirection: "row",

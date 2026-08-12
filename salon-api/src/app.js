@@ -8,6 +8,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const mongoose = require("mongoose");
 
 const connectDB = require("./config/database");
 const logger = require("./utils/logger");
@@ -17,7 +18,7 @@ const logger = require("./utils/logger");
 // ================================
 const app = express();
 
-// Trust proxy (required when behind tunnel/proxy like localtunnel, ngrok, NGINX)
+// Trust proxy (required when behind tunnel/proxy like localtunnel, ngrok, NGINX, Vercel, Render)
 app.set("trust proxy", 1);
 
 // ================================
@@ -38,6 +39,7 @@ require("./models/slot.model");
 require("./models/appointment.model");
 require("./models/staffLeave.model");
 require("./models/notification.model");
+require("./models/ownerRegistrationRequest.model");
 const adminRoutes = require('./routes/admin.routes')
 const adminController = require('./controllers/admin.controller')
 
@@ -47,25 +49,23 @@ const { initCronJobs } = require("./config/cron");
 initCronJobs();
 console.log("✅ Cron jobs initialized.");
 
-// TEMPORARY — remove after testing
-app.get("/test-cron", async (req, res) => {
-  const { generateSlotsForAllBranches } = require("./utils/autoSlotGenerator");
-  await generateSlotsForAllBranches();
-  res.json({ success: true, message: "Slot generation ran manually" });
-});
 // ================================
 // Security Middleware
 // ================================
 
 // helmet adds security headers to every response
-// protects against common attacks like clickjacking, XSS
 app.use(helmet());
 
-// cors tells the server which clients are allowed to call it
-// right now we allow all origins — we'll tighten this in production
+// Configure CORS for development & production
+const parseAllowedOrigins = () => {
+  const envOrigins = process.env.ALLOWED_ORIGINS;
+  if (!envOrigins || envOrigins === "*") return "*";
+  return envOrigins.split(",").map((o) => o.trim());
+};
+
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS || "*",
+    origin: parseAllowedOrigins(),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -74,6 +74,7 @@ app.use(
       "ngrok-skip-browser-warning",
       "X-Requested-With",
     ],
+    credentials: true,
   }),
 );
 
@@ -91,44 +92,55 @@ app.use("/api", limiter);
 // ================================
 // Body Parsing Middleware
 // ================================
-
-// tells express to parse incoming JSON bodies
-app.use(express.json({ limit: "5mb" })); // 10kb limit prevents huge payloads
-
-// parse URL-encoded form data
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ================================
 // Request Logging
 // ================================
-
-// morgan logs every HTTP request: method, url, status, response time
-// "dev" format is colorful and compact — good for development
 if (process.env.NODE_ENV !== "test") {
   app.use(morgan("dev"));
 }
 
 // ================================
-// Health Check Route
+// Health Check & Diagnostics Route
 // ================================
+app.get("/health", async (req, res) => {
+  const redisClient = require("./config/redis");
+  let redisStatus = "OFFLINE (Fallback Active)";
+  let totalKeys = 0;
+  let sampleKeys = [];
 
-// simple route to check if the server is running
-// useful for deployment pipelines and load balancers
-app.get("/health", (req, res) => {
+  try {
+    if (redisClient && redisClient.status === "ready") {
+      redisStatus = "CONNECTED & ACTIVELY STORING DATA";
+      const keys = await redisClient.scan(0, "COUNT", 50);
+      sampleKeys = keys[1] || [];
+      totalKeys = sampleKeys.length;
+    }
+  } catch (e) {
+    redisStatus = `OFFLINE (${e.message})`;
+  }
+
   res.status(200).json({
     success: true,
-    message: "Salon API is running",
-    environment: process.env.NODE_ENV,
+    message: "Salon API Health Diagnostics",
+    environment: process.env.NODE_ENV || "development",
     timestamp: new Date().toISOString(),
+    redisDiagnostics: {
+      status: redisStatus,
+      keysStored: totalKeys,
+      sampleKeysStored: sampleKeys,
+    },
   });
 });
 
 // ================================
-// API Routes — we'll add these next
+// API Routes
 // ================================
 app.use("/api/v1/auth", require("./routes/auth.routes"));
-app.use('/api/v1/admin', adminRoutes)
-app.use("/api/v1/browse", require("./routes/browse.routes")); // ← add this
+app.use('/api/v1/admin', adminRoutes);
+app.use("/api/v1/browse", require("./routes/browse.routes"));
 app.use("/api/v1/salons", require("./routes/salon.routes"));
 app.use("/api/v1/salons/:salonId/branches", require("./routes/branch.routes"));
 app.use("/api/v1/branches/:branchId/staff", require("./routes/staff.routes"));
@@ -143,14 +155,11 @@ app.use("/api/v1/staff", require("./routes/staffSelf.routes"));
 app.use("/api/v1/notifications", require("./routes/notification.routes"));
 app.use("/api/v1/reports", require("./routes/report.routes"));
 app.use("/api/v1/location", require("./routes/location.routes"));
-app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus)
-
+app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus);
 
 // ================================
 // 404 Handler
 // ================================
-
-// if no route matched, send a clean 404
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -161,9 +170,6 @@ app.use((req, res) => {
 // ================================
 // Global Error Handler
 // ================================
-
-// express calls this automatically when next(error) is called
-// the 4-parameter signature is required for express to recognize it as error handler
 app.use((err, req, res, next) => {
   logger.error(`${err.message} — ${req.method} ${req.originalUrl}`);
 
@@ -172,11 +178,9 @@ app.use((err, req, res, next) => {
     success: false,
     message: err.message || "Internal server error",
     conflictAppointment: err.conflictAppointment || null,
-    // only show stack trace in development
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
-
 
 // ================================
 // Start Server with WebSockets
@@ -194,5 +198,23 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
   logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode with WebSockets on port ${PORT}`);
 });
+
+// Graceful shutdown process listeners
+const gracefulShutdown = (signal) => {
+  console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
+  server.close(async () => {
+    console.log("🌐 Express server closed.");
+    try {
+      await mongoose.connection.close();
+      console.log("📦 MongoDB connection closed.");
+    } catch (e) {
+      console.error("Error closing MongoDB connection:", e);
+    }
+    process.exit(0);
+  });
+};
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 module.exports = { app, server };
