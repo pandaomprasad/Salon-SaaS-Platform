@@ -39,6 +39,7 @@ export function cleanCityName(rawName) {
   if (name.toLowerCase().includes("mumbai")) return "Mumbai";
   if (name.toLowerCase().includes("bengaluru") || name.toLowerCase().includes("bangalore")) return "Bangalore";
   if (name.toLowerCase().includes("delhi")) return "Delhi";
+  if (name.toLowerCase().includes("berhampur") || name.toLowerCase().includes("brahmapur")) return "Brahmapur";
 
   // If still very long (> 15 chars) and has multiple words, pick the first main word
   if (name.length > 15 && name.includes(" ")) {

@@ -38,7 +38,7 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  return "http://localhost:6969/api/v1";
+  return "https://optimistic-ambition-production-32e7.up.railway.app/api/v1";
 };
 
 export const API_BASE_URL = getBaseUrl();
