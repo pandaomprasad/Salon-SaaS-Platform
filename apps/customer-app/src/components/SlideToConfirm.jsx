@@ -10,6 +10,7 @@ import {
   Vibration,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C } from "../theme";
 
 // Safely attempt to load expo-haptics with native Vibration fallback
 let ExpoHaptics = null;
@@ -58,6 +59,7 @@ export default function SlideToConfirm({
   label = "Slide to Confirm",
   disabledLabel = "Select Slot to Book",
 }) {
+  const styles = getStyles();
   const [trackWidth, setTrackWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
   const isConfirmed = useRef(false);
@@ -200,12 +202,12 @@ export default function SlideToConfirm({
           ]}
         >
           {submitting ? (
-            <ActivityIndicator size="small" color="#1A1A1A" />
+            <ActivityIndicator size="small" color={C.bg} />
           ) : (
             <Ionicons
               name="chevron-forward-sharp"
               size={20}
-              color={disabled ? "#8E8880" : "#1A1A1A"}
+              color={disabled ? C.muted : C.bg}
             />
           )}
         </Animated.View>
@@ -214,39 +216,35 @@ export default function SlideToConfirm({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   outerCapsule: {
     position: "absolute",
     bottom: 24,
     left: 16,
     right: 16,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: C.ink,
     borderRadius: 32,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 20,
-    elevation: 12,
   },
   outerDisabled: {
-    backgroundColor: "#222222",
+    backgroundColor: C.ink,
   },
   priceBox: {
     paddingRight: 12,
   },
   priceLabel: {
-    color: "#8E8880",
+    color: C.muted,
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 1.2,
   },
   priceValue: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: 18,
     fontWeight: "900",
     marginTop: 1,
@@ -269,29 +267,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   trackText: {
-    color: "#E6CA65",
+    color: C.main,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.3,
   },
   trackTextDisabled: {
-    color: "#78716C",
+    color: C.muted,
     fontWeight: "700",
   },
   knob: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#E6CA65",
+    backgroundColor: C.main,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   knobDisabled: {
     backgroundColor: "rgba(255, 255, 255, 0.12)",
   },
-});
+  });
+}

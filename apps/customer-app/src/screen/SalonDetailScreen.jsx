@@ -15,10 +15,12 @@ import {
   Animated,
   Linking,
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import VerifiedBadge from "../components/VerifiedBadge";
-import { LinearGradient } from "expo-linear-gradient";
-import { C, S, FS, FW, R, TYPO } from "../theme";
+import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
+import { useTheme } from "../context/ThemeContext";
+import { BlurView } from 'expo-blur';
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -26,7 +28,6 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 import ServiceCard from "../components/ServiceCard";
 import ErrorCardModal from "../components/ErrorCardModal";
 import ReviewsSection from "../components/ReviewsSection";
-import AddReviewModal from "../components/AddReviewModal";
 import { ServiceCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { paiseToINR } from "../services/apiClient";
@@ -36,8 +37,8 @@ import { useAuth } from "../context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Warm gold accent reserved for rating & premium touches — used sparingly
-const GOLD = "#C7A053";
+// Highlight accent reserved for rating & premium touches — used sparingly
+const GOLD = C.main;
 
 const HERO_IMAGES = [
   "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1000&auto=format&fit=crop",
@@ -78,9 +79,10 @@ const ServiceList = memo(({ services, selectedServices = [], onSelect }) => {
 });
 
 function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { startSharedTransition, lastBounds } = useSharedElement();
   const { isFavorite, toggleFavorite } = useFavorites();
-  const { isAuthenticated } = useAuth();
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [services, setServices] = useState([]);
   const [selectedServices, setSelectedServices] = useState([]);
@@ -89,7 +91,6 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const [fetchingSalon, setFetchingSalon] = useState(false);
   const [salonData, setSalonData] = useState(salon);
   const [error, setError] = useState(null);
-  const [showAddReviewModal, setShowAddReviewModal] = useState(false);
   const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
   const [reviewsList, setReviewsList] = useState([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -103,7 +104,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   }, [selectedServices]);
 
   const handleCallSalon = useCallback(() => {
-    const phone = selectedBranch?.phone || salonData?.phone || "9876543210";
+    const phone = selectedBranch?.contactPhone || salonData?.contactPhone || "9876543210";
     Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
   }, [selectedBranch, salonData]);
 
@@ -113,16 +114,6 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     const query = encodeURIComponent(addressStr);
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
   }, [selectedBranch, salonData]);
-
-  const handleOpenAddReview = useCallback(() => {
-    if (!isAuthenticated) {
-      if (navigate) {
-        navigate("Login", { redirectTo: "SalonDetail", redirectData: { salon: salonData } });
-      }
-      return;
-    }
-    setShowAddReviewModal(true);
-  }, [isAuthenticated, navigate, salonData]);
 
   const animVal = useRef(new Animated.Value(selectedServices.length > 0 ? 1 : 0)).current;
 
@@ -162,11 +153,21 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     outputRange: [1, 0],
   });
 
+  const slideUpY = animVal.interpolate({
+    inputRange: [0, 1],
+    outputRange: [160, 0],
+  });
+
   const salonId = salonData?._id || salonData?.id;
   const favorited = isFavorite(salonId);
 
   const coverImage = salonData?.coverImage || salonData?.image || HERO_IMAGES[0];
-  const rating = (salonData?.rating || 4.9).toFixed(1);
+
+  const reviewAvg = useMemo(() => {
+    if (reviewsList.length === 0) return "0.0";
+    const total = reviewsList.reduce((sum, r) => sum + (r.score || r.rating || 0), 0);
+    return (total / reviewsList.length).toFixed(1);
+  }, [reviewsList]);
 
   const handleBack = useCallback(() => {
     if (startSharedTransition && lastBounds) {
@@ -237,6 +238,28 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     };
   }, [selectedBranch]);
 
+  useEffect(() => {
+    if (!salonId) return;
+    let cancelled = false;
+    const fetchReviews = async () => {
+      try {
+        const branchId = selectedBranch?._id || selectedBranch?.id;
+        const res = branchId
+          ? await browseService.getBranchReviews(branchId)
+          : await browseService.getSalonReviews(salonId);
+        if (cancelled) return;
+        setReviewsList(res.data?.reviews || []);
+      } catch (err) {
+        console.log("Error loading reviews:", err.message);
+        if (!cancelled) setReviewsList([]);
+      }
+    };
+    fetchReviews();
+    return () => {
+      cancelled = true;
+    };
+  }, [salonId, selectedBranch]);
+
   const categories = useMemo(() => {
     const set = new Set();
     services.forEach((s) => {
@@ -304,24 +327,15 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           <Image source={{ uri: coverImage }} style={styles.heroImage} resizeMode="cover" />
 
           {/* Bottom scrim so overlaid content stays legible on any photo */}
-          <LinearGradient
-            colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.38)"]}
-            start={{ x: 0.5, y: 0.4 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.heroScrim}
-            pointerEvents="none"
-          />
+          <View style={styles.heroScrim} pointerEvents="none" />
 
           <View style={styles.priceOverlayPill}>
             <Text style={styles.priceOverlayIcon}>✦</Text>
-            <View>
-              <Text style={styles.priceOverlayAmount}>₹499</Text>
-              <Text style={styles.priceOverlayUnit}>per session</Text>
-            </View>
+            <Text style={styles.priceOverlayAmount}>₹499</Text>
           </View>
 
           <TouchableOpacity style={styles.circleBackBtn} onPress={handleBack} activeOpacity={0.8}>
-            <Ionicons name="chevron-back" size={19} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={19} color="#000000ff" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -332,7 +346,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             <Ionicons
               name={favorited ? "heart" : "heart-outline"}
               size={17}
-              color={favorited ? "#E8556B" : "#FFFFFF"}
+              color={favorited ? C.herat : "#000000ff"}
             />
           </TouchableOpacity>
 
@@ -350,7 +364,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           <Text style={styles.eyebrowLabel}>SALON & SPA</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
             <Text style={styles.salonTitle}>{salonData?.name}</Text>
-            <VerifiedBadge size={20} color="#3897F0" />
+            <VerifiedBadge size={20} color={C.verified} />
           </View>
 
           <View style={styles.locationRatingRow}>
@@ -363,20 +377,20 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
             <View style={styles.ratingBlock}>
               <Ionicons name="star" size={13} color={GOLD} />
-              <Text style={styles.ratingText}>{rating}</Text>
-              <Text style={styles.ratingSubtext}>(142)</Text>
+              <Text style={styles.ratingText}>{reviewAvg}</Text>
+              <Text style={styles.ratingSubtext}>({reviewsList.length})</Text>
             </View>
           </View>
 
           {/* Quick Actions: Call & Directions */}
           <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={styles.quickActionBtn} onPress={handleCallSalon} activeOpacity={0.8}>
-              <Ionicons name="call-outline" size={14} color={C.ink} />
+            <TouchableOpacity style={styles.quickActionBtn} onPress={handleCallSalon} activeOpacity={0.85}>
+              <Ionicons name="call-outline" size={16} color={C.ink} />
               <Text style={styles.quickActionText}>Call Salon</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.quickActionBtn} onPress={handleGetDirections} activeOpacity={0.8}>
-              <Ionicons name="navigate-outline" size={14} color={C.ink} />
+            <TouchableOpacity style={styles.quickActionBtn} onPress={handleGetDirections} activeOpacity={0.85}>
+              <Ionicons name="navigate-outline" size={16} color={C.ink} />
               <Text style={styles.quickActionText}>Directions</Text>
             </TouchableOpacity>
           </View>
@@ -463,20 +477,32 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           <Text style={styles.sectionLabel}>Services menu</Text>
 
           {categories.length > 1 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catTabRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.catTabRow}
+              contentContainerStyle={{ alignItems: "center" }}
+            >
               {categories.map((cat) => {
                 const isSelected = selectedCategory === cat;
                 return (
                   <TouchableOpacity
                     key={cat}
-                    style={styles.catTab}
+                    style={[
+                      styles.catTabPill,
+                      isSelected ? { backgroundColor: theme.primary } : { backgroundColor: "transparent" },
+                    ]}
                     onPress={() => setSelectedCategory(cat)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
-                    <Text style={[styles.catTabText, isSelected && styles.catTabTextSelected]}>
+                    <Text
+                      style={[
+                        styles.catTabText,
+                        { color: isSelected ? "#FFFFFF" : theme.muted, fontWeight: isSelected ? "700" : "600" },
+                      ]}
+                    >
                       {cat === "all" ? "All services" : cat.charAt(0).toUpperCase() + cat.slice(1)}
                     </Text>
-                    <View style={[styles.catTabUnderline, isSelected && styles.catTabUnderlineActive]} />
                   </TouchableOpacity>
                 );
               })}
@@ -506,30 +532,11 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         <View style={{ paddingHorizontal: S.md }}>
           <ReviewsSection
             reviews={reviewsList}
-            overallRating={rating}
-            totalReviews={142}
-            onOpenAddReview={handleOpenAddReview}
+            overallRating={reviewAvg}
+            totalReviews={reviewsList.length}
           />
         </View>
       </ScrollView>
-
-      <AddReviewModal
-        visible={showAddReviewModal}
-        salonName={salonData?.name}
-        onClose={() => setShowAddReviewModal(false)}
-        onSubmit={async (newReview) => {
-          setReviewsList((prev) => [
-            {
-              id: `user_rev_${Date.now()}`,
-              userName: "You",
-              rating: newReview.rating,
-              comment: newReview.comment,
-              date: "Just now",
-            },
-            ...prev,
-          ]);
-        }}
-      />
 
       <Modal
         visible={showAmenitiesModal}
@@ -587,74 +594,47 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         </View>
       </Modal>
 
-      <LinearGradient
-        colors={["rgba(255,255,255,0)", C.bg, C.bg]}
-        style={styles.bottomFade}
-        pointerEvents="none"
-      />
-
-      <View style={styles.floatingBottomContainer}>
-        <View style={styles.floatingBar}>
-          <Animated.View
+      {/* Floating Bottom Booking Action Bar — Hidden when 0 services, slides up smoothly when >= 1 service selected */}
+      <Animated.View
+        style={[
+          styles.floatingBottomBarWrapper,
+          { transform: [{ translateY: slideUpY }] },
+        ]}
+        pointerEvents={selectedServices.length > 0 ? "auto" : "none"}
+      >
+        {/* Floating Bottom Booking Action Bar */}
+        <BlurView
+          intensity={Platform.OS === "ios" ? 40 : 60}
+          tint={isDark ? "dark" : "light"}
+          style={styles.floatingBottomBar}
+        >
+          {/* Solid tint on top of the blur — hides content bleed-through, gives that frosted-white look */}
+          <View
             style={[
-              styles.floatingPriceBlock,
-              {
-                width: priceWidth,
-                opacity: priceOpacity,
-                paddingLeft: pricePaddingLeft,
-              },
+              styles.floatingBottomBarTint,
+              { backgroundColor: isDark ? "rgba(20,20,18,0.55)" : "rgba(255,255,255,0.85)" },
             ]}
-          >
-            <Animated.View style={{ transform: [{ translateX: priceTranslateX }] }}>
-              <Text style={styles.floatingPriceLabel} numberOfLines={1}>
-                {selectedServices.length > 0
-                  ? selectedServices.length === 1
-                    ? selectedServices[0].name
-                    : `${selectedServices.length} Services Selected`
-                  : ""}
+            pointerEvents="none"
+          />
+
+          <View style={styles.bookRow}>
+            <View style={styles.totalBlock}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalAmount}>
+                {selectedServices.length > 0 ? paiseToINR(totalPrice) : "₹0.00"}
               </Text>
-              <Text style={styles.floatingPriceAmount} numberOfLines={1}>
-                {selectedServices.length > 0 ? paiseToINR(totalPrice) : ""}
-              </Text>
-            </Animated.View>
-          </Animated.View>
-
-          <TouchableOpacity
-            disabled={selectedServices.length === 0}
-            onPress={handleBookNow}
-            activeOpacity={selectedServices.length > 0 ? 0.85 : 1}
-            style={styles.animatedBookTouchable}
-          >
-            <View style={styles.animatedBookBtn}>
-              <Animated.View style={[StyleSheet.absoluteFill, { opacity: disabledBgOpacity }]}>
-                <LinearGradient
-                  colors={["#666560", "#4a4945", "#333230"]}
-                  start={{ x: 0.5, y: 0 }}
-                  end={{ x: 0.5, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-              </Animated.View>
-
-              <Animated.View style={[StyleSheet.absoluteFill, { opacity: activeBgOpacity }]}>
-                <LinearGradient
-                  colors={["#3a3a37", "#161614", "#000000"]}
-                  start={{ x: 0.5, y: 0 }}
-                  end={{ x: 0.5, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                  colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0)"]}
-                  start={{ x: 0.5, y: 0 }}
-                  end={{ x: 0.5, y: 1 }}
-                  style={styles.bookMainBtnSheen}
-                />
-              </Animated.View>
-
-              <Text style={styles.animatedBookBtnText}>Book Service</Text>
             </View>
-          </TouchableOpacity>
-        </View>
-      </View>
+
+            <TouchableOpacity
+              onPress={handleBookNow}
+              activeOpacity={0.88}
+              style={[styles.animatedBookBtn, { backgroundColor: theme.primary }]}
+            >
+              <Text style={styles.animatedBookBtnText}>Book now</Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </Animated.View>
     </View>
   );
 }
@@ -668,7 +648,7 @@ function getStyles() {
       backgroundColor: C.bg,
     },
     scrollContent: {
-      paddingBottom: 120,
+      paddingBottom: 200,
     },
     heroCardContainer: {
       height: 320,
@@ -689,15 +669,16 @@ function getStyles() {
       right: 0,
       bottom: 0,
       height: "45%",
+      backgroundColor: "rgba(0, 0, 0, 0.45)",
     },
     circleBackBtn: {
       position: "absolute",
       top: Platform.OS === "android" ? 44 : 52,
       left: S.md,
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: "rgba(20, 20, 18, 0.4)",
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
+      backgroundColor: "rgba(255, 255, 255, 0.7)",
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1,
@@ -707,10 +688,10 @@ function getStyles() {
       position: "absolute",
       top: Platform.OS === "android" ? 44 : 52,
       right: S.md,
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: "rgba(20, 20, 18, 0.4)",
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
+      backgroundColor: "rgba(255, 255, 255, 0.7)",
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1,
@@ -724,7 +705,7 @@ function getStyles() {
       alignItems: "center",
       backgroundColor: "rgba(15, 15, 13, 0.78)",
       paddingHorizontal: S.sm + 3,
-      paddingVertical: 7,
+      paddingVertical: 8,
       borderRadius: R.lg,
       gap: 7,
       borderWidth: 1,
@@ -772,16 +753,17 @@ function getStyles() {
     },
     eyebrowLabel: {
       fontSize: 10.5,
-      fontWeight: FW.semiBold,
+      fontWeight: FW.bold,
       color: GOLD,
       letterSpacing: 1.6,
       marginBottom: 6,
     },
     salonTitle: {
-      fontSize: 25,
-      fontWeight: "700",
+      fontFamily: FONT_FAMILY.serif,
+      fontSize: 26,
+      fontWeight: FW.bold,
       color: C.ink,
-      letterSpacing: -0.6,
+      letterSpacing: -0.3,
       marginBottom: 8,
     },
     locationRatingRow: {
@@ -814,7 +796,7 @@ function getStyles() {
     },
     ratingText: {
       fontSize: FS.bodySm,
-      fontWeight: FW.semiBold,
+      fontWeight: FW.bold,
       color: C.ink,
     },
     ratingSubtext: {
@@ -832,7 +814,8 @@ function getStyles() {
       marginBottom: S.lg + 2,
     },
     sectionLabel: {
-      fontSize: 15,
+      fontFamily: FONT_FAMILY.serif,
+      fontSize: 18,
       fontWeight: "700",
       color: C.ink,
       letterSpacing: -0.2,
@@ -870,7 +853,7 @@ function getStyles() {
     moreAmenityText: {
       fontSize: FS.bodySm,
       fontWeight: FW.semiBold,
-      color: "#FFFFFF",
+      color: C.bg,
     },
     aboutText: {
       fontSize: FS.bodySm,
@@ -884,11 +867,6 @@ function getStyles() {
     galleryThumbWrap: {
       borderRadius: R.md + 2,
       marginRight: S.sm,
-      elevation: 2,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 5,
     },
     galleryThumb: {
       width: 100,
@@ -906,7 +884,7 @@ function getStyles() {
     branchPill: {
       backgroundColor: C.surface,
       paddingHorizontal: 16,
-      paddingVertical: 13,
+      paddingVertical: 8,
       borderRadius: 16,
       marginRight: 10,
       borderWidth: 1,
@@ -938,44 +916,29 @@ function getStyles() {
       letterSpacing: -0.2,
     },
     branchTitleSelected: {
-      color: "#FFFFFF",
+      color: C.bg,
     },
     branchCity: {
-      fontSize: 12.5,
+      fontSize: 12,
       color: C.muted,
       marginTop: 3,
     },
     branchCitySelected: {
-      color: "#a8a59c",
+      color: C.bg,
     },
     catTabRow: {
       flexDirection: "row",
       marginBottom: S.md,
     },
-    catTab: {
-      alignItems: "center",
-      marginRight: S.lg,
-      paddingBottom: 8,
+    catTabPill: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 14,
+      marginRight: 6,
     },
     catTabText: {
       fontSize: 13,
-      fontWeight: FW.medium,
-      color: C.muted,
       letterSpacing: 0.1,
-    },
-    catTabTextSelected: {
-      color: C.ink,
-      fontWeight: "700",
-    },
-    catTabUnderline: {
-      height: 2,
-      width: "100%",
-      marginTop: 8,
-      borderRadius: 1,
-      backgroundColor: "transparent",
-    },
-    catTabUnderlineActive: {
-      backgroundColor: GOLD,
     },
     emptyCard: {
       padding: S.lg,
@@ -989,74 +952,66 @@ function getStyles() {
       color: C.muted,
       fontSize: FS.bodySm,
     },
-    bottomFade: {
+    // Outer wrapper carries the shadow — NOT clipped, so Android elevation renders cleanly
+    // Outer wrapper carries the shadow — NOT clipped, so Android elevation renders cleanly
+    // Outer wrapper carries the shadow — NOT clipped, so Android elevation renders cleanly
+    floatingBottomBarWrapper: {
       position: "absolute",
+      bottom: 0,
       left: 0,
       right: 0,
-      bottom: 0,
-      height: 110,
-      zIndex: 998,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 12,
     },
-    floatingBottomContainer: {
-      position: "absolute",
-      bottom: 20,
-      left: S.md,
-      right: S.md,
-      zIndex: 999,
+    // Inner BlurView is clipped for rounded corners — no shadow here
+    floatingBottomBar: {
+      paddingHorizontal: S.md,
+      paddingTop: 14,
+      paddingBottom: Platform.OS === "ios" ? 28 : 16,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      overflow: "hidden",
     },
-    floatingBar: {
+    floatingBottomBarTint: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    bookRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: C.surface,
-      borderRadius: 22,
-      padding: 6,
-      borderWidth: 1,
-      borderColor: C.border,
-      elevation: 6,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 12,
-      overflow: "hidden",
+      zIndex: 1, // sit above the tint layer
     },
-    floatingPriceBlock: {
+    totalBlock: {
       justifyContent: "center",
     },
-    floatingPriceLabel: {
-      fontSize: 11,
+    totalLabel: {
+      fontSize: 12,
       color: C.muted,
       fontWeight: FW.regular,
-      marginBottom: 1,
+      marginBottom: 2,
     },
-    floatingPriceAmount: {
+    totalAmount: {
       fontSize: 20,
-      fontWeight: "700",
-      color: C.goldBright,
+      fontWeight: FW.bold,
+      color: C.ink,
       letterSpacing: -0.3,
     },
-    animatedBookTouchable: {
-      flex: 1,
-      borderRadius: 16,
-      overflow: "hidden",
-    },
     animatedBookBtn: {
-      borderRadius: 16,
-      paddingVertical: 13,
-      paddingHorizontal: 20,
+      height: 56,
+      width: Platform.OS === "ios" ? '70%' : '60%',
+      borderRadius: 18,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.08)",
-      position: "relative",
     },
     animatedBookBtnText: {
       color: "#FFFFFF",
-      fontSize: 15,
-      fontWeight: "600",
+      fontSize: 16,
+      fontWeight: FW.bold,
       letterSpacing: 0.2,
-      zIndex: 2,
     },
     modalOverlay: {
       flex: 1,
@@ -1159,7 +1114,7 @@ function getStyles() {
       justifyContent: "center",
     },
     amenitiesGotItBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: 15,
       fontWeight: "600",
     },
@@ -1170,19 +1125,23 @@ function getStyles() {
       marginTop: S.sm,
     },
     quickActionBtn: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
       backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.border,
-      borderRadius: R.pill,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      gap: 6,
+      borderRadius: 14,
+      paddingVertical: 12,
+      gap: 7,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 6,
+      elevation: 2,
     },
     quickActionText: {
-      fontSize: 12,
-      fontWeight: FW.medium,
+      fontSize: 13,
+      fontWeight: FW.semiBold,
       color: C.ink,
     },
   });

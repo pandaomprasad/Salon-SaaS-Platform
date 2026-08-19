@@ -220,7 +220,7 @@ function getStyles() {
       color: C.ink,
     },
     tagTextActive: {
-      color: "#FFFFFF",
+      color: C.bg,
     },
     input: {
       backgroundColor: C.surface,
@@ -241,7 +241,7 @@ function getStyles() {
       marginTop: S.xs,
     },
     saveBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },

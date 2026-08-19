@@ -11,7 +11,6 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import SlotPicker from "../components/SlotPicker";
 import StaffPicker from "../components/StaffPicker";
@@ -19,14 +18,14 @@ import ErrorCardModal from "../components/ErrorCardModal";
 import ConflictModal from "../components/ConflictModal";
 import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
-import { paiseToINR } from "../services/apiClient";
+import { paiseToINR, toLocalDateStr } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
 
 
 export default function BookingScreen({ salon, branch, service, selectedServices, goBack, navigate }) {
   const { isAuthenticated } = useAuth();
   const todayObj = new Date();
-  const todayStr = todayObj.toISOString().split("T")[0];
+  const todayStr = toLocalDateStr(todayObj);
 
   const allServices = selectedServices && selectedServices.length > 0 ? selectedServices : (service ? [service] : []);
   const rawTotalPrice = allServices.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -77,25 +76,40 @@ export default function BookingScreen({ salon, branch, service, selectedServices
         const res = await browseService.getBranchSlots(branchId, selectedDate, staffId, sId);
         if (cancelled) return;
         const raw = res.data?.availability || res.data?.slots || (Array.isArray(res.data) ? res.data : []);
-        const flatSlots = Array.isArray(raw)
-          ? raw.reduce((acc, item) => {
+        const slotMap = new Map();
+        if (Array.isArray(raw)) {
+          raw.forEach((item) => {
             if (item.slots && Array.isArray(item.slots)) {
               item.slots.forEach((s) => {
-                acc.push({
+                const timeKey = s.startTime;
+                if (!timeKey) return;
+                const newSlot = {
                   _id: s.slotId,
                   startTime: s.startTime,
                   endTime: s.endTime,
                   staffName: item.staffName,
                   status: s.status || "AVAILABLE",
-                });
+                };
+                if (!slotMap.has(timeKey)) {
+                  slotMap.set(timeKey, newSlot);
+                } else {
+                  const existing = slotMap.get(timeKey);
+                  const existingAvailable = (existing.status || "").toUpperCase() === "AVAILABLE";
+                  const newAvailable = (newSlot.status || "").toUpperCase() === "AVAILABLE";
+                  if (!existingAvailable && newAvailable) {
+                    slotMap.set(timeKey, newSlot);
+                  }
+                }
               });
             } else {
-              acc.push(item);
+              const timeKey = item.startTime || item.time;
+              if (timeKey && !slotMap.has(timeKey)) {
+                slotMap.set(timeKey, item);
+              }
             }
-            return acc;
-          }, [])
-          : [];
-        setSlots(flatSlots);
+          });
+        }
+        setSlots(Array.from(slotMap.values()));
       } catch (err) {
         console.log("Error loading slots:", err.message);
         if (!cancelled) setSlots([]);
@@ -119,7 +133,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       if (navigate) {
         navigate("Login", {
           redirectTo: "Booking",
-          redirectData: { salon, branch, service },
+          redirectData: { salon, branch, service, selectedServices: allServices },
         });
       }
       return;
@@ -134,6 +148,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
         slotId,
         serviceId,
         customerNotes,
+        guests: guestCount,
       });
 
       setBookingSuccess(true);
@@ -273,6 +288,46 @@ export default function BookingScreen({ salon, branch, service, selectedServices
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
+        {/* Selected Services Section */}
+        {allServices.length > 0 && (
+          <View style={styles.servicesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeading}>SELECTED SERVICES</Text>
+              <Text style={styles.sectionHint}>
+                {allServices.length} {allServices.length === 1 ? "SERVICE" : "SERVICES"} ({totalDurationMinutes} MINS)
+              </Text>
+            </View>
+
+            <View style={styles.servicesCard}>
+              {allServices.map((svc, idx) => (
+                <View
+                  key={svc._id || svc.id || idx}
+                  style={[
+                    styles.serviceItemRow,
+                    idx < allServices.length - 1 && styles.serviceItemDivider,
+                  ]}
+                >
+                  <View style={styles.serviceIconCircle}>
+                    <Ionicons name="cut-outline" size={16} color={C.main} />
+                  </View>
+
+                  <View style={styles.serviceItemInfo}>
+                    <Text style={styles.serviceItemName} numberOfLines={1}>
+                      {svc.name}
+                    </Text>
+                    <Text style={styles.serviceItemSub}>
+                      {svc.category || "Service"} • {svc.durationMinutes || svc.duration || 30} mins
+                    </Text>
+                  </View>
+
+                  <Text style={styles.serviceItemPrice}>
+                    {paiseToINR(svc.price)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View style={styles.guestsCard}>
           <View style={styles.guestsInfo}>
@@ -317,7 +372,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
                 <Ionicons
                   name="add"
                   size={14}
-                  color={isMax ? C.muted : "#FFFFFF"}
+                  color={isMax ? C.muted : C.bg}
                 />
               </Animated.View>
             </TouchableOpacity>
@@ -359,12 +414,6 @@ export default function BookingScreen({ salon, branch, service, selectedServices
         </View>
       </ScrollView>
 
-      <LinearGradient
-        colors={["rgba(255,255,255,0)", C.bg, C.bg]}
-        style={styles.bottomFade}
-        pointerEvents="none"
-      />
-
       <View style={styles.floatingBottomContainer}>
         <View style={styles.floatingBar}>
           <View style={styles.floatingPriceBlock}>
@@ -378,24 +427,13 @@ export default function BookingScreen({ salon, branch, service, selectedServices
             disabled={!selectedSlot || submitting}
             activeOpacity={0.85}
           >
-            <LinearGradient
-              colors={["#3a3a37", "#161614", "#000000"]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.bookMainBtn}
-            >
-              <LinearGradient
-                colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0)"]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.bookMainBtnSheen}
-              />
+            <View style={styles.bookMainBtn}>
               {submitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={C.bg} size="small" />
               ) : (
                 <Text style={styles.bookMainBtnText}>Confirm booking</Text>
               )}
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -446,6 +484,68 @@ function getStyles() {
       paddingHorizontal: S.md,
       paddingTop: S.md,
       paddingBottom: 110,
+    },
+    servicesSection: {
+      marginBottom: S.sm + 2,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: S.xs,
+    },
+    sectionHeading: {
+      ...TYPO.eyebrow,
+    },
+    sectionHint: {
+      fontSize: 9,
+      fontWeight: "600",
+      letterSpacing: 0.9,
+      color: C.dustTaupe,
+    },
+    servicesCard: {
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      borderWidth: 1,
+      borderColor: C.border,
+      paddingHorizontal: S.md,
+      paddingVertical: S.xs / 2,
+    },
+    serviceItemRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: S.sm,
+      gap: S.sm,
+    },
+    serviceItemDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: C.borderLight,
+    },
+    serviceIconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: C.thinking,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    serviceItemInfo: {
+      flex: 1,
+    },
+    serviceItemName: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.bold,
+      color: C.ink,
+      marginBottom: 2,
+    },
+    serviceItemSub: {
+      fontSize: 11,
+      color: C.muted,
+    },
+    serviceItemPrice: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.bold,
+      color: C.ink,
     },
     calendarCard: {
       backgroundColor: C.surface,
@@ -520,7 +620,7 @@ function getStyles() {
       opacity: 0.4,
     },
     dayCellTextSelected: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontWeight: FW.bold,
     },
     guestsCard: {
@@ -604,14 +704,6 @@ function getStyles() {
       minHeight: 70,
       textAlignVertical: "top",
     },
-    bottomFade: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: 110,
-      zIndex: 998,
-    },
     floatingBottomContainer: {
       position: "absolute",
       bottom: 20,
@@ -630,11 +722,6 @@ function getStyles() {
       paddingVertical: 8,
       borderWidth: 1,
       borderColor: C.border,
-      elevation: 6,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 12,
     },
     floatingPriceBlock: {
       justifyContent: "center",
@@ -664,20 +751,12 @@ function getStyles() {
       alignItems: "center",
       justifyContent: "center",
       overflow: "hidden",
+      backgroundColor: C.ink,
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.08)",
-    },
-    bookMainBtnSheen: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: "55%",
-      borderTopLeftRadius: 15,
-      borderTopRightRadius: 15,
+      borderColor: C.border,
     },
     bookMainBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: 15,
       fontWeight: "600",
       letterSpacing: 0.2,
@@ -724,7 +803,7 @@ function getStyles() {
       marginBottom: S.xs,
     },
     primaryBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },

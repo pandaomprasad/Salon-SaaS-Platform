@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BAR_MARGIN = 16; // left: 16, right: 16
@@ -19,6 +20,7 @@ const NUM_TABS = 4;
 const TAB_COL_WIDTH = TRACK_WIDTH / NUM_TABS;
 
 export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }) {
+  const { theme } = useTheme();
   const activeIndex = tabs.findIndex((t) => t.id === currentTab);
   const selectedIndex = activeIndex >= 0 ? activeIndex : 0;
 
@@ -46,7 +48,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
       {/* Moving Pill Indicator */}
       <Animated.View
         style={[
@@ -54,6 +56,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
           {
             left: indicatorLeft,
             width: TAB_COL_WIDTH,
+            backgroundColor: theme.primary,
           },
         ]}
       />
@@ -74,12 +77,12 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
                 <Ionicons
                   name={isSelected ? tab.iconActive : tab.iconInactive}
                   size={19}
-                  color={isSelected ? "#FFFFFF" : C.muted}
+                  color={isSelected ? "#FFFFFF" : theme.muted}
                 />
                 <Text
                   style={[
                     styles.tabLabel,
-                    isSelected ? styles.labelActive : styles.labelInactive,
+                    isSelected ? styles.labelActive : { color: theme.muted, fontWeight: "600" },
                   ]}
                   numberOfLines={1}
                 >
@@ -103,11 +106,9 @@ function getStyles() {
       right: BAR_MARGIN,
       height: 64,
       borderRadius: 32,
-      backgroundColor: C.surface,
       justifyContent: "center",
       paddingHorizontal: BAR_PADDING,
       borderWidth: 1,
-      borderColor: C.border,
     },
     tabsTrack: {
       flexDirection: "row",
@@ -136,7 +137,6 @@ function getStyles() {
       fontWeight: "800",
     },
     labelInactive: {
-      color: C.muted,
       fontWeight: "600",
     },
     movingIndicator: {
@@ -144,7 +144,6 @@ function getStyles() {
       top: 8,
       height: 48,
       borderRadius: 24,
-      backgroundColor: C.ink,
       zIndex: 1,
     },
   });

@@ -23,6 +23,7 @@ const REVIEW_TERMS = [
 ];
 
 export default function AddReviewModal({ visible, onClose, onSubmit, appointment, salonName: propSalonName }) {
+  const styles = getStyles();
   const [aspects, setAspects] = useState({
     service: 5,
     cleanliness: 5,
@@ -164,7 +165,7 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
                 activeOpacity={0.85}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={C.bg} />
                 ) : (
                   <Text style={styles.submitBtnText}>Submit Review</Text>
                 )}
@@ -177,7 +178,8 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(38, 37, 30, 0.5)",
@@ -258,7 +260,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   overallBadge: {
-    backgroundColor: "rgba(245, 78, 0, 0.08)",
+    backgroundColor: C.mainLight,
     paddingVertical: 8,
     paddingHorizontal: S.sm,
     borderRadius: R.sm,
@@ -295,8 +297,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitBtnText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: FS.bodySm,
     fontWeight: FW.medium,
   },
-});
+  });
+}

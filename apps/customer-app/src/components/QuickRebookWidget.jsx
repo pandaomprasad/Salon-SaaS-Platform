@@ -166,7 +166,7 @@ function getStyles() {
       borderRadius: R.md,
     },
     primaryBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },

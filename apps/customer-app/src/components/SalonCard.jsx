@@ -2,7 +2,7 @@ import React, { useRef, memo, useCallback } from "react";
 import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import VerifiedBadge from "./VerifiedBadge";
-import { C, S, FS, FW, R, TYPO, SHADOWS } from "../theme";
+import { C, S, FS, FW, R, TYPO, SHADOWS, FONT_FAMILY } from "../theme";
 import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
 import BouncyButton from "./BouncyButton";
@@ -22,7 +22,9 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
   const { startSharedTransition } = useSharedElement();
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const rating = (salon.rating || 4.8).toFixed(1);
+  const numericRating = typeof salon.rating === "number" ? salon.rating : parseFloat(salon.rating || 4.8);
+  const ratingStr = numericRating.toFixed(1);
+  const isTopRated = numericRating >= 4.5;
   const coverImage = salon.coverImage || salon.image || DEMO_IMAGES[index % DEMO_IMAGES.length];
   const branchCount = salon.branches?.length || 1;
   const isFav = isFavorite(salon._id || salon.id);
@@ -70,15 +72,15 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={16}
-            color={isFav ? "#EF4444" : C.ink}
+            color={isFav ? C.herat : C.ink}
           />
         </TouchableOpacity>
 
-        {/* Distance badge pill per cursor/DESIGN.md */}
-        {salon.distanceKm ? (
-          <View style={styles.distanceBadge}>
-            <Ionicons name="navigate" size={10} color={C.ink} />
-            <Text style={styles.distanceText}>{salon.distanceKm} km</Text>
+        {/* Top Rated Badge Pill — Only shown for ratings >= 4.5 */}
+        {isTopRated ? (
+          <View style={styles.topRatedBadge}>
+            <Ionicons name="star" size={11} color="#FFFFFF" style={{ marginRight: 3 }} />
+            <Text style={styles.topRatedText}>Top Rated</Text>
           </View>
         ) : null}
       </View>
@@ -87,7 +89,7 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
       <View style={styles.info}>
         <View style={styles.titleRow}>
           <Text style={styles.name} numberOfLines={1}>{salon.name}</Text>
-          <VerifiedBadge size={15} color="#3897F0" />
+          <VerifiedBadge size={16} color={C.verified} />
         </View>
 
         <Text style={styles.description} numberOfLines={1}>
@@ -96,12 +98,12 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
 
         <View style={styles.footerRow}>
           <View style={styles.ratingBox}>
-            <Ionicons name="star" size={12} color="#c08532" />
-            <Text style={styles.ratingText}>{rating}</Text>
+            <Ionicons name="star" size={12} color={C.main} />
+            <Text style={styles.ratingText}>{ratingStr}</Text>
             <Text style={styles.branchCount}>({branchCount} loc)</Text>
           </View>
 
-          {/* button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius */}
+          {/* button-primary per cursor/DESIGN.md: 8px radius */}
           <View style={styles.bookBtn}>
             <Text style={styles.bookBtnText}>Book</Text>
           </View>
@@ -146,35 +148,34 @@ function getStyles() {
       position: "absolute",
       top: 10,
       left: 10,
-      width: 34,
-      height: 34,
-      borderRadius: R.pill,
+      width: 36,
+      height: 36,
+      borderRadius: R.md,
       backgroundColor: C.surface,
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1,
       borderColor: C.border,
       zIndex: 10,
-      elevation: 4,
     },
-    distanceBadge: {
+    topRatedBadge: {
       position: "absolute",
-      top: S.xs,
-      right: S.xs,
+      top: 10,
+      right: 10,
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: C.surface,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
+      backgroundColor: "rgba(18, 18, 18, 0.72)",
+      paddingHorizontal: 9,
+      paddingVertical: 4,
       borderRadius: R.pill,
-      gap: 4,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: "rgba(255, 255, 255, 0.2)",
     },
-    distanceText: {
-      color: C.ink,
+    topRatedText: {
+      color: "#FFFFFF",
       fontSize: 10,
-      fontWeight: FW.medium,
+      fontWeight: FW.bold,
+      letterSpacing: 0.2,
     },
     info: {
       padding: S.md,
@@ -186,13 +187,14 @@ function getStyles() {
       marginBottom: 2,
     },
     name: {
-      fontSize: FS.titleSm,
-      fontWeight: FW.semiBold,
+      fontFamily: FONT_FAMILY.serif,
+      fontSize: 18,
+      fontWeight: FW.bold,
       color: C.ink,
       flex: 1,
     },
     description: {
-      fontSize: FS.bodySm,
+      fontSize: FS.xs + 1,
       color: C.body,
       marginBottom: S.sm,
     },
@@ -208,7 +210,7 @@ function getStyles() {
     },
     ratingText: {
       fontSize: FS.bodySm,
-      fontWeight: FW.semiBold,
+      fontWeight: FW.bold,
       color: C.ink,
     },
     branchCount: {
@@ -218,13 +220,13 @@ function getStyles() {
     bookBtn: {
       backgroundColor: C.main,
       paddingHorizontal: 14,
-      paddingVertical: 6,
-      borderRadius: R.md,
+      paddingVertical: 7,
+      borderRadius: R.button,
     },
     bookBtnText: {
       color: "#FFFFFF",
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+      fontSize: FS.xs + 1,
+      fontWeight: FW.bold,
     },
   });
 }

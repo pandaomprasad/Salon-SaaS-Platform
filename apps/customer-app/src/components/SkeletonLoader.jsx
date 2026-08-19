@@ -4,6 +4,7 @@ import { View, Animated, StyleSheet } from "react-native";
 import { C, R, S } from "../theme";
 
 export function SkeletonBox({ width, height, borderRadius = R.md, style }) {
+  const styles = getStyles();
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export function SkeletonBox({ width, height, borderRadius = R.md, style }) {
 }
 
 export function SalonCardSkeleton() {
+  const styles = getStyles();
   return (
     <View style={styles.cardSkeleton}>
       <SkeletonBox height={160} borderRadius={R.lg} style={{ marginBottom: S.xs }} />
@@ -58,6 +60,7 @@ export function SalonCardSkeleton() {
 }
 
 export function ServiceCardSkeleton() {
+  const styles = getStyles();
   return (
     <View style={styles.serviceSkeleton}>
       <View style={{ flex: 1, paddingRight: S.sm }}>
@@ -70,9 +73,10 @@ export function ServiceCardSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   box: {
-    backgroundColor: C.border || "#E2E8F0",
+    backgroundColor: C.border,
   },
   cardSkeleton: {
     backgroundColor: C.surface,
@@ -92,4 +96,5 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     alignItems: "center",
   },
-});
+  });
+}

@@ -12,7 +12,6 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import SalonCard from "../components/SalonCard";
@@ -56,7 +55,7 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
       if (debouncedSearch.trim()) {
         params.search = debouncedSearch.trim();
       } else if (selectedCategory !== "all") {
-        params.search = selectedCategory;
+        params.category = selectedCategory;
       }
       const res = await browseService.getSalons(params);
       const list = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
@@ -136,15 +135,10 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
                 activeOpacity={0.85}
               >
                 {isSelected ? (
-                  <LinearGradient
-                    colors={["#f54e00", "#d04200"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.catPillActiveGradient}
-                  >
+                  <View style={styles.catPillActiveGradient}>
                     <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
                     <Text style={styles.catTextActive}>{cat.label}</Text>
-                  </LinearGradient>
+                  </View>
                 ) : (
                   <View style={styles.catPillInactive}>
                     <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
@@ -286,6 +280,7 @@ function buildStyles(isDark) {
       paddingVertical: 6,
       borderRadius: R.pill,
       marginRight: 6,
+      backgroundColor: C.main,
     },
     catPillInactive: {
       flexDirection: "row",
@@ -303,7 +298,7 @@ function buildStyles(isDark) {
       fontWeight: FW.medium,
     },
     catTextActive: {
-      color: "#FFFFFF",
+      color: C.bg,
     },
     catTextInactive: {
       color: C.ink,
@@ -352,7 +347,7 @@ function buildStyles(isDark) {
       marginTop: S.xs,
     },
     retryText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontWeight: FW.medium,
       fontSize: FS.bodySm,
     },

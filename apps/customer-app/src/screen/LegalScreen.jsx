@@ -11,7 +11,6 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 
@@ -24,6 +23,7 @@ const TABS = [
 ];
 
 export default function LegalScreen({ goBack, routeParams, onScroll }) {
+  const styles = getStyles();
   const { theme, isDark } = useTheme();
   const initialTab = routeParams?.tab || "privacy";
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -61,7 +61,7 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
               key={t.id}
               style={[
                 styles.tabBtn,
-                isSelected && [styles.tabBtnActive, { borderBottomColor: "#f54e00" }],
+                isSelected && [styles.tabBtnActive, { borderBottomColor: C.main }],
               ]}
               onPress={() => setActiveTab(t.id)}
               activeOpacity={0.8}
@@ -69,13 +69,13 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
               <Ionicons
                 name={t.icon}
                 size={16}
-                color={isSelected ? "#f54e00" : theme.muted}
+                color={isSelected ? theme.primary : theme.muted}
                 style={{ marginRight: 6 }}
               />
               <Text
                 style={[
                   styles.tabLabel,
-                  { color: isSelected ? "#f54e00" : theme.body },
+                  { color: isSelected ? theme.primary : theme.body },
                   isSelected && styles.tabLabelActive,
                 ]}
               >
@@ -94,7 +94,7 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
       >
         {/* Effective Date Badge */}
         <View style={[styles.infoBanner, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
-          <Ionicons name="information-circle-outline" size={18} color="#f54e00" />
+          <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
           <Text style={[styles.infoBannerText, { color: theme.body }]}>
             Last updated: <Text style={{ color: theme.ink, fontWeight: FW.bold }}>August 12, 2026</Text> • Applies to all Luxe Salon Platform services.
           </Text>
@@ -199,15 +199,10 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
                 onPress={() => Linking.openURL("mailto:privacy@salonplatform.com?subject=Account%20Deletion%20Request")}
                 activeOpacity={0.85}
               >
-                <LinearGradient
-                  colors={["#ef4444", "#dc2626"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.deleteBtnGradientBox}
-                >
-                  <Ionicons name="trash-outline" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                <View style={styles.deleteBtnGradientBox}>
+                  <Ionicons name="trash-outline" size={16} color={C.bg} style={{ marginRight: 6 }} />
                   <Text style={styles.deleteBtnText}>Request Account Deletion</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -233,7 +228,8 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -341,9 +337,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: S.sm + 2,
     borderRadius: R.md,
+    backgroundColor: C.error,
   },
   deleteBtnText: {
-    color: "#ffffff",
+    color: C.bg,
     fontSize: FS.xs + 1,
     fontWeight: FW.bold,
   },
@@ -376,4 +373,5 @@ const styles = StyleSheet.create({
     fontSize: FS.xs,
     fontWeight: FW.bold,
   },
-});
+  });
+}

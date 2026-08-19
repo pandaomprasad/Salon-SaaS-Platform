@@ -11,31 +11,31 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { C } from "../theme";
 
 const { width, height } = Dimensions.get("window");
 
-// ── Design Tokens (from cursor/DESIGN.md) ──────────────────
+// ── Flat B&W tokens (monochrome + #BD4444 highlight) ─────
 const COLORS = {
-  canvas: "#f7f7f4",
-  surface: "#ffffff",
-  ink: "#26251e",
-  body: "#5a5852",
-  muted: "#807d72",
-  mutedSoft: "#a09c92",
-  primary: "#f54e00",
-  primaryActive: "#d04200",
-  onPrimary: "#ffffff",
-  hairline: "#e6e5e0",
-  // Timeline pastels
-  thinking: "#dfa88f",
-  grep: "#9fc9a2",
-  read: "#9fbbe0",
-  edit: "#c0a8dd",
-  done: "#c08532",
+  canvas: C.bg,
+  surface: C.surface,
+  ink: C.ink,
+  body: C.textSecondary,
+  muted: C.textMuted,
+  primary: "#BD4444",
+  primaryActive: "#9E3232",
+  onPrimary: C.bg,
+  hairline: C.border,
+  // Monochrome soft orbs/dots
+  thinking: "#D9D9D9",
+  grep: "#D9D9D9",
+  read: "#D9D9D9",
+  edit: "#D9D9D9",
+  done: "#BD4444",
 };
 
 export default function SplashScreen({ onFinish }) {
+  const styles = getStyles();
   // ── Animation values ──────────────────────────────────────
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -262,12 +262,7 @@ export default function SplashScreen({ onFinish }) {
   });
 
   return (
-    <LinearGradient
-      colors={["#FFFDFB", "#F7F7F4", "#EFF1F8"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ flex: 1 }}
-    >
+    <View style={{ flex: 1, backgroundColor: COLORS.canvas }}>
       <Animated.View
         style={[
           styles.container,
@@ -405,11 +400,12 @@ export default function SplashScreen({ onFinish }) {
         </View>
       </View>
       </Animated.View>
-    </LinearGradient>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.canvas,
@@ -547,4 +543,5 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: COLORS.primary,
   },
-});
+  });
+}

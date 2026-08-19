@@ -1,224 +1,248 @@
 // src/theme/index.js
 import { Platform } from "react-native";
+
 /**
- * Global Design System for Customer App
- * Derived from cursor/DESIGN.md (Cursor AI Editor Design System)
+ * Global Design System — Luxe Gold & Editorial Theme (from reference-theme)
  *
- * Core Tokens:
- *  - Canvas: #f7f7f4 (Warm cream canvas)
- *  - Canvas Soft: #fafaf7
- *  - Card Surface: #ffffff (White cards)
- *  - Ink: #26251e (Warm near-black for display and strong text)
- *  - Body: #5a5852 (Default body text)
- *  - Muted: #807d72 (Secondary text / labels)
- *  - Primary: #f54e00 (Cursor Orange for primary CTAs & active accents)
- *  - Hairline: #e6e5e0 (1px border divider)
- *  - Hairline Strong: #cfcdc4
- *  - Radii: 8px (md) for buttons/inputs, 12px (lg) for cards, 9999px for pills
- *  - Hairline-only depth (no drop shadows)
+ * Theme Characteristics:
+ *  - Primary Accent: Warm Luxury Amber Gold (#C48B36)
+ *  - Canvas: Cream Silk White (#FBFBF9) in Light / Deep Obsidian (#0D0D0D) in Dark
+ *  - Serif Font Family: Georgia / Serif Editorial titles
+ *  - Flat & Hairline Depth: 1px subtle borders, 0px elevation shadows
  */
 
 export const C = {
-  // Brand Accent (Cursor Orange — never changes)
-  main: "#f54e00",
-  mainDark: "#d04200",
-  mainLight: "rgba(245, 78, 0, 0.12)",
+  // Primary Gold & Amber Accents
+  main: "#C48B36",
+  gold: "#C48B36",
+  goldDark: "#B87E2C",
+  goldLight: "#D49B45",
+  goldTint: "rgba(196, 139, 54, 0.10)",
+  goldTintStrong: "rgba(196, 139, 54, 0.18)",
 
-  // Primary Ink & Dark (#26251e)
-  dark: "#26251e",
-  charcoal: "#26251e",
-  ink: "#26251e",
+  // Primary Ink & Dark (#121212)
+  dark: "#121212",
+  charcoal: "#1A1A1A",
+  ink: "#121212",
 
   // Canvas & Surface
-  bg: "#f7f7f4",             // Canvas warm cream
-  bgWarm: "#f7f7f4",
-  lifted: "#fafaf7",         // Canvas soft
-  surface: "#ffffff",        // Card surface white
-  bone: "#efeee8",           // Hairline soft
+  bg: "#FBFBF9",             // Warm Luxury Cream Canvas
+  bgWarm: "#FBFBF9",
+  lifted: "#F5F5F0",         // Soft Cream Surface
+  surface: "#FFFFFF",        // Card Surface Pure White
+  bone: "#EFEFE8",           // Soft Hairline Divider
 
-  // Legacy aliases
-  light: "#fafaf7",
-  lightGrey: "#fafaf7",
-  lightGreyBorder: "#e6e5e0",
-  card: "#ffffff",
-
-  // Legacy Gold aliases → mapped to main orange/ink
-  gold: "#f54e00",
-  goldBright: "#f54e00",
-  goldMid: "#d04200",
-  goldLight: "rgba(245, 78, 0, 0.12)",
-  goldBg: "rgba(245, 78, 0, 0.08)",
+  // Aliases
+  light: "#FBFBF9",
+  lightGrey: "#F5F5F0",
+  lightGreyBorder: "#E8E8E0",
+  card: "#FFFFFF",
 
   // Typography & Neutrals
-  textPrimary: "#26251e",    // Ink
-  textSecondary: "#5a5852",  // Body
-  textMuted: "#807d72",      // Muted
-  textLight: "#ffffff",
-  dustTaupe: "#a09c92",      // Muted soft
+  textPrimary: "#121212",    // Rich Ink
+  textSecondary: "#4A4A4A",  // Slate Body
+  body: "#4A4A4A",
+  textMuted: "#8E8E8A",      // Soft Muted
+  textLight: "#FFFFFF",
+  dustTaupe: "#A0A09C",      // Taupe Accent
+  mutedSoft: "#8E8E8A",
 
   // Hairlines & Borders
-  border: "#e6e5e0",         // Hairline
-  borderLight: "#efeee8",    // Hairline soft
-  borderDark: "#cfcdc4",     // Hairline strong
-  divider: "#e6e5e0",
+  border: "#E8E8E0",         // Subtle Warm Border
+  borderLight: "#F0F0EB",    // Soft Hairline
+  borderDark: "#D0D0C8",     // Strong Border
+  divider: "#E8E8E0",
 
-  // Timeline Pastels (Signature Cursor AI action pills)
-  thinking: "#dfa88f",       // Peach
-  grep: "#9fc9a2",           // Mint
-  read: "#9fbbe0",           // Pastel blue
-  edit: "#c0a8dd",           // Lavender
-  done: "#c08532",           // Warm gold
+  // Timeline & Badges
+  thinking: "rgba(196, 139, 54, 0.15)",
+  grep: "#E8E8E0",
+  read: "#E8E8E0",
+  edit: "#E8E8E0",
+  done: "#C48B36",
 
   // Status
-  error: "#cf2d56",
-  errorText: "#cf2d56",
-  errorBg: "rgba(207, 45, 86, 0.08)",
+  error: "#C48B36",
+  errorText: "#C48B36",
+  errorBg: "rgba(196, 139, 54, 0.08)",
 
-  success: "#1f8a65",
-  successText: "#1f8a65",
-  successBg: "rgba(31, 138, 101, 0.08)",
+  success: "#C48B36",
+  successText: "#C48B36",
+  successBg: "rgba(196, 139, 54, 0.08)",
 
-  info: "#9fbbe0",
-  infoBg: "rgba(159, 187, 224, 0.12)",
+  info: "#C48B36",
+  infoBg: "rgba(196, 139, 54, 0.12)",
 
-  // Legacy
-  muted: "#807d72",
-  text: "#26251e",
-  green: "#1f8a65",
+  muted: "#8E8E8A",
+  text: "#121212",
+
+  herat: "#ff0000ff",
+
+  verified: "#2a7dff"
 };
 
 /**
  * applyTheme — mutates C in-place so all screens that import C
  * pick up the new tokens on their next render cycle.
- * Called by ThemeContext whenever isDark changes.
  */
 export function applyTheme(isDark) {
   if (isDark) {
-    // ── Dark tokens ──────────────────────────────────────────
-    C.bg        = "#111110";
-    C.bgWarm    = "#111110";
-    C.lifted    = "#161614";
-    C.surface   = "#1e1d1b";
-    C.card      = "#1e1d1b";
-    C.bone      = "#252420";
-    C.light     = "#161614";
-    C.lightGrey = "#161614";
-    C.lightGreyBorder = "#2e2d2a";
+    // ── Dark Obsidian Luxury Tokens ──────────────────
+    C.bg = "#0D0D0D";
+    C.bgWarm = "#0D0D0D";
+    C.lifted = "#141416";
+    C.surface = "#1C1C1E";
+    C.card = "#1C1C1E";
+    C.bone = "#262628";
+    C.light = "#141416";
+    C.lightGrey = "#141416";
+    C.lightGreyBorder = "#2A2A2C";
 
-    C.ink       = "#f0ede8";
-    C.dark      = "#f0ede8";
-    C.charcoal  = "#f0ede8";
-    C.text      = "#f0ede8";
-    C.textPrimary  = "#f0ede8";
-    C.textSecondary = "#b5b0a8";
-    C.textMuted    = "#7a7670";
-    C.dustTaupe    = "#56524d";
-    C.muted        = "#7a7670";
+    C.main = "#D49B45";
+    C.gold = "#D49B45";
+    C.goldDark = "#C48B36";
+    C.goldLight = "#E5B05D";
+    C.goldTint = "rgba(212, 155, 69, 0.16)";
+    C.goldTintStrong = "rgba(212, 155, 69, 0.25)";
 
-    C.border      = "#2e2d2a";
-    C.borderLight = "#252420";
-    C.borderDark  = "#3a3935";
-    C.divider     = "#2e2d2a";
+    C.ink = "#F4F4F2";
+    C.dark = "#F4F4F2";
+    C.charcoal = "#F4F4F2";
+    C.text = "#F4F4F2";
+    C.textPrimary = "#F4F4F2";
+    C.textSecondary = "#D0D0CB";
+    C.body = "#D0D0CB";
+    C.textMuted = "#A0A09C";
+    C.dustTaupe = "#A0A09C";
+    C.muted = "#A0A09C";
+    C.mutedSoft = "#B8B8B0";
 
-    C.thinking = "#c08a6e";
-    C.grep     = "#7aaa80";
-    C.read     = "#7a9dc0";
-    C.edit     = "#a08ac0";
-    C.done     = "#a06e28";
+    C.border = "#2A2A2C";
+    C.borderLight = "#222224";
+    C.borderDark = "#38383C";
+    C.divider = "#2A2A2C";
 
-    C.error    = "#e0476a";
-    C.errorText = "#e0476a";
-    C.errorBg  = "rgba(207, 45, 86, 0.14)";
+    C.thinking = "rgba(212, 155, 69, 0.25)";
+    C.grep = "#2A2A2C";
+    C.read = "#2A2A2C";
+    C.edit = "#2A2A2C";
+    C.done = "#D49B45";
 
-    C.success    = "#2aad80";
-    C.successText = "#2aad80";
-    C.successBg  = "rgba(31, 138, 101, 0.14)";
+    C.error = "#D49B45";
+    C.errorText = "#D49B45";
+    C.errorBg = "rgba(212, 155, 69, 0.15)";
+
+    C.success = "#F4F4F2";
+    C.successText = "#F4F4F2";
+    C.successBg = "rgba(244, 244, 242, 0.1)";
   } else {
-    // ── Light tokens (restore defaults) ──────────────────────
-    C.bg        = "#f7f7f4";
-    C.bgWarm    = "#f7f7f4";
-    C.lifted    = "#fafaf7";
-    C.surface   = "#ffffff";
-    C.card      = "#ffffff";
-    C.bone      = "#efeee8";
-    C.light     = "#fafaf7";
-    C.lightGrey = "#fafaf7";
-    C.lightGreyBorder = "#e6e5e0";
+    // ── Light Cream Luxury Tokens ────────────────────
+    C.bg = "#FBFBF9";
+    C.bgWarm = "#FBFBF9";
+    C.lifted = "#F5F5F0";
+    C.surface = "#FFFFFF";
+    C.card = "#FFFFFF";
+    C.bone = "#EFEFE8";
+    C.light = "#FBFBF9";
+    C.lightGrey = "#F5F5F0";
+    C.lightGreyBorder = "#E8E8E0";
 
-    C.ink       = "#26251e";
-    C.dark      = "#26251e";
-    C.charcoal  = "#26251e";
-    C.text      = "#26251e";
-    C.textPrimary  = "#26251e";
-    C.textSecondary = "#5a5852";
-    C.textMuted    = "#807d72";
-    C.dustTaupe    = "#a09c92";
-    C.muted        = "#807d72";
+    C.main = "#C48B36";
+    C.gold = "#C48B36";
+    C.goldDark = "#B87E2C";
+    C.goldLight = "#D49B45";
+    C.goldTint = "rgba(196, 139, 54, 0.10)";
+    C.goldTintStrong = "rgba(196, 139, 54, 0.18)";
 
-    C.border      = "#e6e5e0";
-    C.borderLight = "#efeee8";
-    C.borderDark  = "#cfcdc4";
-    C.divider     = "#e6e5e0";
+    C.ink = "#121212";
+    C.dark = "#121212";
+    C.charcoal = "#121212";
+    C.text = "#121212";
+    C.textPrimary = "#121212";
+    C.textSecondary = "#4A4A4A";
+    C.body = "#4A4A4A";
+    C.textMuted = "#8E8E8A";
+    C.dustTaupe = "#A0A09C";
+    C.muted = "#8E8E8A";
+    C.mutedSoft = "#8E8E8A";
 
-    C.thinking = "#dfa88f";
-    C.grep     = "#9fc9a2";
-    C.read     = "#9fbbe0";
-    C.edit     = "#c0a8dd";
-    C.done     = "#c08532";
+    C.border = "#E8E8E0";
+    C.borderLight = "#F0F0EB";
+    C.borderDark = "#D0D0C8";
+    C.divider = "#E8E8E0";
 
-    C.error    = "#cf2d56";
-    C.errorText = "#cf2d56";
-    C.errorBg  = "rgba(207, 45, 86, 0.08)";
+    C.thinking = "rgba(196, 139, 54, 0.15)";
+    C.grep = "#E8E8E0";
+    C.read = "#E8E8E0";
+    C.edit = "#E8E8E0";
+    C.done = "#C48B36";
 
-    C.success    = "#1f8a65";
-    C.successText = "#1f8a65";
-    C.successBg  = "rgba(31, 138, 101, 0.08)";
+    C.error = "#C48B36";
+    C.errorText = "#C48B36";
+    C.errorBg = "rgba(196, 139, 54, 0.08)";
+
+    C.success = "#121212";
+    C.successText = "#121212";
+    C.successBg = "rgba(18, 18, 18, 0.06)";
   }
 
   // Sync TYPO preset colors
   if (TYPO) {
-    if (TYPO.eyebrow) TYPO.eyebrow.color = C.textMuted;
+    if (TYPO.eyebrow) TYPO.eyebrow.color = C.goldDark;
     if (TYPO.screenTitle) TYPO.screenTitle.color = C.textPrimary;
     if (TYPO.sectionTitle) TYPO.sectionTitle.color = C.textPrimary;
     if (TYPO.cardTitle) TYPO.cardTitle.color = C.textPrimary;
-    if (TYPO.bodyText) TYPO.bodyText.color = C.body;
+    if (TYPO.bodyText) TYPO.bodyText.color = C.textSecondary;
     if (TYPO.badgeText) TYPO.badgeText.color = C.textPrimary;
     if (TYPO.navLink) TYPO.navLink.color = C.textPrimary;
   }
 }
 
+// ── Typography (Serif Editorial Headers + Sans Body) ───────
 
-// ── Typography (CursorGothic / System) ─────────────────
+const SERIF_FONT = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  web: "Georgia, 'Times New Roman', serif",
+  default: "serif",
+});
+
+const SANS_FONT = Platform.select({
+  ios: "System",
+  android: "sans-serif",
+  web: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  default: "sans-serif",
+});
 
 export const FONT_FAMILY = {
-  primary: "System",
-  code: Platform?.OS === "ios" ? "Menlo" : "monospace",
+  primary: SANS_FONT,
+  serif: SERIF_FONT,
+  code: SANS_FONT,
 };
 
 export const FONT_SIZE = {
   badge: 10,
-  caption: 11,        // caption-uppercase: 11px
+  caption: 11,
   eyebrow: 11,
   sub: 12,
-  bodySm: 14,         // body-sm: 14px
-  body: 16,           // body-md: 16px
+  bodySm: 14,
+  body: 16,
   bodyLg: 16,
-  titleSm: 16,        // title-sm: 16px
-  title: 18,          // title-md: 18px
-  titleLg: 22,        // display-sm: 22px
-  hero: 32,           // display-lg (mobile): 32-36px
-  display: 36,
+  titleSm: 16,
+  title: 18,
+  titleLg: 22,
+  hero: 30,
+  display: 34,
 };
 export const FS = FONT_SIZE;
 
 export const FONT_WEIGHT = {
-  regular: "400",     // Cursor Display weight is 400!
+  regular: "400",
   body: "400",
-  medium: "500",      // Buttons & Nav
-  semiBold: "600",    // Titles & Uppercase Labels
-  bold: "600",
-  heavy: "600",
-  black: "600",
+  medium: "500",
+  semiBold: "600",
+  bold: "700",
+  heavy: "800",
+  black: "900",
 };
 export const FW = FONT_WEIGHT;
 
@@ -226,101 +250,107 @@ export const FW = FONT_WEIGHT;
 
 export const SPACING = {
   none: 0,
-  xxs: 4,      // 4px
-  xs: 8,       // 8px
-  sm: 12,      // 12px
-  md: 16,      // 16px (base)
-  lg: 20,      // 20px
-  xl: 24,      // 24px
-  xxl: 32,     // 32px
-  huge: 48,    // 48px
-  section: 80, // 80px section rhythm
+  xxs: 4,
+  xs: 8,
+  sm: 12,
+  md: 16,
+  lg: 20,
+  xl: 24,
+  xxl: 32,
+  huge: 48,
+  section: 80,
 };
 export const S = SPACING;
 
-// ── Border Radius (cursor/DESIGN.md scale) ──────────────
-// xs: 4, sm: 6, md: 8 (buttons/inputs), lg: 12 (cards), pill: 9999
+// ── Border Radius Scale ───────────────────────────────
 
 export const RADIUS = {
   xs: 4,
   sm: 6,
-  button: 8,   // 8px for buttons & inputs per cursor/DESIGN.md
-  md: 8,
-  lg: 12,      // 12px for cards per cursor/DESIGN.md
-  xl: 16,
-  pill: 9999,  // Timeline pills & badges
+  button: 14,
+  md: 14,
+  lg: 18,
+  xl: 24,
+  pill: 9999,
   circle: 9999,
 };
 export const R = RADIUS;
 
-// ── Hairline Depth (No shadows per cursor/DESIGN.md) ────
+// ── Depth & Flat Hairline Shadows ─────────────────────
 
 export const SHADOWS = {
   sm: {
-    shadowColor: "#26251e",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: "transparent",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   md: {
-    shadowColor: "#26251e",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowColor: "transparent",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   lg: {
-    shadowColor: "#26251e",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowColor: "transparent",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
 };
 
-// ── Typography Presets ──────────────────────────────────
+// ── Typography Presets ────────────────────────────────────────
 
 export const TYPO = {
   eyebrow: {
+    fontFamily: FONT_FAMILY.primary,
     fontSize: FONT_SIZE.caption,
     fontWeight: FONT_WEIGHT.semiBold,
-    color: C.textMuted,
-    letterSpacing: 0.88,         // 0.88px tracking for caption-uppercase
+    color: C.goldDark,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   screenTitle: {
+    fontFamily: FONT_FAMILY.serif,
     fontSize: FONT_SIZE.hero,
-    fontWeight: FONT_WEIGHT.regular, // Display weight 400 per cursor/DESIGN.md!
+    fontWeight: FONT_WEIGHT.bold,
     color: C.textPrimary,
-    letterSpacing: -0.72,        // -0.72px tracking
+    letterSpacing: -0.3,
   },
   sectionTitle: {
+    fontFamily: FONT_FAMILY.serif,
     fontSize: FONT_SIZE.titleLg,
-    fontWeight: FONT_WEIGHT.regular, // Display weight 400
+    fontWeight: FONT_WEIGHT.bold,
     color: C.textPrimary,
-    letterSpacing: -0.32,
+    letterSpacing: -0.2,
   },
   cardTitle: {
+    fontFamily: FONT_FAMILY.serif,
     fontSize: FONT_SIZE.title,
     fontWeight: FONT_WEIGHT.semiBold,
     color: C.textPrimary,
     letterSpacing: 0,
   },
   bodyText: {
+    fontFamily: FONT_FAMILY.primary,
     fontSize: FONT_SIZE.body,
     fontWeight: FONT_WEIGHT.regular,
-    color: C.body,
+    color: C.textSecondary,
     lineHeight: 24,
   },
   badgeText: {
+    fontFamily: FONT_FAMILY.primary,
     fontSize: FONT_SIZE.caption,
     fontWeight: FONT_WEIGHT.semiBold,
     color: C.textPrimary,
-    letterSpacing: 0.88,
+    letterSpacing: 1.0,
     textTransform: "uppercase",
   },
   navLink: {
+    fontFamily: FONT_FAMILY.primary,
     fontSize: FONT_SIZE.bodySm,
     fontWeight: FONT_WEIGHT.medium,
     color: C.textPrimary,

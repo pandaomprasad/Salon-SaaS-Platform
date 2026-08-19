@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, SHADOWS } from "../theme";
+import { C, S } from "../theme";
 
 export default function ErrorCardModal({
   visible,
@@ -19,6 +19,7 @@ export default function ErrorCardModal({
   onClose,
   buttonText = "Got It",
 }) {
+  const styles = getStyles();
   if (!visible || !message) return null;
 
   return (
@@ -46,7 +47,7 @@ export default function ErrorCardModal({
               {/* Icon Badge */}
               <View style={styles.iconWrapper}>
                 <View style={styles.iconCircle}>
-                  <Ionicons name="warning-sharp" size={32} color="#EF4444" />
+                  <Ionicons name="warning-sharp" size={32} color={C.error} />
                 </View>
               </View>
 
@@ -70,7 +71,8 @@ export default function ErrorCardModal({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(13, 11, 24, 0.7)",
@@ -86,9 +88,7 @@ const styles = StyleSheet.create({
     padding: S.xl,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.15)",
-    ...SHADOWS.lg,
-    elevation: 20,
+    borderColor: "rgba(189, 68, 68, 0.2)",
     position: "relative",
   },
   closeBtn: {
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.04)",
+    backgroundColor: C.bone,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: C.errorBg,
     borderWidth: 1.5,
-    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderColor: C.error,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
+    color: C.textMuted,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: S.xl,
@@ -140,16 +140,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: "center",
-    shadowColor: C.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
   },
   actionBtnText: {
     fontSize: 15,
     fontWeight: "800",
-    color: C.gold,
+    color: C.main,
     letterSpacing: 0.3,
   },
-});
+  });
+}

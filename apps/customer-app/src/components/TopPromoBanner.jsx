@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
 import { View, Text, Image, StyleSheet, Dimensions, Animated, Easing, TouchableOpacity } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R } from "../theme";
 import BouncyButton from "./BouncyButton";
 
@@ -86,10 +85,7 @@ export default function TopPromoBanner({ onPressBanner }) {
           >
             <Image source={{ uri: banner.image }} style={styles.image} resizeMode="cover" />
 
-            <LinearGradient
-              colors={["transparent", "rgba(0, 0, 0, 0.35)", "rgba(0, 0, 0, 0.88)"]}
-              style={styles.overlay}
-            >
+            <View style={styles.overlay}>
               <View
                 style={[
                   styles.tagPill,
@@ -103,16 +99,11 @@ export default function TopPromoBanner({ onPressBanner }) {
               <Text style={styles.sub}>{banner.subtitle}</Text>
 
               <TouchableOpacity activeOpacity={0.88}>
-                <LinearGradient
-                  colors={["#f54e00", "#d04200"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.primaryCta}
-                >
+                <View style={styles.primaryCta}>
                   <Text style={styles.primaryCtaText}>{banner.cta}</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
-            </LinearGradient>
+            </View>
           </BouncyButton>
         ))}
       </Animated.View>
@@ -138,7 +129,7 @@ function getStyles() {
       borderRadius: R.lg,
       overflow: "hidden",
       marginRight: CARD_MARGIN,
-      backgroundColor: "#161614",
+      backgroundColor: "#141414",
       borderWidth: 1,
       borderColor: C.border,
     },
@@ -152,6 +143,7 @@ function getStyles() {
       flex: 1,
       padding: S.md,
       justifyContent: "flex-end",
+      backgroundColor: "rgba(0, 0, 0, 0.55)",
     },
     tagPill: {
       alignSelf: "flex-start",
@@ -163,7 +155,7 @@ function getStyles() {
     tagText: {
       fontSize: 10,
       fontWeight: FW.semiBold,
-      color: "#26251e",
+      color: C.ink,
       letterSpacing: 0.88,
     },
     title: {

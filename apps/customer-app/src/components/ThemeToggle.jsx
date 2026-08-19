@@ -16,7 +16,7 @@ import { useTheme } from "../context/ThemeContext";
  * Uses the cursor/DESIGN.md token set: Cursor Orange for active state,
  * hairline-only depth, 8px radius for the container, pill-shaped thumb.
  */
-export default function ThemeToggle({ style }) {
+export default function ThemeToggle({ style, showLabel = false }) {
   const { isDark, toggleTheme, toggleAnim, theme } = useTheme();
 
   // Thumb slide: toggleAnim goes 0→1 (light→dark)
@@ -50,19 +50,22 @@ export default function ThemeToggle({ style }) {
       accessibilityRole="switch"
       accessibilityState={{ checked: isDark }}
     >
-      {/* Label */}
-      <View style={styles.labelRow}>
-        <Animated.View style={{ opacity: sunOpacity, position: "absolute" }}>
-          <Ionicons name="sunny-outline" size={16} color={theme.primary} />
-        </Animated.View>
-        <Animated.View style={{ opacity: moonOpacity }}>
-          <Ionicons name="moon-outline" size={16} color={theme.primary} />
-        </Animated.View>
-      </View>
+      {showLabel ? (
+        <>
+          <View style={styles.labelRow}>
+            <Animated.View style={{ opacity: sunOpacity, position: "absolute" }}>
+              <Ionicons name="sunny-outline" size={16} color={theme.primary} />
+            </Animated.View>
+            <Animated.View style={{ opacity: moonOpacity }}>
+              <Ionicons name="moon-outline" size={16} color={theme.primary} />
+            </Animated.View>
+          </View>
 
-      <Text style={[styles.label, { color: theme.body }]}>
-        {isDark ? "Dark Mode" : "Light Mode"}
-      </Text>
+          <Text style={[styles.label, { color: theme.body }]}>
+            {isDark ? "Dark Mode" : "Light Mode"}
+          </Text>
+        </>
+      ) : null}
 
       {/* Pill track + thumb */}
       <Animated.View
@@ -119,10 +122,5 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
   },
 });

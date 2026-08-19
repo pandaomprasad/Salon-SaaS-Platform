@@ -2,7 +2,7 @@
 import React from "react";
 import Svg, { Path } from "react-native-svg";
 
-export default function VerifiedBadge({ size = 16, color = "#3897F0", style }) {
+export default function VerifiedBadge({ size = 16, color = "#BD4444", style }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
       {/* 12-point scalloped starburst badge */}

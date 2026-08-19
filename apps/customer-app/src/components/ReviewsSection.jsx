@@ -4,29 +4,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 
-const DUMMY_REVIEWS = [
-  {
-    id: "r1",
-    userName: "Sophia Martinez",
-    userAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=120&auto=format&fit=crop",
-    rating: 5,
-    date: "2 days ago",
-    serviceName: "Balayage & Styling",
-    comment: "Absolutely in love with my new hair color! Alexander is a master artist. The ambiance and service were top notch.",
-  },
-  {
-    id: "r2",
-    userName: "David Chen",
-    userAvatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120&auto=format&fit=crop",
-    rating: 5,
-    date: "1 week ago",
-    serviceName: "Executive Beard & Cut",
-    comment: "Clean lines, great espresso while waiting, and zero delay. Will definitely return!",
-  },
-];
-
-export default function ReviewsSection({ reviews = [], overallRating = "4.9", totalReviews = 128, onOpenAddReview }) {
-  const displayReviews = reviews.length > 0 ? reviews : DUMMY_REVIEWS;
+export default function ReviewsSection({ reviews = [], overallRating = "0.0", totalReviews = 0, onOpenAddReview }) {
+  const styles = getStyles();
+  const hasReviews = reviews.length > 0;
+  const roundedRating = hasReviews ? Math.round(Number(overallRating)) : 0;
 
   return (
     <View style={styles.container}>
@@ -35,82 +16,85 @@ export default function ReviewsSection({ reviews = [], overallRating = "4.9", to
           <Text style={styles.sectionTitle}>CLIENT REVIEWS</Text>
           <Text style={styles.reviewSub}>Verified ratings & experiences</Text>
         </View>
-        <TouchableOpacity
-          style={styles.addReviewBtn}
-          onPress={onOpenAddReview}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="create-outline" size={14} color={C.ink} />
-          <Text style={styles.addReviewText}>Write Review</Text>
-        </TouchableOpacity>
+        {onOpenAddReview ? (
+          <TouchableOpacity
+            style={styles.addReviewBtn}
+            onPress={onOpenAddReview}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="create-outline" size={14} color={C.ink} />
+            <Text style={styles.addReviewText}>Write Review</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      {/* Overall Score Banner per cursor/DESIGN.md */}
-      <View style={styles.scoreBanner}>
-        <View style={styles.scoreLeft}>
-          <Text style={styles.bigScore}>{overallRating}</Text>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons key={star} name="star" size={14} color="#c08532" />
+      {hasReviews ? (
+        <>
+          {/* Overall Score Banner */}
+          <View style={styles.scoreBanner}>
+            <View style={styles.scoreLeft}>
+              <Text style={styles.bigScore}>{overallRating}</Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name={star <= roundedRating ? "star" : "star-outline"}
+                    size={14}
+                    color={C.main}
+                  />
+                ))}
+              </View>
+              <Text style={styles.totalText}>{totalReviews} verified review{totalReviews === 1 ? "" : "s"}</Text>
+            </View>
+          </View>
+
+          {/* Review List Cards */}
+          <View style={styles.reviewsList}>
+            {reviews.map((rev) => (
+              <View key={rev.id || rev._id} style={styles.reviewCard}>
+                <View style={styles.cardHeader}>
+                  <Image source={{ uri: rev.userAvatar || rev.customerAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop" }} style={styles.avatar} />
+                  <View style={styles.headerMeta}>
+                    <Text style={styles.userName}>{rev.userName || rev.customerName || rev.user?.name || "Verified Client"}</Text>
+                    <Text style={styles.reviewDate}>{rev.date || rev.ratedAt ? "Recently rated" : "Recent"}</Text>
+                  </View>
+                  <View style={styles.ratingPill}>
+                    <Ionicons name="star" size={11} color={C.main} />
+                    <Text style={styles.ratingNum}>{rev.rating || rev.score || 5}</Text>
+                  </View>
+                </View>
+
+                {(rev.serviceName || rev.comment) ? (
+                  <>
+                    {rev.serviceName ? (
+                      <View style={styles.serviceBadge}>
+                        <Text style={styles.serviceBadgeText}>✂️ {rev.serviceName}</Text>
+                      </View>
+                    ) : null}
+                    {rev.comment ? (
+                      <Text style={styles.commentText}>{rev.comment}</Text>
+                    ) : null}
+                  </>
+                ) : null}
+              </View>
             ))}
           </View>
-          <Text style={styles.totalText}>{totalReviews} verified reviews</Text>
+        </>
+      ) : (
+        <View style={styles.emptyBox}>
+          <Ionicons name="chatbubble-ellipses-outline" size={28} color={C.muted} />
+          <Text style={styles.emptyTitle}>No reviews yet</Text>
+          <Text style={styles.emptySub}>
+            Reviews appear here after customers complete verified appointments.
+          </Text>
         </View>
-
-        <View style={styles.scoreRight}>
-          {[
-            { label: "Service", score: "4.9" },
-            { label: "Cleanliness", score: "5.0" },
-            { label: "Ambience", score: "4.8" },
-            { label: "Punctuality", score: "4.9" },
-          ].map((item) => (
-            <View key={item.label} style={styles.subScoreRow}>
-              <Text style={styles.subLabel}>{item.label}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${(parseFloat(item.score) / 5) * 100}%` }]} />
-              </View>
-              <Text style={styles.subVal}>{item.score}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Review List Cards */}
-      <View style={styles.reviewsList}>
-        {displayReviews.map((rev) => (
-          <View key={rev.id || rev._id} style={styles.reviewCard}>
-            <View style={styles.cardHeader}>
-              <Image source={{ uri: rev.userAvatar || rev.customerAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop" }} style={styles.avatar} />
-              <View style={styles.headerMeta}>
-                <Text style={styles.userName}>{rev.userName || rev.customerName || rev.user?.name || "Verified Client"}</Text>
-                <Text style={styles.reviewDate}>{rev.date || rev.ratedAt ? "Recently rated" : "Recent"}</Text>
-              </View>
-              <View style={styles.ratingPill}>
-                <Ionicons name="star" size={11} color="#c08532" />
-                <Text style={styles.ratingNum}>{rev.rating || rev.score || 5}</Text>
-              </View>
-            </View>
-
-            {(rev.serviceName || rev.comment) ? (
-              <>
-                {rev.serviceName ? (
-                  <View style={styles.serviceBadge}>
-                    <Text style={styles.serviceBadgeText}>✂️ {rev.serviceName}</Text>
-                  </View>
-                ) : null}
-                {rev.comment ? (
-                  <Text style={styles.commentText}>{rev.comment}</Text>
-                ) : null}
-              </>
-            ) : null}
-          </View>
-        ))}
-      </View>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     marginVertical: S.md,
   },
@@ -161,8 +145,6 @@ const styles = StyleSheet.create({
   scoreLeft: {
     alignItems: "center",
     paddingRight: S.md,
-    borderRightWidth: 1,
-    borderRightColor: C.borderLight,
     minWidth: 100,
   },
   bigScore: {
@@ -180,40 +162,27 @@ const styles = StyleSheet.create({
     color: C.muted,
     fontWeight: FW.medium,
   },
-  scoreRight: {
-    flex: 1,
-    paddingLeft: S.md,
-  },
-  subScoreRow: {
-    flexDirection: "row",
+
+  emptyBox: {
     alignItems: "center",
-    marginVertical: 2,
+    justifyContent: "center",
+    padding: S.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 6,
   },
-  subLabel: {
-    width: 66,
-    fontSize: 10,
-    fontWeight: FW.medium,
-    color: C.body,
-  },
-  barTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: C.lifted,
-    borderRadius: 2,
-    marginHorizontal: 6,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    backgroundColor: "#c08532",
-    borderRadius: 2,
-  },
-  subVal: {
-    fontSize: 10,
+  emptyTitle: {
+    fontSize: FS.body,
     fontWeight: FW.semiBold,
     color: C.ink,
-    width: 20,
-    textAlign: "right",
+  },
+  emptySub: {
+    fontSize: FS.caption,
+    color: C.muted,
+    textAlign: "center",
+    lineHeight: 16,
   },
 
   // Cards
@@ -284,4 +253,5 @@ const styles = StyleSheet.create({
     color: C.body,
     lineHeight: 18,
   },
-});
+  });
+}

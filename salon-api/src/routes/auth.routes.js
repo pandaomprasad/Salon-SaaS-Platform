@@ -6,7 +6,8 @@ const {
   googleLogin,
   refresh,
   logout,
-  me
+  me,
+  updateMe
 } = require('../controllers/auth.controller')
 
 const authenticate = require('../middleware/authenticate')
@@ -18,15 +19,28 @@ const {
   refreshValidator
 } = require('../validators/auth.validator')
 
+const rateLimit = require('express-rate-limit')
+
+// Strict rate limiter for authentication endpoints to block brute-force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: {
+    success: false,
+    message: 'Too many authentication attempts. Please try again in 15 minutes.',
+  },
+})
+
 // public routes — no token needed
-router.post('/register', registerValidator, validate, register)
-router.post('/register-owner', ownerRegisterValidator, validate, registerOwner)
-router.post('/login',    loginValidator,    validate, login)
-router.post('/google',   googleLogin)
-router.post('/refresh',  refreshValidator,  validate, refresh)
+router.post('/register', authLimiter, registerValidator, validate, register)
+router.post('/register-owner', authLimiter, ownerRegisterValidator, validate, registerOwner)
+router.post('/login', authLimiter, loginValidator, validate, login)
+router.post('/google', authLimiter, googleLogin)
+router.post('/refresh', authLimiter, refreshValidator, validate, refresh)
 
 // protected routes — token required
 router.post('/logout', authenticate, logout)
 router.get('/me',      authenticate, me)
+router.patch('/me',    authenticate, updateMe)
 
 module.exports = router

@@ -1,13 +1,35 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
+import { customerService } from "../services/customerService";
 
 export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, userName, selectedCity, onSearchSubmit }) {
   const { isDark, toggleTheme, toggleAnim } = useTheme();
+  const [hasUnread, setHasUnread] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const checkUnread = async () => {
+      try {
+        const res = await customerService.getUnreadCount();
+        const count = typeof res?.data?.count === "number" ? res.data.count : (res?.data?.unreadCount || 0);
+        if (active) setHasUnread(count > 0);
+      } catch (err) {
+        try {
+          const res = await customerService.getNotifications();
+          const list = res?.data?.notifications || (Array.isArray(res?.data) ? res.data : []);
+          const unread = list.some((n) => !n.isRead);
+          if (active) setHasUnread(unread);
+        } catch (e) {}
+      }
+    };
+    checkUnread();
+    return () => { active = false; };
+  }, []);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -29,12 +51,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
   });
 
   return (
-    <LinearGradient
-      colors={isDark ? ["#1f1f23", "#121215"] : ["#FFFDFB", "#F8F8F5", "#F0F3F8"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.hero}
-    >
+    <View style={styles.hero}>
       {/* Top bar: Location selector & actions */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.locationChip} onPress={onLocationClick} activeOpacity={0.7}>
@@ -62,6 +79,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
 
           <TouchableOpacity style={styles.notifBtn} onPress={onNotificationClick} activeOpacity={0.7}>
             <Ionicons name="notifications-outline" size={18} color={C.ink} />
+            {hasUnread && <View style={styles.notifBadgeDot} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -82,7 +100,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
         onSelectSuggestion={(term) => onSearchSubmit && onSearchSubmit(term)}
         onSearchSubmit={(term) => onSearchSubmit && onSearchSubmit(term)}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -108,7 +126,7 @@ function getStyles() {
       backgroundColor: C.surface,
       paddingHorizontal: S.sm,
       paddingVertical: 6,
-      borderRadius: R.sm,
+      borderRadius: R.md,
       borderWidth: 1,
       borderColor: C.border,
     },
@@ -126,6 +144,16 @@ function getStyles() {
       justifyContent: "center",
       borderWidth: 1,
       borderColor: C.border,
+      position: "relative",
+    },
+    notifBadgeDot: {
+      position: "absolute",
+      top: 7,
+      right: 7,
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
+      backgroundColor: C.main,
     },
     topBarActions: {
       flexDirection: "row",

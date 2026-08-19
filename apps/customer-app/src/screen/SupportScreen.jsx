@@ -78,7 +78,7 @@ export default function SupportScreen({ goBack }) {
         {/* Banner */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerIcon}>
-            <Ionicons name="headset" size={24} color="#FFFFFF" />
+            <Ionicons name="headset" size={24} color={C.bg} />
           </View>
           <Text style={styles.bannerTitle}>How can we assist you today?</Text>
           <Text style={styles.bannerSub}>Our concierge support team is here 24/7 to ensure a seamless experience.</Text>
@@ -145,7 +145,7 @@ export default function SupportScreen({ goBack }) {
             activeOpacity={0.88}
           >
             {sending ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={C.bg} size="small" />
             ) : sentSuccess ? (
               <Text style={styles.sendBtnText}>✓ Ticket Submitted!</Text>
             ) : (
@@ -196,7 +196,7 @@ function getStyles() {
       paddingBottom: 40,
     },
     bannerCard: {
-      backgroundColor: C.surfaceStrong || C.ink,
+      backgroundColor: C.ink,
       borderRadius: R.lg,
       padding: S.lg,
       alignItems: "center",
@@ -208,7 +208,7 @@ function getStyles() {
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      backgroundColor: "rgba(128, 128, 128, 0.25)",
       alignItems: "center",
       justifyContent: "center",
       marginBottom: S.xs,
@@ -216,12 +216,13 @@ function getStyles() {
     bannerTitle: {
       fontSize: FS.titleSm,
       fontWeight: FW.semiBold,
-      color: "#FFFFFF",
+      color: C.bg,
       textAlign: "center",
     },
     bannerSub: {
       fontSize: FS.bodySm,
-      color: "rgba(255, 255, 255, 0.7)",
+      color: C.bg,
+      opacity: 0.75,
       textAlign: "center",
       marginTop: 4,
       lineHeight: 18,
@@ -305,7 +306,7 @@ function getStyles() {
       opacity: 0.5,
     },
     sendBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },

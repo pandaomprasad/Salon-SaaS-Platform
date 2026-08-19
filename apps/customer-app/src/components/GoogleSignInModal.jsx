@@ -9,9 +9,8 @@ import {
   View,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
-import { LinearGradient } from "expo-linear-gradient";
-import { makeRedirectUri, ResponseType } from "expo-auth-session";
+import { makeRedirectUri } from "expo-auth-session";
+import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { C, FS, FW, R, S } from "../theme";
 import { useAuth } from "../context/AuthContext";
@@ -23,34 +22,19 @@ const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 
 const isGoogleConfigured = Boolean(webClientId || iosClientId || androidClientId);
-const redirectUri = makeRedirectUri({ scheme: "customerapp" });
 
 export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
+  const styles = getStyles();
   const { loginWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const oauthConfig = useMemo(() => {
-    if (!isGoogleConfigured) return null;
-
-    return {
-      clientId: webClientId,
-      iosClientId,
-      androidClientId,
-      responseType: ResponseType.IdToken,
-      scopes: ["openid", "profile", "email"],
-      redirectUri,
-    };
+  const redirectUri = useMemo(() => {
+    return makeRedirectUri({
+      scheme: "customerapp",
+      preferLocalhost: true,
+    });
   }, []);
-
-  const [request, response, promptAsync] = Google.useAuthRequest(
-    oauthConfig || {
-      clientId: "placeholder.apps.googleusercontent.com",
-      responseType: ResponseType.IdToken,
-      scopes: ["openid", "profile", "email"],
-      redirectUri,
-    },
-  );
 
   useEffect(() => {
     if (!visible) {
@@ -59,76 +43,63 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (!response) return;
-
-    if (response.type === "success") {
-      const idToken = response.params?.id_token;
-      if (!idToken) {
-        setError("Google sign-in did not return an ID token.");
-        return;
-      }
-
-      let active = true;
-      setLoading(true);
-
-      loginWithGoogle({ idToken })
-        .then((result) => {
-          if (!active) return;
-
-          if (result.success) {
-            onClose?.();
-            onSuccess?.(result);
-            return;
-          }
-
-          setError(result.error || "Google sign-in failed.");
-        })
-        .catch((err) => {
-          if (active) {
-            setError(err.message || "Google sign-in failed.");
-          }
-        })
-        .finally(() => {
-          if (active) {
-            setLoading(false);
-          }
-        });
-
-      return () => {
-        active = false;
-      };
-    }
-
-    if (response.type === "error") {
-      setError("Google sign-in could not be completed. Please check the Google client IDs.");
-      setLoading(false);
-    }
-
-    if (response.type === "dismiss" || response.type === "cancel") {
-      setLoading(false);
-    }
-  }, [loginWithGoogle, onClose, onSuccess, response]);
-
   const handleGoogleOAuthPress = async () => {
     setError("");
 
     if (!isGoogleConfigured) {
-      setError("Google sign-in is not configured yet. Add the EXPO_PUBLIC_GOOGLE client IDs in apps/customer-app/.env.");
-      return;
-    }
-
-    if (!request) {
-      setError("Google sign-in is still initializing. Please try again.");
+      setError("Google sign-in is not configured yet. Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in apps/customer-app/.env.");
       return;
     }
 
     try {
       setLoading(true);
-      await promptAsync();
+      const nonce = Math.random().toString(36).substring(2);
+      const authUrl =
+        `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(webClientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&response_type=id_token` +
+        `&scope=${encodeURIComponent("openid profile email")}` +
+        `&nonce=${encodeURIComponent(nonce)}`;
+
+      console.log("[Google Auth Direct URL]", authUrl);
+      console.log("[Google Auth Redirect URI]", redirectUri);
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      console.log("[Google Auth Result]", JSON.stringify(result, null, 2));
+
+      if (result.type === "success" && result.url) {
+        // Extract id_token from URL fragment
+        const hash = result.url.split("#")[1] || result.url.split("?")[1] || "";
+        const urlParams = new URLSearchParams(hash);
+        const idToken = urlParams.get("id_token");
+
+        if (idToken) {
+          console.log("[Google Auth Success] Extract ID Token:", idToken.substring(0, 20) + "...");
+          const res = await loginWithGoogle({ idToken });
+          console.log("[Google Auth Backend Res]", JSON.stringify(res));
+
+          if (res.success) {
+            onClose?.();
+            onSuccess?.(res);
+            return;
+          }
+
+          setError(res.error || "Backend authentication failed.");
+        } else {
+          console.error("[Google Auth Error] No id_token in URL:", result.url);
+          setError("Google login did not return an id_token.");
+        }
+      } else if (result.type === "cancel" || result.type === "dismiss") {
+        console.log("[Google Auth Cancelled]", result.type);
+      } else {
+        setError(`Google login status: ${result.type}`);
+      }
     } catch (err) {
+      console.error("[Google Auth Exception]", err);
+      setError("OAuth Exception: " + (err.message || "Failed to complete Google login"));
+    } finally {
       setLoading(false);
-      setError(err.message || "Could not open the Google sign-in page.");
     }
   };
 
@@ -138,24 +109,14 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          {/* Top Multi-Color Gradient Bar */}
-          <LinearGradient
-            colors={["#4285F4", "#EA4335", "#FBBC05", "#34A853"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.topAccentBar}
-          />
+          {/* Top Accent Bar */}
+          <View style={styles.topAccentBar} />
 
           <View style={styles.header}>
             <View style={styles.brand}>
-              <LinearGradient
-                colors={["#4285F4", "#2B6CB0"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.logo}
-              >
+              <View style={styles.logo}>
                 <Text style={styles.logoText}>G</Text>
-              </LinearGradient>
+              </View>
               <View style={styles.headerText}>
                 <Text style={styles.title}>Sign in with Google</Text>
                 <Text style={styles.subtitle}>Continue securely with your Google account</Text>
@@ -192,21 +153,16 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
             disabled={loading || !isGoogleConfigured}
             activeOpacity={0.88}
           >
-            <LinearGradient
-              colors={["#4285F4", "#3367D6"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.googleBtnGradient}
-            >
+            <View style={styles.googleBtn}>
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={C.bg} />
               ) : (
                 <>
-                  <Ionicons name="logo-google" size={18} color="#FFFFFF" />
+                  <Ionicons name="logo-google" size={18} color={C.bg} />
                   <Text style={styles.googleText}>Sign in via Google Browser</Text>
                 </>
               )}
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -214,7 +170,8 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -247,12 +204,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: "#4285F4",
+    backgroundColor: C.ink,
     alignItems: "center",
     justifyContent: "center",
   },
   logoText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: 22,
     fontWeight: FW.bold,
   },
@@ -296,9 +253,9 @@ const styles = StyleSheet.create({
     color: C.muted,
   },
   warningBox: {
-    backgroundColor: "#FFF7E6",
+    backgroundColor: C.infoBg,
     borderWidth: 1,
-    borderColor: "#F6C453",
+    borderColor: C.info,
     borderRadius: R.md,
     padding: 14,
     gap: 4,
@@ -306,11 +263,11 @@ const styles = StyleSheet.create({
   warningTitle: {
     fontSize: FS.bodySm,
     fontWeight: FW.semiBold,
-    color: "#8A5A00",
+    color: C.info,
   },
   warningText: {
     fontSize: FS.bodySm,
-    color: "#8A5A00",
+    color: C.info,
   },
   error: {
     color: C.errorText,
@@ -319,7 +276,7 @@ const styles = StyleSheet.create({
     borderRadius: R.md,
     fontSize: FS.bodySm,
   },
-  googleBtnGradient: {
+  googleBtn: {
     borderRadius: R.md,
     minHeight: 48,
     flexDirection: "row",
@@ -327,13 +284,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    backgroundColor: C.ink,
   },
   disabled: {
     opacity: 0.6,
   },
   googleText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: FS.bodySm,
     fontWeight: FW.semiBold,
   },
-});
+  topAccentBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.main,
+  },
+  });
+}

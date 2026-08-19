@@ -12,7 +12,6 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, R } from "../theme";
 import { paiseToINR } from "../services/apiClient";
 import { useTheme } from "../context/ThemeContext";
@@ -71,7 +70,7 @@ function formatAddress(addr) {
  * Automatic Procedural QR Code Visualizer
  * Generates an authentic 9x9 QR Code matrix automatically & uniquely for each booking.
  */
-function VectorQRCode({ code = "LX9876", isDark = false }) {
+function VectorQRCode({ code = "LX9876", isDark = false, styles: qrStyles }) {
   const seedString = String(code);
   let hash = 0;
   for (let i = 0; i < seedString.length; i++) {
@@ -109,16 +108,16 @@ function VectorQRCode({ code = "LX9876", isDark = false }) {
   }
 
   return (
-    <View style={[styles.qrContainer, { backgroundColor: isDark ? "#0f172a" : "#ffffff", borderColor: isDark ? "#334155" : "#e2e8f0" }]}>
-      <View style={styles.qrGrid}>
+    <View style={[qrStyles.qrContainer, { backgroundColor: C.surface, borderColor: C.border }]}>
+      <View style={qrStyles.qrGrid}>
         {grid.map((row, rIdx) => (
-          <View key={rIdx} style={styles.qrRow}>
+          <View key={rIdx} style={qrStyles.qrRow}>
             {row.map((cell, cIdx) => (
               <View
                 key={cIdx}
                 style={[
-                  styles.qrCell,
-                  { backgroundColor: cell ? (isDark ? "#f8fafc" : "#0f172a") : "transparent" },
+                  qrStyles.qrCell,
+                  { backgroundColor: cell ? C.ink : "transparent" },
                 ]}
               />
             ))}
@@ -136,6 +135,7 @@ export default function AppointmentDetailModal({
   onCancel,
 }) {
   const { theme, isDark } = useTheme();
+  const styles = getStyles();
   if (!visible || !appointment) return null;
 
   const salonName =
@@ -208,7 +208,7 @@ export default function AppointmentDetailModal({
           <TouchableWithoutFeedback>
             <View style={[styles.sheetContainer, { backgroundColor: theme.surface }]}>
               {/* Sheet Top Handle Bar */}
-              <View style={[styles.handleBar, { backgroundColor: theme.hairlineSoft || "#cbd5e1" }]} />
+              <View style={[styles.handleBar, { backgroundColor: theme.hairline }]} />
 
               {/* Close Icon */}
               <TouchableOpacity
@@ -228,7 +228,7 @@ export default function AppointmentDetailModal({
                 </View>
 
                 {/* ───────────── TICKET CUTOUT PASS CARD ───────────── */}
-                <View style={[styles.ticketCard, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: theme.hairline }]}>
+                <View style={[styles.ticketCard, { backgroundColor: C.surface, borderColor: theme.hairline }]}>
                   {/* Status Badge & Salon Name */}
                   <View style={styles.ticketTopRow}>
                     <View style={styles.salonInfo}>
@@ -247,19 +247,14 @@ export default function AppointmentDetailModal({
                   </View>
 
                   {/* Highlighted Date & Slot Banner */}
-                  <LinearGradient
-                    colors={["#1e1b4b", "#312e81"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.slotBanner}
-                  >
+                  <View style={styles.slotBanner}>
                     <Text style={styles.slotBannerTag}>APPOINTMENT SLOT</Text>
                     <Text style={styles.slotBannerTime}>{slotDate} &nbsp;•&nbsp; {timeRange}</Text>
-                  </LinearGradient>
+                  </View>
 
                   {/* QR Code Counter Pass Section */}
                   <View style={styles.qrSection}>
-                    <VectorQRCode code={refCode} isDark={isDark} />
+                    <VectorQRCode code={refCode} isDark={isDark} styles={styles} />
                     <Text style={[styles.passCodeLabel, { color: theme.muted }]}>BOOKING PASS CODE</Text>
                     <Text style={[styles.passCodeValue, { color: theme.ink }]}>#{bookingPassCode}</Text>
                     <Text style={[styles.passInstruction, { color: theme.muted }]}>
@@ -293,7 +288,7 @@ export default function AppointmentDetailModal({
                     {price !== undefined && price !== null && (
                       <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
                         <Text style={[styles.detailLabel, { color: theme.muted }]}>Amount</Text>
-                        <Text style={[styles.detailValue, { color: "#10b981", fontWeight: "800", fontSize: 16 }]}>
+                        <Text style={[styles.detailValue, { color: C.successText, fontWeight: "800", fontSize: 16 }]}>
                           {paiseToINR(price)}
                         </Text>
                       </View>
@@ -311,19 +306,19 @@ export default function AppointmentDetailModal({
                     }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="navigate-circle-outline" size={20} color="#f54e00" />
+                    <Ionicons name="navigate-circle-outline" size={20} color={C.main} />
                     <Text style={[styles.actionBtnText, { color: theme.ink }]}>Directions</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.surface, borderColor: theme.hairline }]}
                     onPress={() => {
-                      const phone = appointment.branch?.phone || "9876543210";
+                      const phone = appointment.branch?.contactPhone || "9876543210";
                       Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
                     }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="call-outline" size={20} color="#10b981" />
+                    <Ionicons name="call-outline" size={20} color={C.success} />
                     <Text style={[styles.actionBtnText, { color: theme.ink }]}>Call Salon</Text>
                   </TouchableOpacity>
                 </View>
@@ -339,20 +334,15 @@ export default function AppointmentDetailModal({
                       }}
                       activeOpacity={0.82}
                     >
-                      <Ionicons name="close-circle-outline" size={16} color="#ef4444" style={{ marginRight: 6 }} />
+                      <Ionicons name="close-circle-outline" size={16} color={C.error} style={{ marginRight: 6 }} />
                       <Text style={styles.cancelBtnText}>Cancel Booking</Text>
                     </TouchableOpacity>
                   ) : null}
 
                   <TouchableOpacity style={styles.doneBtn} onPress={onClose} activeOpacity={0.88}>
-                    <LinearGradient
-                      colors={["#f54e00", "#d04200"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.doneGradient}
-                    >
+                    <View style={styles.doneGradient}>
                       <Text style={styles.doneBtnText}>Close Booking Pass</Text>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -367,30 +357,31 @@ export default function AppointmentDetailModal({
 function getStatusStyle(status) {
   switch (status) {
     case "CONFIRMED":
-      return { backgroundColor: "rgba(16, 185, 129, 0.15)", borderColor: "rgba(16, 185, 129, 0.3)" };
+      return { backgroundColor: C.successBg, borderColor: C.success };
     case "PENDING":
-      return { backgroundColor: "rgba(99, 102, 241, 0.15)", borderColor: "rgba(99, 102, 241, 0.3)" };
+      return { backgroundColor: C.infoBg, borderColor: C.info };
     case "COMPLETED":
-      return { backgroundColor: "rgba(168, 85, 247, 0.15)", borderColor: "rgba(168, 85, 247, 0.3)" };
+      return { backgroundColor: C.mainLight, borderColor: C.main };
     default:
-      return { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.3)" };
+      return { backgroundColor: C.errorBg, borderColor: C.error };
   }
 }
 
 function getStatusTextStyle(status) {
   switch (status) {
     case "CONFIRMED":
-      return { color: "#10b981" };
+      return { color: C.successText };
     case "PENDING":
-      return { color: "#6366f1" };
+      return { color: C.info };
     case "COMPLETED":
-      return { color: "#a855f7" };
+      return { color: C.main };
     default:
-      return { color: "#ef4444" };
+      return { color: C.errorText };
   }
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.65)",
@@ -476,9 +467,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: S.md,
     alignItems: "center",
+    backgroundColor: "#141414",
   },
   slotBannerTag: {
-    color: "#a5b4fc",
+    color: "#BD4444",
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.5,
@@ -509,7 +501,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 24,
     height: 24,
-    borderColor: "#6366f1",
+    borderColor: C.main,
   },
   qrCornerTL: { top: 8, left: 8, borderTopWidth: 3, borderLeftWidth: 3 },
   qrCornerTR: { top: 8, right: 8, borderTopWidth: 3, borderRightWidth: 3 },
@@ -572,7 +564,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(148, 163, 184, 0.15)",
+    borderBottomColor: C.borderLight,
   },
   detailLabel: {
     fontSize: 12,
@@ -611,7 +603,7 @@ const styles = StyleSheet.create({
     paddingVertical: S.sm,
   },
   cancelBtnText: {
-    color: "#ef4444",
+    color: C.error,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -620,10 +612,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: R.md,
     alignItems: "center",
+    backgroundColor: C.main,
   },
   doneBtnText: {
-    color: "#ffffff",
+    color: C.bg,
     fontSize: 14,
     fontWeight: "800",
   },
 });
+}

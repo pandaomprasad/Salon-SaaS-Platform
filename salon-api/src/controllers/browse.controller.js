@@ -140,9 +140,9 @@ const getInitialLoad = async (req, res, next) => {
 // ================================
 const browseSalons = async (req, res, next) => {
   try {
-    const { search, city, page = 1, limit = 10 } = req.query
+    const { search, city, category, page = 1, limit = 10 } = req.query
     const cacheCity = city ? city.split(',')[0].trim().toLowerCase() : null
-    const cacheKey = `salons:list:${search || 'all'}:${cacheCity || 'all'}:${page}:${limit}`
+    const cacheKey = `salons:list:${search || 'all'}:${cacheCity || 'all'}:${category || 'all'}:${page}:${limit}`
 
     const cached = await getCache(cacheKey)
     if (cached) {
@@ -152,7 +152,8 @@ const browseSalons = async (req, res, next) => {
     const filter = { isActive: true, deactivatedByAdmin: { $ne: true } }
 
     if (search) {
-      filter.name = { $regex: new RegExp(search, 'i') }
+      const sanitized = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      filter.name = { $regex: new RegExp(sanitized, 'i') }
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit)
@@ -168,6 +169,37 @@ const browseSalons = async (req, res, next) => {
 
       salonIdsInCity = branchesInCity.map((b) => b.salonId.toString())
       filter._id = { $in: salonIdsInCity }
+    }
+
+    if (category && category.toLowerCase() !== 'all') {
+      const sanitizedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const catServices = await Service.find({
+        category: { $regex: new RegExp(`^${sanitizedCategory}$`, 'i') },
+        isActive: true
+      })
+        .select('branchId')
+        .lean()
+
+      const catBranches = await Branch.find({
+        _id: { $in: catServices.map((s) => s.branchId.toString()) },
+        isActive: true
+      })
+        .select('salonId')
+        .lean()
+
+      let catSalonIds = [...new Set(catBranches.map((b) => b.salonId.toString()))]
+      if (salonIdsInCity) {
+        catSalonIds = catSalonIds.filter((id) => salonIdsInCity.includes(id))
+      }
+
+      if (catSalonIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          cached: false,
+          data: { salons: [], total: 0, page: parseInt(page), totalPages: 0, hasMore: false }
+        })
+      }
+      filter._id = { $in: catSalonIds }
     }
 
     const [salons, total] = await Promise.all([
@@ -304,7 +336,8 @@ const browseBranches = async (req, res, next) => {
     }
 
     if (search) {
-      filter.name = { $regex: new RegExp(search, 'i') }
+      const sanitized = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      filter.name = { $regex: new RegExp(sanitized, 'i') }
     }
 
     if (category) {

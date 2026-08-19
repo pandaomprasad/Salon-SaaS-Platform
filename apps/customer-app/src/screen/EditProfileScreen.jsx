@@ -13,27 +13,46 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
+import { authService } from "../services/authService";
 
 export default function EditProfileScreen({ goBack }) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
-  const [phone, setPhone] = useState(user?.phone || "+1 (555) 234-5678");
-  const [gender, setGender] = useState("Female");
+  const [phone, setPhone] = useState(user?.phone || "");
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setSaveError("Please enter your full name.");
+      return;
+    }
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setSaveError(null);
+    try {
+      const res = await authService.updateProfile({
+        name: name.trim(),
+        phone: phone.trim(),
+      });
+      const updated = res?.data?.user;
+      if (updated) {
+        updateUser({ name: updated.name, phone: updated.phone });
+      } else {
+        updateUser({ name: name.trim(), phone: phone.trim() });
+      }
       setSavedSuccess(true);
       setTimeout(() => {
         setSavedSuccess(false);
         if (goBack) goBack();
       }, 1200);
-    }, 800);
+    } catch (err) {
+      setSaveError(err.message || "Failed to save changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const styles = getStyles();
@@ -58,7 +77,7 @@ export default function EditProfileScreen({ goBack }) {
               style={styles.avatar}
             />
             <TouchableOpacity style={styles.editBadge} activeOpacity={0.8}>
-              <Ionicons name="camera" size={14} color="#FFFFFF" />
+              <Ionicons name="camera" size={14} color={C.bg} />
             </TouchableOpacity>
           </View>
           <Text style={styles.avatarHint}>Tap camera to update profile photo</Text>
@@ -77,9 +96,9 @@ export default function EditProfileScreen({ goBack }) {
 
           <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.inputDisabled]}
             value={email}
-            onChangeText={setEmail}
+            editable={false}
             keyboardType="email-address"
             placeholder="Enter email"
             placeholderTextColor={C.dustTaupe}
@@ -95,24 +114,9 @@ export default function EditProfileScreen({ goBack }) {
             placeholderTextColor={C.dustTaupe}
           />
 
-          <Text style={styles.inputLabel}>GENDER PREFERENCE</Text>
-          <View style={styles.genderRow}>
-            {["Female", "Male", "Non-Binary"].map((g) => {
-              const isSelected = gender === g;
-              return (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.genderChip, isSelected && styles.genderChipSelected]}
-                  onPress={() => setGender(g)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.genderText, isSelected && styles.genderTextSelected]}>
-                    {g}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {saveError ? (
+            <Text style={styles.errorText}>{saveError}</Text>
+          ) : null}
         </View>
 
         {/* Save Button */}
@@ -123,7 +127,7 @@ export default function EditProfileScreen({ goBack }) {
           activeOpacity={0.88}
         >
           {saving ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={C.bg} size="small" />
           ) : savedSuccess ? (
             <Text style={styles.saveBtnText}>✓ Saved</Text>
           ) : (
@@ -227,31 +231,15 @@ function getStyles() {
       borderColor: C.border,
       marginBottom: S.xs,
     },
-    genderRow: {
-      flexDirection: "row",
-      gap: S.xs,
-      marginTop: S.xxs,
+    inputDisabled: {
+      color: C.muted,
+      backgroundColor: C.lifted,
     },
-    genderChip: {
-      flex: 1,
-      paddingVertical: 8,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    genderChipSelected: {
-      backgroundColor: C.ink,
-      borderColor: C.ink,
-    },
-    genderText: {
-      fontSize: FS.bodySm,
+    errorText: {
+      color: C.error,
+      fontSize: FS.caption,
       fontWeight: FW.medium,
-      color: C.ink,
-    },
-    genderTextSelected: {
-      color: "#FFFFFF",
+      marginTop: S.xs,
     },
     saveBtn: {
       backgroundColor: C.main,
@@ -264,7 +252,7 @@ function getStyles() {
       backgroundColor: C.success,
     },
     saveBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },

@@ -11,7 +11,6 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
@@ -19,6 +18,7 @@ import BouncyButton from "../components/BouncyButton";
 import GoogleSignInModal from "../components/GoogleSignInModal";
 
 export default function RegisterScreen({ navigate, goBack, routeParams }) {
+  const styles = getStyles();
   const { register, loginWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -96,7 +96,7 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
             <ActivityIndicator color={C.ink} />
           ) : (
             <View style={styles.googleBtnContent}>
-              <Ionicons name="logo-google" size={18} color="#4285F4" style={{ marginRight: 10 }} />
+              <Ionicons name="logo-google" size={18} color={C.ink} style={{ marginRight: 10 }} />
               <Text style={styles.googleBtnText}>Continue with Google</Text>
             </View>
           )}
@@ -156,23 +156,18 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
           />
         </View>
 
-        {/* button-primary: Cursor Orange gradient */}
+        {/* button-primary: flat #BD4444 */}
         <BouncyButton
           disabled={loading}
           onPress={handleRegister}
         >
-          <LinearGradient
-            colors={["#f54e00", "#d04200"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.submitBtnGradient}
-          >
+          <View style={styles.submitBtnGradient}>
             {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={C.bg} />
             ) : (
               <Text style={styles.submitBtnText}>Create Account</Text>
             )}
-          </LinearGradient>
+          </View>
         </BouncyButton>
 
         <View style={styles.footerRow}>
@@ -198,10 +193,11 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
+    backgroundColor: C.bg, // Flat white canvas
   },
   content: {
     paddingHorizontal: S.md,
@@ -284,9 +280,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: S.sm,
     paddingHorizontal: S.md,
+    backgroundColor: C.main,
   },
   submitBtnText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: FS.bodySm,
     fontWeight: FW.medium,
   },
@@ -342,4 +339,5 @@ const styles = StyleSheet.create({
     marginHorizontal: S.xs,
     letterSpacing: 0.6,
   },
-});
+  });
+}

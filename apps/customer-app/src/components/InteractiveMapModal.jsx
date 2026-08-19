@@ -13,12 +13,14 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C } from "../theme";
 import { getCurrentLocation, calculateDistance } from "../services/locationService";
 import { paiseToINR } from "../services/apiClient";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function InteractiveMapModal({ visible, onClose, salons = [], onSelectSalon }) {
+  const styles = getStyles();
   const [userCoords, setUserCoords] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [selectedRadius, setSelectedRadius] = useState("all");
@@ -131,7 +133,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
-            <Ionicons name="close" size={20} color="#1A1A1A" />
+            <Ionicons name="close" size={20} color={C.ink} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerSub}>INTERACTIVE GPS MAP</Text>
@@ -144,7 +146,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="locate-sharp" size={18} color="#D4AF37" />
+            <Ionicons name="locate-sharp" size={18} color={C.main} />
           </TouchableOpacity>
         </View>
 
@@ -181,7 +183,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
         <View style={styles.mapCanvas}>
           {loadingLocation ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={C.bg} />
               <Text style={styles.loadingText}>Acquiring GPS location...</Text>
             </View>
           ) : (
@@ -216,7 +218,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
                     <Ionicons
                       name="location-sharp"
                       size={isSelected ? 26 : 20}
-                      color={isSelected ? "#E6CA65" : "#FFFFFF"}
+                      color={isSelected ? C.main : "#FFFFFF"}
                     />
                     <View style={[styles.pinBadge, isSelected && styles.pinBadgeSelected]}>
                       <Text style={[styles.pinBadgeText, isSelected && styles.pinBadgeTextSelected]}>
@@ -235,7 +237,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
             <View style={styles.popupTopRow}>
               <View style={styles.popupInfo}>
                 <View style={styles.distTag}>
-                  <Ionicons name="navigate-sharp" size={11} color="#D4AF37" />
+                  <Ionicons name="navigate-sharp" size={11} color={C.main} />
                   <Text style={styles.distTagText}>{selectedStudio.distanceKm} km away</Text>
                 </View>
                 <Text style={styles.popupTitle} numberOfLines={1}>{selectedStudio.branchName}</Text>
@@ -254,7 +256,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
                 onPress={() => handleOpenDirections(selectedStudio.lat, selectedStudio.lng, selectedStudio.branchName)}
                 activeOpacity={0.85}
               >
-                <Ionicons name="compass-outline" size={16} color="#1A1A1A" />
+                <Ionicons name="compass-outline" size={16} color={C.ink} />
                 <Text style={styles.dirBtnText}>Get Directions</Text>
               </TouchableOpacity>
 
@@ -273,10 +275,11 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.lifted,
   },
   header: {
     paddingTop: 52,
@@ -285,19 +288,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+    borderBottomColor: C.borderLight,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.borderLight,
   },
   headerCenter: {
     alignItems: "center",
@@ -305,20 +308,20 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#8E8880",
+    color: C.muted,
     letterSpacing: 1.2,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#1A1A1A",
+    color: C.ink,
     marginTop: 2,
   },
   gpsBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: C.ink,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -327,32 +330,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8,
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.lifted,
   },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.borderLight,
   },
   filterChipActive: {
-    backgroundColor: "#1A1A1A",
-    borderColor: "#1A1A1A",
+    backgroundColor: C.ink,
+    borderColor: C.ink,
   },
   filterText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#1A1A1A",
+    color: C.ink,
   },
   filterTextActive: {
-    color: "#FFFFFF",
+    color: C.bg,
   },
   mapCanvas: {
     flex: 1,
     position: "relative",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: C.ink,
   },
   loadingBox: {
     flex: 1,
@@ -361,7 +364,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: 12,
     fontWeight: "500",
   },
@@ -380,7 +383,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "rgba(212, 175, 55, 0.3)",
+    backgroundColor: "rgba(189, 68, 68, 0.3)",
     alignItems: "center",
     justifyContent: "center",
     transform: [{ translateX: -12 }, { translateY: -12 }],
@@ -389,7 +392,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#D4AF37",
+    backgroundColor: C.main,
   },
   mapPinContainer: {
     position: "absolute",
@@ -404,8 +407,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   mapPinContainerSelected: {
-    backgroundColor: "#1A1A1A",
-    borderColor: "#E6CA65",
+    backgroundColor: C.ink,
+    borderColor: C.main,
   },
   pinBadge: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
@@ -414,7 +417,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   pinBadgeSelected: {
-    backgroundColor: "#E6CA65",
+    backgroundColor: C.main,
   },
   pinBadgeText: {
     color: "#FFFFFF",
@@ -422,23 +425,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   pinBadgeTextSelected: {
-    color: "#1A1A1A",
+    color: C.bg,
   },
   studioCardPopup: {
     position: "absolute",
     bottom: 24,
     left: 16,
     right: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 10,
+    borderColor: C.borderLight,
   },
   popupTopRow: {
     flexDirection: "row",
@@ -459,40 +457,40 @@ const styles = StyleSheet.create({
   distTagText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#D4AF37",
+    color: C.main,
     letterSpacing: 0.8,
   },
   popupTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#1A1A1A",
+    color: C.ink,
   },
   popupAddr: {
     fontSize: 12,
-    color: "#77726A",
+    color: C.muted,
     marginTop: 2,
     fontWeight: "500",
   },
   ratingBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.lifted,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
     gap: 3,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: C.borderLight,
   },
   ratingStar: {
-    color: "#D4AF37",
+    color: C.main,
     fontSize: 12,
     fontWeight: "900",
   },
   ratingVal: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#1A1A1A",
+    color: C.ink,
   },
   popupActionRow: {
     flexDirection: "row",
@@ -503,29 +501,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FAF9F6",
+    backgroundColor: C.lifted,
     paddingVertical: 12,
     borderRadius: 18,
     gap: 6,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: C.borderLight,
   },
   dirBtnText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#1A1A1A",
+    color: C.ink,
   },
   bookBtn: {
     flex: 1.2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1A1A1A",
+    backgroundColor: C.ink,
     paddingVertical: 12,
     borderRadius: 18,
   },
   bookBtnText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#E6CA65",
+    color: C.main,
   },
-});
+  });
+}

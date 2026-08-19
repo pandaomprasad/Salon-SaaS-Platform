@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Image, Dimensions } from "react-native";
 import { useSharedElement } from "../context/SharedElementContext";
+import { C } from "../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TARGET_HEIGHT = 240;
@@ -10,6 +11,7 @@ const TARGET_LEFT = 16;
 const TARGET_WIDTH = SCREEN_WIDTH - 32;
 
 export default function SharedElementMorphOverlay() {
+  const styles = getStyles();
   const { activeSharedElement, clearSharedElement } = useSharedElement();
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -104,7 +106,8 @@ export default function SharedElementMorphOverlay() {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 99999,
@@ -115,11 +118,7 @@ const styles = StyleSheet.create({
     left: 0,
     borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: "#1A1A1A",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 12,
+    backgroundColor: C.ink,
   },
-});
+  });
+}

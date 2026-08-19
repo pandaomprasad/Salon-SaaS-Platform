@@ -14,33 +14,35 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { storage } from "../services/storage";
+import { C } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 
 const { width, height } = Dimensions.get("window");
 
 const ONBOARDING_KEY = "@salon_app_has_onboarded";
 
-// ── Design Tokens (from cursor/DESIGN.md) ──────────────────
+// ── Design Tokens (Flat Black & White + #BD4444) ──────────────────
 const COLORS = {
-  canvas: "#f7f7f4",
-  canvasSoft: "#fafaf7",
-  surface: "#ffffff",
-  ink: "#26251e",
-  body: "#5a5852",
-  muted: "#807d72",
-  mutedSoft: "#a09c92",
-  primary: "#f54e00",
-  primaryActive: "#d04200",
-  onPrimary: "#ffffff",
-  hairline: "#e6e5e0",
-  hairlineSoft: "#efeee8",
-  hairlineStrong: "#cfcdc4",
-  surfaceStrong: "#e6e5e0",
-  // Timeline pastels (signature)
-  thinking: "#dfa88f",
-  grep: "#9fc9a2",
-  read: "#9fbbe0",
-  edit: "#c0a8dd",
-  done: "#c08532",
+  canvas: C.bg,
+  canvasSoft: C.lifted,
+  surface: C.surface,
+  ink: C.ink,
+  body: C.textSecondary,
+  muted: C.muted,
+  mutedSoft: C.dustTaupe,
+  primary: C.main,
+  primaryActive: C.mainDark,
+  onPrimary: C.bg,
+  hairline: C.border,
+  hairlineSoft: C.borderLight,
+  hairlineStrong: C.borderDark,
+  surfaceStrong: C.bone,
+  // Monochrome decorations (hex so alpha suffixes concatenate cleanly)
+  thinking: "#E0E0E0",
+  grep: "#E0E0E0",
+  read: "#E0E0E0",
+  edit: "#E0E0E0",
+  done: "#BD4444",
 };
 
 const SLIDES = [
@@ -83,6 +85,8 @@ const SLIDES = [
 ];
 
 export default function OnboardingScreen({ onFinish, navigate }) {
+  const styles = getStyles();
+  const { isDark } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
@@ -101,7 +105,6 @@ export default function OnboardingScreen({ onFinish, navigate }) {
 
   // ── Micro-interactions ────────────────────────────────────
   const buttonScale = useRef(new Animated.Value(1)).current;
-  const buttonGlow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Staggered entrance sequence — each element cascades in
@@ -200,24 +203,6 @@ export default function OnboardingScreen({ onFinish, navigate }) {
           duration: 2400,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Button glow breathing
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(buttonGlow, {
-          toValue: 1,
-          duration: 1800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
-        }),
-        Animated.timing(buttonGlow, {
-          toValue: 0,
-          duration: 1800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
         }),
       ])
     ).start();
@@ -571,15 +556,9 @@ export default function OnboardingScreen({ onFinish, navigate }) {
     outputRange: [-width, width],
   });
 
-  // ── Button glow opacity ───────────────────────────────────
-  const glowOpacity = buttonGlow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.15],
-  });
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.canvas} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.canvas} />
 
       {/* ── Header (staggered entrance: slide down + fade) ──── */}
       <Animated.View
@@ -718,13 +697,6 @@ export default function OnboardingScreen({ onFinish, navigate }) {
 
         {/* CTA button with shimmer sweep + scale micro-interaction */}
         <Animated.View style={{ width: "100%", transform: [{ scale: buttonScale }] }}>
-          {/* Glow effect behind button */}
-          <Animated.View
-            style={[
-              styles.ctaGlow,
-              { opacity: glowOpacity },
-            ]}
-          />
           <TouchableOpacity
             style={styles.ctaButton}
             onPress={handleNext}
@@ -766,7 +738,8 @@ export default function OnboardingScreen({ onFinish, navigate }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   // ── Root ──────────────────────────────────────────────────
   container: {
     flex: 1,
@@ -969,15 +942,6 @@ const styles = StyleSheet.create({
   },
 
   // ── CTA Button ────────────────────────────────────────────
-  ctaGlow: {
-    position: "absolute",
-    top: 4,
-    left: 16,
-    right: 16,
-    bottom: -4,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-  },
   ctaButton: {
     width: "100%",
     height: 52,
@@ -1023,4 +987,5 @@ const styles = StyleSheet.create({
     marginTop: 14,
     letterSpacing: 0.1,
   },
-});
+  });
+}

@@ -53,8 +53,10 @@ const buildStatusPush = (appointment, serviceName = "appointment", salonName = "
 // ================================
 const bookAppointment = async (req, res, next) => {
   try {
-    const { slotId, serviceId, customerNotes } = req.body;
+    const { slotId, serviceId, customerNotes, guests } = req.body;
     const { userId } = req.user;
+
+    const guestCount = Math.min(Math.max(parseInt(guests, 10) || 1, 1), 10);
 
     // --------------------------------
     // Step 1 — validate slot
@@ -188,6 +190,7 @@ const bookAppointment = async (req, res, next) => {
               pricePaid: service.price ?? 0,
               currency: service.currency || "INR",
               customerNotes,
+              guests: guestCount,
               status: "PENDING",
               history: [
                 {

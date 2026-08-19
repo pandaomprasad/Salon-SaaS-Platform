@@ -125,6 +125,13 @@ const appointmentSchema = new mongoose.Schema(
     // ================================
     // Notes & Feedback
     // ================================
+    guests: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 10
+    },
+
     customerNotes: {
       type: String,
       maxlength: [300, 'Notes cannot exceed 300 characters'],

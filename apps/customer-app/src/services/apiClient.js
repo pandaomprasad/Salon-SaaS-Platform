@@ -4,12 +4,8 @@ import Constants from "expo-constants";
 
 // Dynamically determine the host machine IP address when running via Expo Go / Metro
 const getBaseUrl = () => {
-  // 1. In local dev mode (__DEV__), default to local server on port 6969
+  // 1. In local dev mode (__DEV__), dynamically extract Expo host machine IP
   if (typeof __DEV__ !== "undefined" && __DEV__) {
-    if (process.env.EXPO_PUBLIC_DEV_API_URL) {
-      return process.env.EXPO_PUBLIC_DEV_API_URL;
-    }
-
     try {
       const hostUri =
         Constants.expoConfig?.hostUri ||
@@ -24,6 +20,10 @@ const getBaseUrl = () => {
       }
     } catch (e) {
       console.log("Could not extract hostUri from Constants", e);
+    }
+
+    if (process.env.EXPO_PUBLIC_DEV_API_URL) {
+      return process.env.EXPO_PUBLIC_DEV_API_URL;
     }
 
     if (Platform.OS === "android") {
@@ -164,4 +164,16 @@ export function paiseToINR(paise) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/**
+ * "YYYY-MM-DD" in the device's LOCAL timezone.
+ * (ISO string dates shift before ~5:30 AM IST and break slot lookups.)
+ */
+export function toLocalDateStr(date = new Date()) {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

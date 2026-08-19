@@ -37,6 +37,7 @@ const DEFAULT_STAFF = [
 ];
 
 export default function StaffPicker({ staffList = [], selectedStaffId, selectedStaff, onSelectStaff }) {
+  const styles = getStyles();
   const list = staffList.length > 0 ? [DEFAULT_STAFF[0], ...staffList] : DEFAULT_STAFF;
   const currentStaffId = selectedStaffId || selectedStaff?._id || selectedStaff?.id || (typeof selectedStaff === "string" ? selectedStaff : null);
 
@@ -82,7 +83,7 @@ export default function StaffPicker({ staffList = [], selectedStaffId, selectedS
                 )}
                 {isSelected && (
                   <View style={styles.checkBadge}>
-                    <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={10} color={C.bg} />
                   </View>
                 )}
               </View>
@@ -93,7 +94,7 @@ export default function StaffPicker({ staffList = [], selectedStaffId, selectedS
 
               {!staff.isAny && (
                 <View style={styles.ratingBox}>
-                  <Ionicons name="star" size={10} color="#c08532" />
+                  <Ionicons name="star" size={10} color={C.main} />
                   <Text style={styles.ratingText}>{staff.rating || "4.9"}</Text>
                 </View>
               )}
@@ -105,7 +106,8 @@ export default function StaffPicker({ staffList = [], selectedStaffId, selectedS
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     marginVertical: S.sm,
   },
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: C.surface,
   },
   name: {
     fontSize: FS.bodySm,
@@ -195,4 +197,5 @@ const styles = StyleSheet.create({
     color: C.ink,
     marginLeft: 2,
   },
-});
+  });
+}

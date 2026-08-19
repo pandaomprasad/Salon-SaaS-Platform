@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { S } from "../theme";
+import { C, S } from "../theme";
 import { getCurrentLocation, searchLocations, cleanCityName } from "../services/locationService";
 import { storage } from "../services/storage";
 
@@ -35,6 +35,7 @@ export default function LocationPickerModal({
   onSelectCity,
   onClose,
 }) {
+  const styles = getStyles();
   const [search, setSearch] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectStatus, setDetectStatus] = useState("");
@@ -253,7 +254,7 @@ export default function LocationPickerModal({
             </View>
 
             <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color="#111827" />
+              <Ionicons name="close" size={20} color={C.ink} />
             </TouchableOpacity>
           </View>
 
@@ -266,9 +267,9 @@ export default function LocationPickerModal({
           >
             <View style={styles.gpsIconBox}>
               {isDetecting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={C.bg} />
               ) : (
-                <Ionicons name="navigate" size={18} color="#FFFFFF" />
+                <Ionicons name="navigate" size={18} color={C.bg} />
               )}
             </View>
             <View style={styles.gpsTextInfo}>
@@ -282,11 +283,11 @@ export default function LocationPickerModal({
 
           {/* Search Input Box */}
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={18} color="#9CA3AF" />
+            <Ionicons name="search" size={18} color={C.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search city, area or pincode..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.muted}
               value={search}
               onChangeText={setSearch}
               onFocus={() => setIsFocused(true)}
@@ -295,10 +296,10 @@ export default function LocationPickerModal({
               }}
             />
             {isSearching ? (
-              <ActivityIndicator size="small" color="#9CA3AF" />
+              <ActivityIndicator size="small" color={C.muted} />
             ) : search ? (
               <TouchableOpacity onPress={() => { setSearch(""); setIsFocused(false); }}>
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={18} color={C.muted} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -317,7 +318,7 @@ export default function LocationPickerModal({
                   activeOpacity={0.8}
                 >
                   <View style={styles.currentLocIconBox}>
-                    <Ionicons name="location" size={20} color="#1D1B20" />
+                    <Ionicons name="location" size={20} color={C.ink} />
                   </View>
                   <View style={styles.currentLocTextWrap}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -329,7 +330,7 @@ export default function LocationPickerModal({
                   </View>
                   {selectedCity === currentCardData.city ? (
                     <View style={styles.checkBadge}>
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      <Ionicons name="checkmark" size={14} color={C.bg} />
                     </View>
                   ) : (
                     <View style={styles.selectPill}>
@@ -364,7 +365,7 @@ export default function LocationPickerModal({
                       activeOpacity={0.7}
                     >
                       <View style={styles.cityIconWrap}>
-                        <Ionicons name="time-outline" size={18} color={isSelected ? "#1D1B20" : "#9CA3AF"} />
+                        <Ionicons name="time-outline" size={18} color={isSelected ? C.ink : C.muted} />
                       </View>
                       <View style={styles.cityInfo}>
                         <Text style={[styles.cityName, isSelected && styles.cityNameSelected]}>
@@ -376,7 +377,7 @@ export default function LocationPickerModal({
                       </View>
                       {isSelected ? (
                         <View style={styles.checkBadge}>
-                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                          <Ionicons name="checkmark" size={14} color={C.bg} />
                         </View>
                       ) : null}
                     </TouchableOpacity>
@@ -399,7 +400,7 @@ export default function LocationPickerModal({
                     activeOpacity={0.7}
                   >
                     <View style={styles.cityIconWrap}>
-                      <Ionicons name="map-outline" size={18} color="#1D1B20" />
+                      <Ionicons name="map-outline" size={18} color={C.ink} />
                     </View>
                     <View style={styles.cityInfo}>
                       <Text style={styles.cityNameSelected}>{place.name}</Text>
@@ -424,7 +425,7 @@ export default function LocationPickerModal({
                         <Ionicons
                           name="location"
                           size={18}
-                          color={isSelected ? "#1D1B20" : "#9CA3AF"}
+                          color={isSelected ? C.ink : C.muted}
                         />
                       </View>
 
@@ -437,7 +438,7 @@ export default function LocationPickerModal({
 
                       {isSelected ? (
                         <View style={styles.checkBadge}>
-                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                          <Ionicons name="checkmark" size={14} color={C.bg} />
                         </View>
                       ) : null}
                     </TouchableOpacity>
@@ -450,7 +451,8 @@ export default function LocationPickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   modalRoot: {
     flex: 1,
     justifyContent: "flex-end",
@@ -460,18 +462,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   sheetContainer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingTop: 12,
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === "ios" ? 44 : 28,
     maxHeight: "82%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 20,
   },
   sheetContainerFullScreen: {
     maxHeight: "100%",
@@ -486,13 +483,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 120,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
   },
   handleBar: {
     width: 42,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: C.borderLight,
     alignSelf: "center",
     marginBottom: 16,
   },
@@ -509,42 +506,37 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "800",
-    color: "#111827",
+    color: C.ink,
     letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#6B7280",
+    color: C.muted,
     marginTop: 3,
   },
   closeBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
   },
   gpsBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#18181B",
+    backgroundColor: C.ink,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 24,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
   },
   gpsIconBox: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#27272A",
+    backgroundColor: C.ink,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
@@ -555,37 +547,37 @@ const styles = StyleSheet.create({
   gpsTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: C.bg,
     letterSpacing: -0.2,
   },
   gpsSub: {
     fontSize: 12,
     fontWeight: "400",
-    color: "#A1A1AA",
+    color: C.muted,
     marginTop: 2,
   },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.lifted,
     borderRadius: 18,
     paddingHorizontal: 14,
     height: 48,
     marginBottom: S.lg,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: C.borderLight,
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
     fontSize: 14,
-    color: "#1D1B20",
+    color: C.ink,
     fontWeight: "500",
   },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "900",
-    color: "#9CA3AF",
+    color: C.muted,
     letterSpacing: 1,
     marginBottom: 10,
   },
@@ -595,29 +587,21 @@ const styles = StyleSheet.create({
   currentLocCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.lifted,
     padding: 14,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: C.borderLight,
   },
   currentLocCardSelected: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#1D1B20",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: C.surface,
+    borderColor: C.ink,
   },
   currentLocIconBox: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -628,28 +612,28 @@ const styles = StyleSheet.create({
   currentLocCity: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#111827",
+    color: C.ink,
   },
   gpsBadge: {
-    backgroundColor: "#1D1B20",
+    backgroundColor: C.ink,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
   },
   gpsBadgeText: {
-    color: "#E6CA65",
+    color: C.main,
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 0.5,
   },
   currentLocSub: {
     fontSize: 12,
-    color: "#6B7280",
+    color: C.muted,
     marginTop: 2,
     fontWeight: "500",
   },
   selectPill: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.lifted,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
@@ -657,7 +641,7 @@ const styles = StyleSheet.create({
   selectPillText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#374151",
+    color: C.textSecondary,
   },
   recentSection: {
     marginBottom: 16,
@@ -671,7 +655,7 @@ const styles = StyleSheet.create({
   clearText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#9CA3AF",
+    color: C.muted,
   },
   cityList: {
     maxHeight: 280,
@@ -683,17 +667,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
     marginBottom: 6,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: C.lifted,
   },
   cityRowSelected: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: "#1D1B20",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: C.ink,
   },
   cityIconWrap: {
     marginRight: 12,
@@ -704,15 +683,15 @@ const styles = StyleSheet.create({
   cityName: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#374151",
+    color: C.textSecondary,
   },
   cityNameSelected: {
     fontWeight: "900",
-    color: "#1D1B20",
+    color: C.ink,
   },
   cityArea: {
     fontSize: 11,
-    color: "#9CA3AF",
+    color: C.muted,
     marginTop: 2,
     fontWeight: "500",
   },
@@ -720,10 +699,11 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "#1D1B20",
+    backgroundColor: C.ink,
     alignItems: "center",
     justifyContent: "center",
   },
-});
+  });
+}
 
 

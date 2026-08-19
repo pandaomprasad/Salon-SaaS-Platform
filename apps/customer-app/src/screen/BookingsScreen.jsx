@@ -10,7 +10,6 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { appointmentService } from "../services/appointmentService";
 import { paiseToINR } from "../services/apiClient";
@@ -270,14 +269,9 @@ export default function BookingsScreen({ navigate, onScroll }) {
           onPress={() => navigate && navigate("Login")}
           activeOpacity={0.88}
         >
-          <LinearGradient
-            colors={["#f54e00", "#d04200"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.signInBtnGradient}
-          >
+          <View style={styles.signInBtnGradient}>
             <Text style={styles.signInBtnText}>Sign In Now</Text>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -317,18 +311,24 @@ export default function BookingsScreen({ navigate, onScroll }) {
       {rescheduleAppt && (
         <RescheduleModal
           visible={!!rescheduleAppt}
-          appointment={rescheduleAppt}
+          booking={rescheduleAppt}
           onClose={() => setRescheduleAppt(null)}
-          onSuccess={handleRescheduleSuccess}
+          onConfirm={async (id, newSlotId) => {
+            await appointmentService.rescheduleAppointment(id, newSlotId);
+            handleRescheduleSuccess();
+          }}
         />
       )}
 
       {cancelApptModal && (
         <CancelBookingModal
           visible={!!cancelApptModal}
-          appointment={cancelApptModal}
+          booking={cancelApptModal}
           onClose={() => setCancelApptModal(null)}
-          onSuccess={handleCancelSuccess}
+          onConfirm={async (id, reason) => {
+            await appointmentService.cancelAppointment(id, reason);
+            handleCancelSuccess();
+          }}
         />
       )}
 
@@ -349,20 +349,15 @@ export default function BookingsScreen({ navigate, onScroll }) {
       />
 
       {statusToast ? (
-        <LinearGradient
-          colors={["#059669", "#10B981"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.toastBanner}
-        >
+        <View style={styles.toastBanner}>
           <View style={{ flex: 1 }}>
             <Text style={styles.toastTitle}>{statusToast.title}</Text>
             <Text style={styles.toastMessage}>{statusToast.message}</Text>
           </View>
           <TouchableOpacity style={styles.toastCloseBtn} onPress={() => setStatusToast(null)}>
-            <Ionicons name="close" size={16} color="#FFFFFF" />
+            <Ionicons name="close" size={16} color={C.bg} />
           </TouchableOpacity>
-        </LinearGradient>
+        </View>
       ) : null}
 
       <View style={styles.header}>
@@ -379,14 +374,9 @@ export default function BookingsScreen({ navigate, onScroll }) {
                 activeOpacity={0.85}
               >
                 {isSelected ? (
-                  <LinearGradient
-                    colors={["#f54e00", "#d04200"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.tabSelectedGradient}
-                  >
+                  <View style={styles.tabSelectedGradient}>
                     <Text style={styles.tabTextSelected}>{tab}</Text>
-                  </LinearGradient>
+                  </View>
                 ) : (
                   <View style={styles.tabUnselected}>
                     <Text style={styles.tabTextUnselected}>{tab}</Text>
@@ -475,7 +465,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
                     <Text style={styles.detailText}>⏰ {timeText}</Text>
                   </View>
 
-                  <Text style={styles.detailPrice}>{paiseToINR(appt.totalAmount || appt.price || 0)}</Text>
+                  <Text style={styles.detailPrice}>{paiseToINR(appt.pricePaid ?? appt.totalAmount ?? appt.price ?? 0)}</Text>
                 </View>
 
                 {/* Actions for Active / Completed */}
@@ -489,7 +479,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="qr-code-outline" size={14} color="#f54e00" />
+                      <Ionicons name="qr-code-outline" size={14} color={C.main} />
                       <Text style={styles.passBtnText}>View Pass &amp; QR</Text>
                     </TouchableOpacity>
 
@@ -519,7 +509,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
                   <View style={styles.cardActions}>
                     {appt.rating && appt.rating.score ? (
                       <View style={styles.ratedChip}>
-                        <Ionicons name="star" size={12} color="#c08532" />
+                        <Ionicons name="star" size={12} color={C.main} />
                         <Text style={styles.ratedChipText}>
                           {appt.rating.score}/5 {appt.rating.review ? `· "${appt.rating.review}"` : ""}
                         </Text>
@@ -533,7 +523,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
                         }}
                         activeOpacity={0.85}
                       >
-                        <Ionicons name="star" size={13} color="#FFFFFF" />
+                        <Ionicons name="star" size={13} color={C.bg} />
                         <Text style={styles.rateBtnText}>Rate Visit</Text>
                       </TouchableOpacity>
                     )}
@@ -560,7 +550,7 @@ function getStatusStyle(status) {
       return { backgroundColor: C.edit };
     case "CANCELLED":
     case "NO_SHOW":
-      return { backgroundColor: C.errorBg, borderWidth: 1, borderColor: "rgba(207, 45, 86, 0.2)" };
+      return { backgroundColor: C.errorBg, borderWidth: 1, borderColor: C.error };
     default:
       return { backgroundColor: C.lifted };
   }
@@ -616,6 +606,7 @@ function getStyles() {
       borderRadius: R.pill,
       alignItems: "center",
       justifyContent: "center",
+      backgroundColor: C.ink,
     },
     tabUnselected: {
       paddingHorizontal: S.md,
@@ -628,7 +619,7 @@ function getStyles() {
       justifyContent: "center",
     },
     tabTextSelected: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: 12,
       fontWeight: "700",
     },
@@ -650,9 +641,6 @@ function getStyles() {
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
       color: C.ink,
-    },
-    tabTextActive: {
-      color: "#FFFFFF",
     },
     contentContainer: {
       paddingHorizontal: S.md,
@@ -695,9 +683,10 @@ function getStyles() {
       borderRadius: R.md,
       alignItems: "center",
       justifyContent: "center",
+      backgroundColor: C.main,
     },
     signInBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },
@@ -791,7 +780,7 @@ function getStyles() {
       borderRadius: R.md,
       backgroundColor: C.errorBg,
       borderWidth: 1,
-      borderColor: "rgba(207, 45, 86, 0.2)",
+      borderColor: C.error,
     },
     cancelBtnText: {
       color: C.error,
@@ -805,12 +794,12 @@ function getStyles() {
       paddingHorizontal: S.sm + 2,
       paddingVertical: 6,
       borderRadius: R.md,
-      backgroundColor: "rgba(245, 78, 0, 0.12)",
+      backgroundColor: C.infoBg,
       borderWidth: 1,
-      borderColor: "rgba(245, 78, 0, 0.3)",
+      borderColor: C.main,
     },
     passBtnText: {
-      color: "#f54e00",
+      color: C.main,
       fontSize: FS.bodySm - 1,
       fontWeight: FW.bold,
     },
@@ -824,7 +813,7 @@ function getStyles() {
       backgroundColor: C.main,
     },
     rateBtnText: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
     },
@@ -865,7 +854,7 @@ function getStyles() {
       fontWeight: FW.semiBold,
     },
     toastMessage: {
-      color: "#FFFFFF",
+      color: C.bg,
       fontSize: FS.bodySm - 1,
       marginTop: 2,
     },

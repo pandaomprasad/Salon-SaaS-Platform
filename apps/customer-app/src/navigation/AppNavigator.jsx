@@ -42,6 +42,7 @@ const TABS = [
 ];
 
 export default function AppNavigator() {
+  const styles = getStyles();
   const { theme, isDark } = useTheme();
   const [currentTab, setCurrentTab] = useState("Home");
   const [screenStack, setScreenStack] = useState([]); // Navigation stack: [{ name, params }]
@@ -174,6 +175,7 @@ export default function AppNavigator() {
             salon={screenParams.salon}
             branch={screenParams.branch}
             service={screenParams.service}
+            selectedServices={screenParams.selectedServices}
             goBack={goBack}
             navigate={navigate}
           />
@@ -328,7 +330,8 @@ export default function AppNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
@@ -366,7 +369,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   iosTabLabelSelected: {
-    color: C.main,                  // Cursor Orange #f54e00
+    color: C.main,                  // Flat accent #BD4444
     fontWeight: FW.semiBold,
   },
 
@@ -395,16 +398,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   androidTabItemActive: {
-    backgroundColor: C.main,        // Cursor Orange primary
+    backgroundColor: C.main,        // Flat accent #BD4444
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: R.md,             // 8px CTA radius
   },
   androidActiveLabel: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontWeight: FW.medium,
     fontSize: 13,
     marginLeft: 6,
   },
-});
+  });
+}
 

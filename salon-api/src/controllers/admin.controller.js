@@ -596,7 +596,6 @@ const listOwnerRequests = async (req, res, next) => {
     const filter = status === 'ALL' ? {} : { status }
 
     const requests = await OwnerRegistrationRequest.find(filter)
-      .select('+password')
       .sort({ createdAt: -1 })
       .lean()
 

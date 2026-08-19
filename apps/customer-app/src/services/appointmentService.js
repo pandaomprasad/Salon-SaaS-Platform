@@ -2,11 +2,12 @@
 import { apiClient } from "./apiClient";
 
 export const appointmentService = {
-  bookAppointment: async ({ slotId, serviceId, customerNotes }) => {
+  bookAppointment: async ({ slotId, serviceId, customerNotes, guests }) => {
     return await apiClient.post("/appointments", {
       slotId,
       serviceId,
       customerNotes,
+      guests,
     });
   },
 
@@ -23,7 +24,7 @@ export const appointmentService = {
   cancelAppointment: async (id, reason) => {
     return await apiClient.patch(`/appointments/${id}/status`, {
       status: "CANCELLED",
-      reason,
+      note: reason,
     });
   },
 

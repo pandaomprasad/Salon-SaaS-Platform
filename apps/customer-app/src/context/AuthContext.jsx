@@ -1,5 +1,5 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
 import { setAuthToken, setUnauthorizedHandler } from "../services/apiClient";
 import { authService } from "../services/authService";
 import { storage } from "../services/storage";
@@ -16,14 +16,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await notificationService.unregisterPushToken();
     setUser(null);
     setToken(null);
     setAuthToken(null);
     await storage.removeItem(AUTH_TOKEN_KEY);
     await storage.removeItem(AUTH_USER_KEY);
-  };
+  }, []);
 
   // Attach the device's Expo push token whenever a session is live
   // (login, register, google, or restored-at-boot). Best-effort — never
@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
     restoreSession();
   }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     setError(null);
     setLoading(true);
     try {
@@ -96,9 +96,9 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const register = async (name, email, password, phone) => {
+  const register = useCallback(async (name, email, password, phone) => {
     setError(null);
     setLoading(true);
     try {
@@ -127,9 +127,9 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loginWithGoogle = async (googlePayload) => {
+  const loginWithGoogle = useCallback(async (googlePayload) => {
     setError(null);
     setLoading(true);
     try {
@@ -157,7 +157,17 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => {
+      const next = prev ? { ...prev, ...patch } : prev;
+      if (next) {
+        storage.setItem(AUTH_USER_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -171,6 +181,7 @@ export function AuthProvider({ children }) {
         loginWithGoogle,
         register,
         logout,
+        updateUser,
       }}
     >
       {children}

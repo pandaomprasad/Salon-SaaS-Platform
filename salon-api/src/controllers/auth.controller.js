@@ -355,6 +355,60 @@ res.status(200).json({
   }
 };
 
+// PATCH /api/v1/auth/me
+// Update the logged-in user's own profile (name / phone)
+const updateMe = async (req, res, next) => {
+  try {
+    const { name, phone } = req.body || {};
+    const updates = {};
+
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (trimmed.length < 2) {
+        return next(new AppError("Name must be at least 2 characters", 400));
+      }
+      updates.name = trimmed;
+    }
+
+    if (phone !== undefined) {
+      const trimmed = String(phone).trim();
+      if (trimmed === "") {
+        return next(new AppError("Phone number cannot be empty", 400));
+      }
+      updates.phone = trimmed;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return next(new AppError("Nothing to update", 400));
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user.userId, updates, {
+      new: true,
+      runValidators: true,
+    })
+      .select("name email phone")
+      .lean();
+
+    if (!updatedUser) {
+      return next(new AppError("User not found", 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const { OAuth2Client } = require("google-auth-library");
 const googleClient = new OAuth2Client();
 const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || "")
@@ -482,4 +536,4 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
-module.exports = { register, registerOwner, login, googleLogin, refresh, logout, me };
+module.exports = { register, registerOwner, login, googleLogin, refresh, logout, me, updateMe };

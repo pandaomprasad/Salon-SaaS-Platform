@@ -11,10 +11,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import SlotPicker from "./SlotPicker";
 import { browseService } from "../services/browseService";
+import { toLocalDateStr } from "../services/apiClient";
 import { C, S } from "../theme";
 
 export default function RescheduleModal({ visible, onClose, onConfirm, booking }) {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const styles = getStyles();
+  const todayStr = toLocalDateStr();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -126,7 +128,7 @@ export default function RescheduleModal({ visible, onClose, onConfirm, booking }
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color="#1A1714" />
+              <Ionicons name="close" size={20} color={C.ink} />
             </TouchableOpacity>
           </View>
 
@@ -138,7 +140,7 @@ export default function RescheduleModal({ visible, onClose, onConfirm, booking }
 
           {loadingSlots ? (
             <View style={styles.loaderBox}>
-              <ActivityIndicator color="#1A1714" size="small" />
+              <ActivityIndicator color={C.ink} size="small" />
               <Text style={styles.loaderText}>Loading available slots...</Text>
             </View>
           ) : (
@@ -161,7 +163,7 @@ export default function RescheduleModal({ visible, onClose, onConfirm, booking }
             activeOpacity={0.85}
           >
             {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={C.bg} />
             ) : (
               <Text style={styles.confirmBtnText}>Confirm New Time Slot</Text>
             )}
@@ -172,14 +174,15 @@ export default function RescheduleModal({ visible, onClose, onConfirm, booking }
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.55)",
     justifyContent: "flex-end",
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: S.lg,
@@ -195,20 +198,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: "800",
-    color: C.gold,
+    color: C.main,
     letterSpacing: 1.1,
   },
   subtitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1A1714",
+    color: C.ink,
     marginTop: 2,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: C.lifted,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -220,25 +223,25 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     fontSize: 12,
-    color: "#8E8880",
+    color: C.textMuted,
     fontWeight: "600",
   },
   errorBox: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: C.errorBg,
     borderRadius: 12,
     padding: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: C.error,
   },
   errorText: {
-    color: "#DC2626",
+    color: C.errorText,
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
   },
   confirmBtn: {
-    backgroundColor: "#1A1714",
+    backgroundColor: C.ink,
     paddingVertical: 15,
     borderRadius: 16,
     alignItems: "center",
@@ -248,8 +251,9 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   confirmBtnText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: 15,
     fontWeight: "800",
   },
 });
+}

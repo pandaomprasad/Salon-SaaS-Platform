@@ -164,9 +164,17 @@ function HomeScreen({ navigate, onScroll }) {
   const handleSearchClick = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
   const handleBannerPress = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
   const handleRebook = useCallback(() => {
-    if (salons.length > 0 && navigate) navigate("SalonDetail", { salon: salons[0] });
-    else if (navigate) navigate("Explore");
-  }, [salons, navigate]);
+    if (!navigate) return;
+    const apptSalonId =
+      upcomingAppt?.salonId?._id ||
+      upcomingAppt?.salonId ||
+      upcomingAppt?.salon?._id ||
+      upcomingAppt?.salon?.id;
+    const match = salons.find((s) => String(s._id || s.id) === String(apptSalonId));
+    if (match) navigate("SalonDetail", { salon: match });
+    else if (salons.length > 0) navigate("SalonDetail", { salon: salons[0] });
+    else navigate("Explore");
+  }, [salons, navigate, upcomingAppt]);
   const handleExplore = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
   const handleCitySelect = useCallback((city) => { setSelectedCity(city); storage.setItem("@user_selected_city", city); }, []);
   const handleLocationClose = useCallback(() => setLocationModalVisible(false), []);
@@ -286,7 +294,7 @@ function buildStyles() {
   return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: C.bg, // Canvas warm cream #f7f7f4 per cursor/DESIGN.md
+    backgroundColor: C.bg, // Flat white canvas
   },
   scroller: {
     flex: 1,
@@ -378,7 +386,7 @@ function buildStyles() {
     borderRadius: R.md,
   },
   retryText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontWeight: FW.medium,
     fontSize: FS.bodySm,
   },

@@ -2,56 +2,77 @@
 import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R, TYPO } from "../theme";
+import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 import { paiseToINR } from "../services/apiClient";
 
+function getCategoryIcon(catName) {
+  const name = (catName || "").toLowerCase();
+  if (name.includes("hair")) return "cut-outline";
+  if (name.includes("makeup") || name.includes("bridal")) return "sparkles-outline";
+  if (name.includes("facial") || name.includes("skin") || name.includes("glow")) return "water-outline";
+  if (name.includes("nail")) return "color-palette-outline";
+  if (name.includes("spa") || name.includes("massage") || name.includes("body")) return "flower-outline";
+  return "cut-outline";
+}
+
 function ServiceCard({ service, selected, onSelect }) {
+  const { theme } = useTheme();
+  const styles = getStyles();
   const categoryName = (service.category || "General").toUpperCase();
   const duration = service.durationMinutes || service.duration || 30;
+  const iconName = getCategoryIcon(service.category);
 
   return (
     <TouchableOpacity
       style={[
         styles.card,
-        selected && styles.cardSelected,
+        { backgroundColor: theme.surface, borderColor: selected ? theme.primary : theme.hairline },
       ]}
       onPress={() => onSelect && onSelect(service)}
       activeOpacity={0.88}
     >
-      {/* Category & Selection Header */}
-      <View style={styles.cardHeader}>
-        <View style={styles.categoryRow}>
-          <Text style={styles.category}>{categoryName}</Text>
-          <Text style={styles.dot}>•</Text>
-          <Text style={styles.duration}>{duration} mins</Text>
+      <View style={styles.cardInnerRow}>
+        {/* Soft Circular Icon Badge */}
+        <View style={[styles.iconCircle, { backgroundColor: theme.goldTint }]}>
+          <Ionicons name={iconName} size={20} color={theme.primary} />
         </View>
 
-        {/* Radio Indicator */}
-        <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
-          {selected ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
-        </View>
-      </View>
-
-      {/* Main Details & Price */}
-      <View style={styles.mainRow}>
-        <View style={styles.infoArea}>
-          <Text style={styles.name}>{service.name}</Text>
+        {/* Info Column */}
+        <View style={styles.infoCol}>
+          <Text style={[styles.categoryEyebrow, { color: theme.primary }]}>
+            {categoryName}  •  {duration} mins
+          </Text>
+          <Text style={[styles.name, { color: theme.ink, fontFamily: FONT_FAMILY.serif }]}>
+            {service.name}
+          </Text>
           {service.description ? (
-            <Text style={styles.description} numberOfLines={2}>
+            <Text style={[styles.description, { color: theme.muted }]} numberOfLines={2}>
               {service.description}
             </Text>
           ) : null}
         </View>
 
-        <View style={styles.priceCol}>
-          <Text style={styles.price}>{paiseToINR(service.price)}</Text>
-          {selected ? (
-            <View style={styles.selectedBadge}>
-              <Text style={styles.selectedBadgeText}>SELECTED</Text>
-            </View>
-          ) : (
-            <Text style={styles.addBtnText}>+ Add</Text>
-          )}
+        {/* Price & Add Action Button Column */}
+        <View style={styles.actionCol}>
+          <Text style={[styles.price, { color: theme.ink }]}>
+            {paiseToINR(service.price)}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.addBtnRow}
+            onPress={() => onSelect && onSelect(service)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.addBtnText, { color: selected ? theme.primary : theme.primary }]}>
+              {selected ? "Added" : "Add"}
+            </Text>
+            <Ionicons
+              name={selected ? "checkmark-circle" : "add-circle-outline"}
+              size={18}
+              color={theme.primary}
+            />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -60,107 +81,64 @@ function ServiceCard({ service, selected, onSelect }) {
 
 export default memo(ServiceCard);
 
-const styles = StyleSheet.create({
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border, no shadows
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px radius per cursor/DESIGN.md
-    padding: S.md,
-    marginBottom: S.sm,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  cardSelected: {
-    borderColor: C.main, // Cursor Orange border
-    backgroundColor: C.surface,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: S.xs,
-  },
-  categoryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  category: {
-    fontSize: 10,
-    fontWeight: FW.semiBold,
-    color: C.muted,
-    letterSpacing: 0.88,
-  },
-  dot: {
-    fontSize: 10,
-    color: C.main,
-  },
-  duration: {
-    fontSize: 10,
-    fontWeight: FW.medium,
-    color: C.muted,
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.borderDark,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.lifted,
-  },
-  radioCircleSelected: {
-    backgroundColor: C.main,
-    borderColor: C.main,
-  },
-  mainRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  infoArea: {
-    flex: 1,
-    paddingRight: S.sm,
-  },
-  name: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-    letterSpacing: 0,
-  },
-  description: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  priceCol: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  price: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  selectedBadge: {
-    backgroundColor: C.mainLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: R.pill,
-    marginTop: 2,
-  },
-  selectedBadgeText: {
-    fontSize: 9,
-    fontWeight: FW.semiBold,
-    color: C.main,
-    letterSpacing: 0.88,
-  },
-  addBtnText: {
-    fontSize: 11,
-    fontWeight: FW.medium,
-    color: C.muted,
-    marginTop: 2,
-  },
-});
+function getStyles() {
+  return StyleSheet.create({
+    card: {
+      borderRadius: 18,
+      padding: S.sm,
+      marginBottom: S.sm,
+      borderWidth: 1,
+    },
+    cardInnerRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: S.sm,
+    },
+    iconCircle: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      alignItems: "center",
+      justifyContent: "center",
+      display: 'none'
+    },
+    infoCol: {
+      flex: 1,
+    },
+    categoryEyebrow: {
+      fontSize: 10,
+      fontWeight: FW.bold,
+      letterSpacing: 1.0,
+      marginBottom: 3,
+    },
+    name: {
+      fontSize: 14,
+      fontWeight: FW.bold,
+      marginBottom: 3,
+    },
+    description: {
+      fontSize: 11,
+      lineHeight: 17,
+    },
+    actionCol: {
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      height: "100%",
+      minHeight: 52,
+    },
+    price: {
+      fontSize: 16,
+      fontWeight: FW.bold,
+    },
+    addBtnRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 8,
+    },
+    addBtnText: {
+      fontSize: 12,
+      fontWeight: FW.bold,
+    },
+  });
+}

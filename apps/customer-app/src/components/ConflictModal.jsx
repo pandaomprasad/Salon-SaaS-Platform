@@ -9,7 +9,7 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, SHADOWS } from "../theme";
+import { C, S } from "../theme";
 
 export default function ConflictModal({
   visible,
@@ -17,6 +17,7 @@ export default function ConflictModal({
   onClose,
   onViewAppointments,
 }) {
+  const styles = getStyles();
   if (!visible) return null;
 
   const salonName = conflictData?.salonName || "Salon Luxe";
@@ -38,7 +39,7 @@ export default function ConflictModal({
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           {/* Header Icon */}
           <View style={styles.iconContainer}>
-            <Ionicons name="time-outline" size={32} color="#D97706" />
+            <Ionicons name="time-outline" size={32} color={C.main} />
           </View>
 
           {/* Title & Subtitle */}
@@ -55,7 +56,7 @@ export default function ConflictModal({
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="business" size={16} color="#8E8880" />
+              <Ionicons name="business" size={16} color={C.textMuted} />
               <Text style={styles.infoLabel}>Salon:</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {salonName}
@@ -63,7 +64,7 @@ export default function ConflictModal({
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="cut" size={16} color="#8E8880" />
+              <Ionicons name="cut" size={16} color={C.textMuted} />
               <Text style={styles.infoLabel}>Service:</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {serviceName}
@@ -71,7 +72,7 @@ export default function ConflictModal({
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="person" size={16} color="#8E8880" />
+              <Ionicons name="person" size={16} color={C.textMuted} />
               <Text style={styles.infoLabel}>Staff:</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {staffName}
@@ -79,7 +80,7 @@ export default function ConflictModal({
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="calendar-clear" size={16} color="#8E8880" />
+              <Ionicons name="calendar-clear" size={16} color={C.textMuted} />
               <Text style={styles.infoLabel}>Time:</Text>
               <Text style={[styles.infoValue, styles.highlightTime]}>
                 {dateStr} ({timeStr})
@@ -97,7 +98,7 @@ export default function ConflictModal({
               }}
               activeOpacity={0.88}
             >
-              <Ionicons name="calendar" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Ionicons name="calendar" size={18} color={C.bg} style={{ marginRight: 8 }} />
               <Text style={styles.primaryBtnText}>View My Appointments</Text>
             </TouchableOpacity>
 
@@ -115,7 +116,8 @@ export default function ConflictModal({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.65)",
@@ -126,17 +128,16 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: C.surface,
     borderRadius: 24,
     padding: 24,
     alignItems: "center",
-    ...SHADOWS.card,
   },
   iconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#FEF3C7",
+    backgroundColor: C.mainLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -144,13 +145,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#1A1714",
+    color: C.ink,
     marginBottom: 6,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 13,
-    color: "#8E8880",
+    color: C.textMuted,
     textAlign: "center",
     lineHeight: 18,
     marginBottom: 18,
@@ -158,11 +159,11 @@ const styles = StyleSheet.create({
   },
   conflictCard: {
     width: "100%",
-    backgroundColor: "#FAF8F5",
+    backgroundColor: C.lifted,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: C.borderLight,
     marginBottom: 20,
   },
   cardHeader: {
@@ -171,19 +172,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+    borderBottomColor: C.borderLight,
   },
   statusDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: "#D97706",
+    backgroundColor: C.main,
     marginRight: 6,
   },
   cardHeaderTitle: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#D97706",
+    color: C.main,
     letterSpacing: 1,
   },
   infoRow: {
@@ -194,18 +195,18 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#8E8880",
+    color: C.textMuted,
     width: 58,
     marginLeft: 6,
   },
   infoValue: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#1A1714",
+    color: C.ink,
     flex: 1,
   },
   highlightTime: {
-    color: "#D97706",
+    color: C.main,
     fontWeight: "800",
   },
   btnContainer: {
@@ -216,13 +217,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     width: "100%",
     height: 48,
-    backgroundColor: "#1A1714",
+    backgroundColor: C.ink,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
   primaryBtnText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -233,11 +234,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.08)",
+    borderColor: C.border,
   },
   secondaryBtnText: {
-    color: "#8E8880",
+    color: C.textMuted,
     fontSize: 13,
     fontWeight: "600",
   },
-});
+  });
+}

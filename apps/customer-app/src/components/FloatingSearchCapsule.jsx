@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 
 const SAMPLE_SUGGESTIONS = [
   { id: "1", stage: "POPULAR", color: C.grep, query: "Haircut & Styling" },
@@ -23,8 +24,10 @@ export default function FloatingSearchCapsule({
   onChangeText,
   onSearchSubmit,
   onSelectSuggestion,
-  placeholder = "Search salons, hair, facials & spa…",
+  onFilterPress,
+  placeholder = "Search by salon name or service...",
 }) {
+  const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState(value || "");
@@ -73,38 +76,57 @@ export default function FloatingSearchCapsule({
 
   return (
     <View style={styles.outer}>
-      {/* text-input component spec from cursor/DESIGN.md */}
-      <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
-        <Ionicons name="search" size={16} color={C.muted} style={styles.searchIcon} />
-        <TextInput
-          style={styles.input}
-          value={query}
-          onChangeText={handleTextChange}
-          placeholder={placeholder}
-          placeholderTextColor={C.dustTaupe}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-          onSubmitEditing={() => onSearchSubmit && onSearchSubmit(query)}
-        />
-        {query ? (
-          <TouchableOpacity onPress={() => handleTextChange("")} style={{ padding: 4 }}>
-            <Ionicons name="close-circle" size={16} color={C.muted} />
-          </TouchableOpacity>
-        ) : null}
+      <View style={styles.searchRow}>
+        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderColor: isFocused ? theme.primary : theme.hairline }]}>
+          <Ionicons name="search" size={18} color={theme.muted} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.input, { color: theme.ink }]}
+            value={query}
+            onChangeText={handleTextChange}
+            placeholder={placeholder}
+            placeholderTextColor={theme.mutedSoft}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+            onSubmitEditing={() => onSearchSubmit && onSearchSubmit(query)}
+          />
+          {query ? (
+            <TouchableOpacity onPress={() => handleTextChange("")} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={18} color={theme.muted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Integrated Solid Gold Filter Button */}
+        <TouchableOpacity
+          style={[styles.filterBtn, { backgroundColor: theme.primary }]}
+          onPress={onFilterPress}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="options-outline" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
 
-      {/* Autocomplete Card with Timeline Pastels */}
+      {/* Autocomplete Card */}
       {isMounted ? (
         <Animated.View
-          style={[styles.dropdown, { height: animHeight, marginTop: animMarginTop, opacity, transform: [{ translateY }] }]}
+          style={[
+            styles.dropdown,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.hairline,
+              height: animHeight,
+              marginTop: animMarginTop,
+              opacity,
+              transform: [{ translateY }],
+            },
+          ]}
         >
           {filtered.map((item) => (
             <TouchableOpacity key={item.id} style={styles.row} onPress={() => handleSelect(item)} activeOpacity={0.7}>
-              {/* Timeline action pill */}
-              <View style={[styles.timelinePill, { backgroundColor: item.color }]}>
-                <Text style={styles.timelinePillText}>{item.stage}</Text>
+              <View style={[styles.timelinePill, { backgroundColor: theme.goldTint }]}>
+                <Text style={[styles.timelinePillText, { color: theme.primary }]}>{item.stage}</Text>
               </View>
-              <Text style={styles.rowQuery}>{item.query}</Text>
+              <Text style={[styles.rowQuery, { color: theme.ink }]}>{item.query}</Text>
             </TouchableOpacity>
           ))}
         </Animated.View>
@@ -116,18 +138,19 @@ export default function FloatingSearchCapsule({
 function getStyles() {
   return StyleSheet.create({
     outer: { position: "relative", zIndex: 100 },
+    searchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
     inputContainer: {
-      height: 44,
+      flex: 1,
+      height: 48,
       borderRadius: R.md,
-      backgroundColor: C.surface,
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: S.md,
       borderWidth: 1,
-      borderColor: C.border,
-    },
-    inputFocused: {
-      borderColor: C.main,
     },
     searchIcon: {
       marginRight: S.xs,
@@ -135,17 +158,21 @@ function getStyles() {
     input: {
       flex: 1,
       fontSize: FS.bodySm,
-      color: C.ink,
-      fontWeight: FW.regular,
+      fontWeight: FW.medium,
       paddingVertical: 0,
     },
+    filterBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: R.md,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     dropdown: {
-      backgroundColor: C.surface,
       borderRadius: R.lg,
       paddingVertical: S.xs,
       paddingHorizontal: S.md,
       borderWidth: 1,
-      borderColor: C.border,
       overflow: "hidden",
     },
     row: {
@@ -156,19 +183,17 @@ function getStyles() {
     },
     timelinePill: {
       paddingHorizontal: 8,
-      paddingVertical: 2,
+      paddingVertical: 3,
       borderRadius: R.pill,
     },
     timelinePillText: {
       fontSize: 10,
-      fontWeight: FW.semiBold,
-      color: C.ink,
+      fontWeight: FW.bold,
       letterSpacing: 0.88,
     },
     rowQuery: {
       fontSize: FS.bodySm,
-      color: C.ink,
-      fontWeight: FW.regular,
+      fontWeight: FW.medium,
     },
   });
 }

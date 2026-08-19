@@ -10,7 +10,6 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -20,6 +19,7 @@ import ThemeToggle from "../components/ThemeToggle";
 const TOP_INSET = Platform.OS === "ios" ? 56 : (StatusBar.currentHeight ? StatusBar.currentHeight + 14 : 40);
 
 export default function ProfileScreen({ navigate, onScroll }) {
+  const styles = getStyles();
   const { user, isAuthenticated, logout } = useAuth();
   const { theme, isDark } = useTheme();
   const { favorites } = useFavorites();
@@ -52,30 +52,20 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
         {/* ───────────── HERO HEADER CARD ───────────── */}
         {isAuthenticated ? (
-          <LinearGradient
-            colors={isDark ? ["#1e1b4b", "#0f172a"] : ["#fff7ed", "#ffedd5"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <View
             style={[
               styles.heroCard,
-              {
-                borderColor: isDark ? "rgba(99, 102, 241, 0.3)" : "rgba(245, 78, 0, 0.2)",
-              },
+              { backgroundColor: theme.surface, borderColor: theme.hairline },
             ]}
           >
             <View style={styles.heroRow}>
-              <LinearGradient
-                colors={["#f54e00", "#d04200"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatarGradient}
-              >
+              <View style={[styles.avatarGradient, { backgroundColor: theme.primary }]}>
                 <Text style={styles.avatarInitials}>{initials}</Text>
-              </LinearGradient>
+              </View>
 
               <View style={styles.heroMeta}>
                 <View style={styles.vipBadge}>
-                  <Ionicons name="sparkles" size={12} color="#f54e00" style={{ marginRight: 4 }} />
+                  <Ionicons name="sparkles" size={12} color={theme.primary} style={{ marginRight: 4 }} />
                   <Text style={styles.vipBadgeText}>LUXE MEMBER</Text>
                 </View>
                 <Text style={[styles.heroName, { color: theme.ink }]} numberOfLines={1}>
@@ -88,13 +78,13 @@ export default function ProfileScreen({ navigate, onScroll }) {
             </View>
 
             {/* Quick Stats Counter Row */}
-            <View style={[styles.statsRow, { backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : "rgba(255, 255, 255, 0.8)", borderColor: theme.hairline }]}>
+            <View style={[styles.statsRow, { backgroundColor: theme.canvasSoft, borderColor: theme.hairline }]}>
               <TouchableOpacity
                 style={styles.statItem}
                 onPress={() => navigate && navigate("Bookings")}
                 activeOpacity={0.7}
               >
-                <Ionicons name="calendar-outline" size={18} color="#f54e00" />
+                <Ionicons name="calendar-outline" size={18} color={theme.primary} />
                 <Text style={[styles.statValue, { color: theme.ink }]}>Visits</Text>
                 <Text style={[styles.statSub, { color: theme.muted }]}>My Appointments</Text>
               </TouchableOpacity>
@@ -106,26 +96,23 @@ export default function ProfileScreen({ navigate, onScroll }) {
                 onPress={() => navigate && navigate("SavedSalons")}
                 activeOpacity={0.7}
               >
-                <Ionicons name="heart-outline" size={18} color="#ef4444" />
+                <Ionicons name="heart-outline" size={18} color={theme.primary} />
                 <Text style={[styles.statValue, { color: theme.ink }]}>{favorites.length}</Text>
                 <Text style={[styles.statSub, { color: theme.muted }]}>Saved Salons</Text>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         ) : (
           /* GUEST BANNER CARD */
-          <LinearGradient
-            colors={isDark ? ["#1e1b4b", "#0f172a"] : ["#fff7ed", "#ffedd5"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <View
             style={[
               styles.heroCard,
-              { borderColor: isDark ? "rgba(99, 102, 241, 0.3)" : "rgba(245, 78, 0, 0.2)" },
+              { backgroundColor: theme.surface, borderColor: theme.hairline },
             ]}
           >
             <View style={styles.heroRow}>
-              <View style={[styles.guestIconBox, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.2)" : "rgba(245, 78, 0, 0.15)" }]}>
-                <Ionicons name="person" size={26} color="#f54e00" />
+              <View style={[styles.guestIconBox, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+                <Ionicons name="person" size={24} color={theme.primary} />
               </View>
               <View style={styles.heroMeta}>
                 <Text style={[styles.heroName, { color: theme.ink }]}>Guest User</Text>
@@ -137,18 +124,11 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
             <View style={styles.guestBtnGroup}>
               <TouchableOpacity
-                style={styles.primaryPillBtn}
+                style={[styles.primaryPillBtn, { backgroundColor: theme.primary }]}
                 onPress={() => navigate && navigate("Login")}
                 activeOpacity={0.88}
               >
-                <LinearGradient
-                  colors={["#f54e00", "#d04200"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.pillGradient}
-                >
-                  <Text style={styles.primaryPillText}>Sign In</Text>
-                </LinearGradient>
+                <Text style={styles.primaryPillText}>Sign In</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -159,12 +139,12 @@ export default function ProfileScreen({ navigate, onScroll }) {
                 <Text style={[styles.secondaryPillText, { color: theme.ink }]}>Create Account</Text>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         )}
 
         {/* ───────────── SECTION 1: ACCOUNT & BOOKINGS ───────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitleText, { color: theme.primary || "#f54e00" }]}>
+          <Text style={[styles.sectionTitleText, { color: theme.primary }]}>
             ACCOUNT &amp; ACTIVITY
           </Text>
         </View>
@@ -176,8 +156,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
               onPress={() => navigate && navigate("EditProfile")}
               activeOpacity={0.7}
             >
-              <View style={[styles.iconPill, { backgroundColor: "rgba(99, 102, 241, 0.12)" }]}>
-                <Ionicons name="person-outline" size={18} color="#6366f1" />
+              <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+                <Ionicons name="person-outline" size={18} color={theme.primary} />
               </View>
               <View style={styles.rowMeta}>
                 <Text style={[styles.rowLabel, { color: theme.ink }]}>Edit Personal Info</Text>
@@ -192,8 +172,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("Bookings")}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(245, 78, 0, 0.12)" }]}>
-              <Ionicons name="calendar-outline" size={18} color="#f54e00" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="calendar-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>My Appointments</Text>
@@ -207,8 +187,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("SavedSalons")}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(239, 68, 68, 0.12)" }]}>
-              <Ionicons name="heart-outline" size={18} color="#ef4444" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="heart-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Saved Salons</Text>
@@ -222,8 +202,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("SavedAddresses")}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
-              <Ionicons name="location-outline" size={18} color="#10b981" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="location-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Saved Locations</Text>
@@ -235,7 +215,7 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
         {/* ───────────── SECTION 2: PREFERENCES & DISPLAY ───────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitleText, { color: theme.primary || "#f54e00" }]}>
+          <Text style={[styles.sectionTitleText, { color: theme.primary }]}>
             PREFERENCES &amp; NOTIFICATIONS
           </Text>
         </View>
@@ -246,8 +226,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("NotificationCenter")}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(168, 85, 247, 0.12)" }]}>
-              <Ionicons name="notifications-outline" size={18} color="#a855f7" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="notifications-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Notifications &amp; Alerts</Text>
@@ -261,8 +241,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("Onboarding")}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(14, 165, 233, 0.12)" }]}>
-              <Ionicons name="sparkles-outline" size={18} color="#0ea5e9" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="sparkles-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>View App Guide</Text>
@@ -272,21 +252,21 @@ export default function ProfileScreen({ navigate, onScroll }) {
           </TouchableOpacity>
 
           {/* Theme Switch Row */}
-          <View style={[styles.rowItem, { borderBottomWidth: 0, paddingRight: S.sm }]}>
-            <View style={[styles.iconPill, { backgroundColor: "rgba(234, 179, 8, 0.12)" }]}>
-              <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={18} color="#eab308" />
+          <View style={[styles.rowItem, { borderBottomWidth: 0 }]}>
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Appearance Mode</Text>
               <Text style={[styles.rowSub, { color: theme.muted }]}>{isDark ? "Dark Theme Active" : "Light Theme Active"}</Text>
             </View>
-            <ThemeToggle />
+            <ThemeToggle showLabel={false} />
           </View>
         </View>
 
         {/* ───────────── SECTION 3: HELP & LEGAL ───────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitleText, { color: theme.primary || "#f54e00" }]}>
+          <Text style={[styles.sectionTitleText, { color: theme.primary }]}>
             HELP &amp; PRIVACY
           </Text>
         </View>
@@ -297,8 +277,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("Support")}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(59, 130, 246, 0.12)" }]}>
-              <Ionicons name="help-buoy-outline" size={18} color="#3b82f6" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="help-buoy-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Help &amp; Support</Text>
@@ -312,8 +292,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("Legal", { tab: "privacy" })}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#10b981" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Privacy &amp; Terms of Service</Text>
@@ -327,8 +307,8 @@ export default function ProfileScreen({ navigate, onScroll }) {
             onPress={() => navigate && navigate("Legal", { tab: "data" })}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconPill, { backgroundColor: "rgba(239, 68, 68, 0.12)" }]}>
-              <Ionicons name="lock-closed-outline" size={18} color="#ef4444" />
+            <View style={[styles.iconPill, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)" }]}>
+              <Ionicons name="lock-closed-outline" size={18} color={theme.primary} />
             </View>
             <View style={styles.rowMeta}>
               <Text style={[styles.rowLabel, { color: theme.ink }]}>Data Rights &amp; Account Deletion</Text>
@@ -341,21 +321,21 @@ export default function ProfileScreen({ navigate, onScroll }) {
         {/* Action Button: Sign Out (for Auth User) or Sign In (for Guest) */}
         {isAuthenticated ? (
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: "rgba(239, 68, 68, 0.1)", borderColor: "rgba(239, 68, 68, 0.2)" }]}
+            style={[styles.actionBtn, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)", borderColor: "rgba(189, 68, 68, 0.2)" }]}
             onPress={logout}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={18} color="#ef4444" style={{ marginRight: 8 }} />
-            <Text style={[styles.actionBtnText, { color: "#ef4444" }]}>Sign Out of Account</Text>
+            <Ionicons name="log-out-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+            <Text style={[styles.actionBtnText, { color: theme.primary }]}>Sign Out of Account</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: "rgba(245, 78, 0, 0.1)", borderColor: "rgba(245, 78, 0, 0.2)" }]}
+            style={[styles.actionBtn, { backgroundColor: isDark ? "rgba(189, 68, 68, 0.18)" : "rgba(189, 68, 68, 0.08)", borderColor: "rgba(189, 68, 68, 0.2)" }]}
             onPress={() => navigate && navigate("Login")}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-in-outline" size={18} color="#f54e00" style={{ marginRight: 8 }} />
-            <Text style={[styles.actionBtnText, { color: "#f54e00" }]}>Sign In to Account</Text>
+            <Ionicons name="log-in-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+            <Text style={[styles.actionBtnText, { color: theme.primary }]}>Sign In to Account</Text>
           </TouchableOpacity>
         )}
 
@@ -373,14 +353,15 @@ export default function ProfileScreen({ navigate, onScroll }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: S.md,
     paddingTop: TOP_INSET,
-    paddingBottom: S.xl * 2,
+    paddingBottom: 130,
   },
   topTitleBox: {
     marginBottom: S.md,
@@ -413,7 +394,7 @@ const styles = StyleSheet.create({
     marginRight: S.sm + 4,
   },
   avatarInitials: {
-    color: "#ffffff",
+    color: C.bg,
     fontSize: FS.titleSm,
     fontWeight: FW.bold,
   },
@@ -436,7 +417,7 @@ const styles = StyleSheet.create({
   vipBadgeText: {
     fontSize: 10,
     fontWeight: FW.bold,
-    color: "#f54e00",
+    color: C.main,
     letterSpacing: 1,
   },
   heroName: {
@@ -480,6 +461,10 @@ const styles = StyleSheet.create({
   },
   primaryPillBtn: {
     flex: 1,
+    height: 44,
+    borderRadius: R.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   pillGradient: {
     paddingVertical: S.sm,
@@ -488,13 +473,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   primaryPillText: {
-    color: "#ffffff",
+    color: "#FFFFFF",
     fontSize: FS.xs + 1,
     fontWeight: FW.bold,
   },
   secondaryPillBtn: {
     flex: 1,
-    paddingVertical: S.sm,
+    height: 44,
     borderRadius: R.md,
     borderWidth: 1,
     alignItems: "center",
@@ -537,6 +522,7 @@ const styles = StyleSheet.create({
   },
   rowMeta: {
     flex: 1,
+    paddingRight: S.xs,
   },
   rowLabel: {
     fontSize: FS.xs + 1,
@@ -550,7 +536,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: S.sm + 4,
+    height: 46,
     borderRadius: R.md + 2,
     borderWidth: 1,
     marginTop: S.md,
@@ -572,4 +558,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 2,
   },
-});
+  });
+}

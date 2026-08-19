@@ -12,7 +12,6 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
@@ -20,6 +19,7 @@ import BouncyButton from "../components/BouncyButton";
 import GoogleSignInModal from "../components/GoogleSignInModal";
 
 export default function LoginScreen({ navigate, goBack, routeParams }) {
+  const styles = getStyles();
   const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -106,7 +106,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
               <ActivityIndicator color={C.ink} />
             ) : (
               <View style={styles.googleBtnContent}>
-                <Ionicons name="logo-google" size={18} color="#4285F4" style={{ marginRight: 10 }} />
+                <Ionicons name="logo-google" size={18} color={C.ink} style={{ marginRight: 10 }} />
                 <Text style={styles.googleBtnText}>Continue with Google</Text>
               </View>
             )}
@@ -160,23 +160,18 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             </View>
           </View>
 
-          {/* button-primary: Cursor Orange gradient */}
+          {/* button-primary: flat #BD4444 */}
           <BouncyButton
             disabled={loading}
             onPress={handleLogin}
           >
-            <LinearGradient
-              colors={["#f54e00", "#d04200"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.submitBtnGradient}
-            >
+            <View style={styles.submitBtnGradient}>
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={C.bg} />
               ) : (
                 <Text style={styles.submitBtnText}>Sign In</Text>
               )}
-            </LinearGradient>
+            </View>
           </BouncyButton>
 
           <View style={styles.footerRow}>
@@ -203,10 +198,11 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg, // Canvas warm cream #f7f7f4
+    backgroundColor: C.bg, // Flat white canvas
   },
   scrollContent: {
     paddingHorizontal: S.md,
@@ -296,7 +292,7 @@ const styles = StyleSheet.create({
   eyeBtn: {
     padding: S.xxs,
   },
-  // button-primary per cursor/DESIGN.md: Cursor Orange #f54e00, 8px radius
+  // button-primary per cursor/DESIGN.md: 8px radius
   submitBtnGradient: {
     borderRadius: R.md,
     height: 44,
@@ -304,9 +300,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: S.sm,
     paddingHorizontal: S.md,
+    backgroundColor: C.main,
   },
   submitBtnText: {
-    color: "#FFFFFF",
+    color: C.bg,
     fontSize: FS.bodySm,
     fontWeight: FW.medium,
   },
@@ -362,4 +359,5 @@ const styles = StyleSheet.create({
     marginHorizontal: S.xs,
     letterSpacing: 0.6,
   },
-});
+  });
+}
