@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BAR_MARGIN = 16; // left: 16, right: 16
@@ -21,6 +22,8 @@ const TAB_COL_WIDTH = TRACK_WIDTH / NUM_TABS;
 
 export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 12) + 8;
   const activeIndex = tabs.findIndex((t) => t.id === currentTab);
   const selectedIndex = activeIndex >= 0 ? activeIndex : 0;
 
@@ -48,7 +51,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
+    <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.hairline, bottom: bottomInset }]}>
       {/* Moving Pill Indicator */}
       <Animated.View
         style={[

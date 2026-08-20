@@ -14,6 +14,7 @@ import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { C, FS, FW, R, S } from "../theme";
 import { useAuth } from "../context/AuthContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -106,12 +107,15 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
     }
   };
 
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, S.lg);
+
   if (!visible) return null;
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <View style={[styles.card, { paddingBottom: bottomPadding }]}>
           {/* Top Accent Bar */}
           <View style={styles.topAccentBar} />
 

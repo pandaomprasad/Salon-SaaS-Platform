@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform, Animated
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, SHADOWS } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import HomeScreen from "../screen/homeScreen";
 import ExploreScreen from "../screen/ExploreScreen";
@@ -249,6 +250,8 @@ export default function AppNavigator() {
   );
 
   const isIos = Platform.OS === "ios";
+  const insets = useSafeAreaInsets();
+  const iosBottomPosition = Math.max(insets.bottom, 12) + 8;
 
   // Interpolations for subtle iOS Squeeze effect
   const scale = squeezeAnim.interpolate({
@@ -284,6 +287,7 @@ export default function AppNavigator() {
               style={[
                 styles.iosTabBarContainer,
                 {
+                  bottom: iosBottomPosition,
                   backgroundColor: theme.tabBg,
                   borderColor: theme.tabBorder,
                   opacity: barOpacity,
