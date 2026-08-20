@@ -10,6 +10,7 @@ import {
   Shield,
   Clock,
   ClipboardCheck,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -24,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/salons", label: "Salons", icon: Building2 },
   { path: "/owners", label: "Owners", icon: UserCog },
   { path: "/customers", label: "Customers", icon: Users },
+  { path: "/banners", label: "Banners & Offers", icon: ImageIcon },
   { path: "/growth", label: "Growth", icon: TrendingUp },
   { path: "/activity", label: "Activity", icon: Clock },
 ];

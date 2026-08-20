@@ -321,7 +321,10 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: selectedServices.length > 0 ? 110 : insets.bottom + 24 },
+        ]}
       >
         <View style={styles.heroCardContainer}>
           <Image source={{ uri: coverImage }} style={styles.heroImage} resizeMode="cover" />
@@ -648,7 +651,7 @@ function getStyles() {
       backgroundColor: C.bg,
     },
     scrollContent: {
-      paddingBottom: 200,
+      flexGrow: 1,
     },
     heroCardContainer: {
       height: 320,

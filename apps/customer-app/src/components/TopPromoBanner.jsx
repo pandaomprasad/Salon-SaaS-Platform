@@ -1,30 +1,41 @@
-import React, { useRef, useEffect, useState } from "react";
-import { View, Text, Image, StyleSheet, Dimensions, Animated, Easing, TouchableOpacity } from "react-native";
+// src/components/TopPromoBanner.jsx
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Dimensions,
+  Animated,
+  Easing,
+  TouchableOpacity,
+  AppState,
+} from "react-native";
 import { C, S, FS, FW, R } from "../theme";
 import BouncyButton from "./BouncyButton";
+import { apiClient } from "../services/apiClient";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 32;
 const CARD_MARGIN = S.sm;
 const ITEM_WIDTH = CARD_WIDTH + CARD_MARGIN;
 
-const AUTO_ADVANCE_INTERVAL = 2000;//s between slides
-const SLIDE_DURATION = 500; // ms for the slide animation itself
+const AUTO_ADVANCE_INTERVAL = 3500; // ms between slides
+const SLIDE_DURATION = 500; // ms for slide animation
 
-const BANNERS = [
+const DEFAULT_BANNERS = [
   {
     id: "1",
     tag: "SPECIAL OFFER",
-    tagColor: C.grep,
     title: "20% off your first luxury salon session",
     subtitle: "Use code FIRST20 on checkout",
     cta: "Claim discount",
     image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop",
+    promoCode: "FIRST20",
   },
   {
     id: "2",
     tag: "BRIDAL EDITION",
-    tagColor: C.edit,
     title: "Curated bridal makeup & spa packages",
     subtitle: "Book verified master artists",
     cta: "Explore packages",
@@ -32,27 +43,83 @@ const BANNERS = [
   },
 ];
 
-// Duplicate list so we always have a "next" card to slide to, even at the end
-const LOOPED_BANNERS = [...BANNERS, ...BANNERS];
-
-export default function TopPromoBanner({ onPressBanner }) {
+export default function TopPromoBanner({ onPressBanner, refreshTrigger }) {
   const styles = getStyles();
+  const [banners, setBanners] = useState(DEFAULT_BANNERS);
   const translateX = useRef(new Animated.Value(0)).current;
-  const indexRef = useRef(0); // real index into LOOPED_BANNERS
+  const indexRef = useRef(0);
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    startAutoAdvance();
-    return () => clearTimeout(timerRef.current);
+  const fetchBanners = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/banners");
+      const list = res?.data?.data || (Array.isArray(res?.data) ? res.data : []);
+      if (list && list.length > 0) {
+        const mapped = list.map((b) => ({
+          id: b._id || b.id,
+          tag: b.tag || "PROMO",
+          title: b.title,
+          subtitle: b.subtitle || "",
+          cta: b.ctaText || "Claim discount",
+          image: b.imageUrl || DEFAULT_BANNERS[0].image,
+          promoCode: b.promoCode,
+          targetType: b.targetType,
+          targetId: b.targetId,
+        }));
+        setBanners(mapped);
+      }
+    } catch (err) {
+      // Keep existing banners on network glitch
+    }
   }, []);
 
+  useEffect(() => {
+    fetchBanners();
+
+    // Re-fetch when app resumes from background
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        fetchBanners();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchBanners]);
+
+  // Re-fetch when parent passes pull-to-refresh trigger
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchBanners();
+    }
+  }, [refreshTrigger, fetchBanners]);
+
+  const loopedBanners = banners.length > 1 ? [...banners, ...banners] : banners;
+
+  useEffect(() => {
+    if (banners.length > 1) {
+      startAutoAdvance();
+    } else {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      translateX.setValue(0);
+      indexRef.current = 0;
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [banners]);
+
   function startAutoAdvance() {
+    if (banners.length <= 1) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       advance();
     }, AUTO_ADVANCE_INTERVAL);
   }
 
   function advance() {
+    if (banners.length <= 1) return;
     const nextIndex = indexRef.current + 1;
 
     Animated.timing(translateX, {
@@ -63,9 +130,7 @@ export default function TopPromoBanner({ onPressBanner }) {
     }).start(() => {
       indexRef.current = nextIndex;
 
-      // Once we've slid onto the duplicated set, snap back to the real
-      // start with no animation (identical card underneath = invisible)
-      if (indexRef.current >= BANNERS.length) {
+      if (indexRef.current >= banners.length) {
         indexRef.current = 0;
         translateX.setValue(0);
       }
@@ -74,14 +139,26 @@ export default function TopPromoBanner({ onPressBanner }) {
     });
   }
 
+  const handleBannerClick = (banner) => {
+    if (
+      banner.id &&
+      typeof banner.id === "string" &&
+      !banner.id.startsWith("1") &&
+      !banner.id.startsWith("2")
+    ) {
+      apiClient.post(`/banners/${banner.id}/click`).catch(() => {});
+    }
+    if (onPressBanner) onPressBanner(banner);
+  };
+
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.row, { transform: [{ translateX }] }]}>
-        {LOOPED_BANNERS.map((banner, index) => (
+        {loopedBanners.map((banner, index) => (
           <BouncyButton
             key={`${banner.id}-${index}`}
             style={styles.card}
-            onPress={() => onPressBanner && onPressBanner(banner)}
+            onPress={() => handleBannerClick(banner)}
           >
             <Image source={{ uri: banner.image }} style={styles.image} resizeMode="cover" />
 
@@ -89,16 +166,20 @@ export default function TopPromoBanner({ onPressBanner }) {
               <View
                 style={[
                   styles.tagPill,
-                  { backgroundColor: C[banner.tag.toLowerCase().includes("bridal") ? "edit" : "grep"] || C.grep },
+                  {
+                    backgroundColor:
+                      C[banner.tag?.toLowerCase().includes("bridal") ? "edit" : "grep"] ||
+                      C.grep,
+                  },
                 ]}
               >
                 <Text style={styles.tagText}>{banner.tag}</Text>
               </View>
 
               <Text style={styles.title}>{banner.title}</Text>
-              <Text style={styles.sub}>{banner.subtitle}</Text>
+              {banner.subtitle ? <Text style={styles.sub}>{banner.subtitle}</Text> : null}
 
-              <TouchableOpacity activeOpacity={0.88}>
+              <TouchableOpacity activeOpacity={0.88} onPress={() => handleBannerClick(banner)}>
                 <View style={styles.primaryCta}>
                   <Text style={styles.primaryCtaText}>{banner.cta}</Text>
                 </View>
@@ -137,7 +218,7 @@ function getStyles() {
       ...StyleSheet.absoluteFillObject,
       width: "100%",
       height: "100%",
-      opacity: 0.4,
+      opacity: 0.45,
     },
     overlay: {
       flex: 1,
@@ -167,7 +248,7 @@ function getStyles() {
     },
     sub: {
       fontSize: FS.bodySm,
-      color: "rgba(255, 255, 255, 0.8)",
+      color: "rgba(255, 255, 255, 0.85)",
       marginBottom: S.sm,
     },
     primaryCta: {

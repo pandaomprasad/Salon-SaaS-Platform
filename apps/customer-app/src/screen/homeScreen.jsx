@@ -162,7 +162,10 @@ function HomeScreen({ navigate, onScroll }) {
   const onRefresh = useCallback(() => { setRefreshing(true); loadData(false); }, [loadData]);
   const handleSalonPress = useCallback((salon) => { if (navigate) navigate("SalonDetail", { salon }); }, [navigate]);
   const handleSearchClick = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
-  const handleBannerPress = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
+  const handleBannerPress = useCallback((banner) => {
+    if (!navigate) return;
+    navigate("BannerDetail", { banner });
+  }, [navigate]);
   const handleRebook = useCallback(() => {
     if (!navigate) return;
     const apptSalonId =
@@ -202,10 +205,11 @@ function HomeScreen({ navigate, onScroll }) {
           onSearchClick={handleSearchClick}
           onLocationClick={handleLocationClick}
           onNotificationClick={() => navigate && navigate("NotificationCenter")}
+          onFilterPress={() => navigate && navigate("Explore", { openFilter: true })}
           onSearchSubmit={handleSearchSubmit}
         />
 
-        <TopPromoBanner onPressBanner={handleBannerPress} />
+        <TopPromoBanner onPressBanner={handleBannerPress} refreshTrigger={refreshing} />
 
         <QuickRebookWidget
           isAuthenticated={isAuthenticated}

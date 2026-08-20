@@ -40,12 +40,20 @@ const appointmentSchema = new mongoose.Schema(
       required: [true, 'Staff is required']
     },
 
-    // which service is booked
+    // which service is booked (primary service)
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Service',
       required: [true, 'Service is required']
     },
+
+    // all services booked in this appointment (multi-service support)
+    services: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Service'
+      }
+    ],
 
     // which time slot
     slotId: {

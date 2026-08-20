@@ -6,7 +6,7 @@ import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
 import { customerService } from "../services/customerService";
 
-export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, userName, selectedCity, onSearchSubmit }) {
+export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, onFilterPress, userName, selectedCity, onSearchSubmit }) {
   const { isDark, toggleTheme, toggleAnim } = useTheme();
   const [hasUnread, setHasUnread] = useState(false);
 
@@ -99,6 +99,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
       <FloatingSearchCapsule
         onSelectSuggestion={(term) => onSearchSubmit && onSearchSubmit(term)}
         onSearchSubmit={(term) => onSearchSubmit && onSearchSubmit(term)}
+        onFilterPress={onFilterPress}
       />
     </View>
   );

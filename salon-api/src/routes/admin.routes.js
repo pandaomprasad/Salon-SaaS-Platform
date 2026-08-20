@@ -42,4 +42,11 @@ router.get('/customers', adminController.getAllCustomers)
 // Growth tracking
 router.get('/growth', adminController.getGrowthStats)
 
+// Banner management
+const bannerController = require('../controllers/banner.controller')
+router.get('/banners', bannerController.getAdminBanners)
+router.post('/banners', bannerController.createBanner)
+router.put('/banners/:id', bannerController.updateBanner)
+router.delete('/banners/:id', bannerController.deleteBanner)
+
 module.exports = router

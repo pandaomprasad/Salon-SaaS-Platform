@@ -79,9 +79,11 @@ function formatDateRange(start: string, end: string): string {
   return `${s.toLocaleDateString("en-IN", opts)} — ${e.toLocaleDateString("en-IN", opts)}`;
 }
 
+import { toLocalDateStr } from "@/lib/utils";
+
 function getPresetDates(preset: string): { startDate: string; endDate: string } {
   const now = new Date();
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  const fmt = (d: Date) => toLocalDateStr(d);
   switch (preset) {
     case "today":
       return { startDate: fmt(now), endDate: fmt(now) };

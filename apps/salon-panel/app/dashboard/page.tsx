@@ -89,8 +89,10 @@ function getGreeting(): string {
   return "Good evening";
 }
 
+import { toLocalDateStr } from "@/lib/utils";
+
 function getToday(): string {
-  return new Date().toISOString().split("T")[0];
+  return toLocalDateStr();
 }
 
 function getMonthStart(): string {

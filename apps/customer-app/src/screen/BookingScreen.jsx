@@ -142,11 +142,13 @@ export default function BookingScreen({ salon, branch, service, selectedServices
     setSubmitting(true);
     try {
       const slotId = selectedSlot._id || selectedSlot.id;
-      const serviceId = service ? (service._id || service.id) : undefined;
+      const serviceId = service ? (service._id || service.id) : (allServices[0]?._id || allServices[0]?.id);
+      const serviceIds = allServices.map((s) => s._id || s.id).filter(Boolean);
 
       await appointmentService.bookAppointment({
         slotId,
         serviceId,
+        serviceIds,
         customerNotes,
         guests: guestCount,
       });

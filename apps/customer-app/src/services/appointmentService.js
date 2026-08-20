@@ -2,10 +2,11 @@
 import { apiClient } from "./apiClient";
 
 export const appointmentService = {
-  bookAppointment: async ({ slotId, serviceId, customerNotes, guests }) => {
+  bookAppointment: async ({ slotId, serviceId, serviceIds, customerNotes, guests }) => {
     return await apiClient.post("/appointments", {
       slotId,
       serviceId,
+      serviceIds,
       customerNotes,
       guests,
     });

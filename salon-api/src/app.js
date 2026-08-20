@@ -155,6 +155,7 @@ app.use("/api/v1/staff", require("./routes/staffSelf.routes"));
 app.use("/api/v1/notifications", require("./routes/notification.routes"));
 app.use("/api/v1/reports", require("./routes/report.routes"));
 app.use("/api/v1/location", require("./routes/location.routes"));
+app.use("/api/v1/banners", require("./routes/banner.routes"));
 app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus);
 
 // ================================

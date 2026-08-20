@@ -53,7 +53,7 @@ const buildStatusPush = (appointment, serviceName = "appointment", salonName = "
 // ================================
 const bookAppointment = async (req, res, next) => {
   try {
-    const { slotId, serviceId, customerNotes, guests } = req.body;
+    const { slotId, serviceId, serviceIds, customerNotes, guests } = req.body;
     const { userId } = req.user;
 
     const guestCount = Math.min(Math.max(parseInt(guests, 10) || 1, 1), 10);
@@ -99,34 +99,56 @@ const bookAppointment = async (req, res, next) => {
     }
 
     // --------------------------------
-    // Step 2 — validate service
+    // Step 2 — validate service(s)
+    // Supports single serviceId or array of serviceIds for multi-service selection
     // --------------------------------
-    const service = await Service.findById(serviceId);
-    if (!service) {
-      return next(new AppError("Service not found", 404));
+    const requestedServiceIds = Array.isArray(serviceIds) && serviceIds.length > 0
+      ? serviceIds
+      : (serviceId ? [serviceId] : []);
+
+    if (requestedServiceIds.length === 0) {
+      return next(new AppError("At least one service is required", 400));
     }
 
-    if (!service.isActive) {
-      return next(new AppError("This service is not available", 400));
+    const services = await Service.find({
+      _id: { $in: requestedServiceIds },
+    });
+
+    if (!services || services.length === 0) {
+      return next(new AppError("Selected service(s) not found", 404));
     }
 
-    if (service.branchId.toString() !== slot.branchId.toString()) {
-      return next(new AppError("Service does not belong to this branch", 400));
+    const primaryService = services[0];
+    let totalPricePaid = 0;
+
+    for (const svc of services) {
+      if (!svc.isActive) {
+        return next(new AppError(`Service "${svc.name}" is not available`, 400));
+      }
+
+      if (svc.branchId.toString() !== slot.branchId.toString()) {
+        return next(new AppError(`Service "${svc.name}" does not belong to this branch`, 400));
+      }
+
+      if (
+        svc.eligibleStaff &&
+        svc.eligibleStaff.length > 0 &&
+        !svc.eligibleStaff
+          .map((id) => id.toString())
+          .includes(slot.staffId.toString())
+      ) {
+        return next(
+          new AppError(
+            `This staff member cannot perform the selected service "${svc.name}"`,
+            400,
+          ),
+        );
+      }
+
+      totalPricePaid += (svc.price ?? 0);
     }
 
-    if (
-      service.eligibleStaff.length > 0 &&
-      !service.eligibleStaff
-        .map((id) => id.toString())
-        .includes(slot.staffId.toString())
-    ) {
-      return next(
-        new AppError(
-          "This staff member cannot perform the selected service",
-          400,
-        ),
-      );
-    }
+    const serviceIdList = services.map((s) => s._id);
 
     // --------------------------------
     // Step 3 — check customer conflict
@@ -182,13 +204,14 @@ const bookAppointment = async (req, res, next) => {
               branchId: slot.branchId,
               customerId: userId,
               staffId: slot.staffId,
-              serviceId,
+              serviceId: primaryService._id,
+              services: serviceIdList,
               slotId,
               date: slot.date,
               startTime: slot.startTime,
               endTime: slot.endTime,
-              pricePaid: service.price ?? 0,
-              currency: service.currency || "INR",
+              pricePaid: totalPricePaid,
+              currency: primaryService.currency || "INR",
               customerNotes,
               guests: guestCount,
               status: "PENDING",

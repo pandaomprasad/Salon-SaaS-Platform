@@ -99,10 +99,11 @@ export default function LandingPage() {
 
     setLoading(true);
     try {
+      const sanitizedPhone = phone.trim().replace(/[^\d+]/g, "");
       const { data } = await apiClient.post("/auth/register-owner", {
         ownerName: ownerName.trim(),
         ownerEmail: email.trim().toLowerCase(),
-        ownerPhone: phone.trim(),
+        ownerPhone: sanitizedPhone,
         salonName: salonName.trim(),
         salonDescription: salonDescription.trim() || undefined,
         password,

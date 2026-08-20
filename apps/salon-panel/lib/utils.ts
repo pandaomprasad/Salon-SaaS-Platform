@@ -16,6 +16,14 @@ export function formatDate(date: string): string {
   })
 }
 
+export function toLocalDateStr(date: Date = new Date()): string {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`
   const h = Math.floor(minutes / 60)

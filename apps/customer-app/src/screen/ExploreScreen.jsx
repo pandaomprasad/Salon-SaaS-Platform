@@ -19,6 +19,7 @@ import { useTheme } from "../context/ThemeContext";
 import SalonCard from "../components/SalonCard";
 import FloatingSearchCapsule from "../components/FloatingSearchCapsule";
 import LocationPickerModal from "../components/LocationPickerModal";
+import FilterModal from "../components/FilterModal";
 import { SalonCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { customerService } from "../services/customerService";
@@ -28,7 +29,7 @@ const IS_IOS = Platform.OS === "ios";
 
 const CATEGORIES = [
   { id: "all", label: "All", iconName: "sparkles-outline" },
-  { id: "hair", label: "Haircut", iconName: "scissors-outline", color: "#C48B36" },
+  { id: "hair", label: "Haircut", iconName: "cut-outline", color: "#C48B36" },
   { id: "facial", label: "Facials", iconName: "water-outline", color: "#3B82F6" },
   { id: "nails", label: "Nails", iconName: "color-fill-outline", color: "#EC4899" },
   { id: "spa", label: "Spa", iconName: "flower-outline", color: "#10B981" },
@@ -56,6 +57,7 @@ function EditorialHeader({
   hasUnread,
   search,
   onSearchChange,
+  onFilterPress,
   selectedCategory,
   onSelectCategory,
   navigate,
@@ -144,7 +146,8 @@ function EditorialHeader({
           value={search}
           onChangeText={onSearchChange}
           placeholder="Search by salon name or service..."
-          onFilterPress={() => {}}
+          showDropdown={false}
+          onFilterPress={onFilterPress}
         />
       </View>
 
@@ -197,6 +200,13 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
   const { theme, isDark, toggleTheme, toggleAnim } = useTheme();
   const [selectedCity, setSelectedCity] = useState("Brahmapur");
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    minRating: "all",
+    priceRange: "all",
+    sortBy: "recommended",
+    serviceType: "all",
+  });
   const [hasUnread, setHasUnread] = useState(false);
   const [search, setSearch] = useState(routeParams?.search || "");
   const [debouncedSearch, setDebouncedSearch] = useState(routeParams?.search || "");
@@ -214,6 +224,21 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
     };
     loadSavedCity();
   }, []);
+
+  useEffect(() => {
+    setSearch(routeParams?.search || "");
+    setDebouncedSearch(routeParams?.search || "");
+    setSelectedCategory(routeParams?.category || "all");
+    setFilters({
+      minRating: "all",
+      priceRange: "all",
+      sortBy: "recommended",
+      serviceType: "all",
+    });
+    if (routeParams?.openFilter) {
+      setFilterModalVisible(true);
+    }
+  }, [routeParams]);
 
   const handleCitySelect = useCallback((city) => {
     setSelectedCity(city);
@@ -252,6 +277,15 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      setFilters({
+        minRating: "all",
+        priceRange: "all",
+        sortBy: "recommended",
+        serviceType: "all",
+      });
+      setSearch("");
+      setDebouncedSearch("");
+      setSelectedCategory("all");
     };
   }, []);
 
@@ -281,6 +315,61 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
     fetchSalons(salons.length > 0);
   }, [fetchSalons]);
 
+  // Apply Price, Rating, Sort & Service Filters
+  const filteredSalons = useMemo(() => {
+    let list = [...salons];
+
+    // 1. Min Rating Filter
+    if (filters.minRating && filters.minRating !== "all") {
+      const minVal = parseFloat(filters.minRating);
+      list = list.filter((s) => {
+        const r = parseFloat(s.rating || s.branches?.[0]?.rating?.avgScore || 4.5);
+        return r >= minVal;
+      });
+    }
+
+    // 2. Price Range Filter
+    if (filters.priceRange && filters.priceRange !== "all") {
+      list = list.filter((s) => {
+        const startingPrice = s.startingPrice || s.minPrice || 600;
+        if (filters.priceRange === "budget") return startingPrice < 500;
+        if (filters.priceRange === "moderate") return startingPrice >= 500 && startingPrice <= 1500;
+        if (filters.priceRange === "luxury") return startingPrice > 1500;
+        return true;
+      });
+    }
+
+    // 3. Service Type Filter
+    if (filters.serviceType && filters.serviceType !== "all") {
+      const typeStr = filters.serviceType.toLowerCase();
+      list = list.filter((s) => {
+        const catList = s.categories || s.services || [];
+        const summary = (s.servicesSummary || s.description || "").toLowerCase();
+        const nameStr = (s.name || "").toLowerCase();
+        return (
+          nameStr.includes(typeStr) ||
+          summary.includes(typeStr) ||
+          catList.some((c) => (c.name || c).toString().toLowerCase().includes(typeStr))
+        );
+      });
+    }
+
+    // 4. Sort By
+    if (filters.sortBy === "rating") {
+      list.sort((a, b) => {
+        const rA = parseFloat(a.rating || a.branches?.[0]?.rating?.avgScore || 0);
+        const rB = parseFloat(b.rating || b.branches?.[0]?.rating?.avgScore || 0);
+        return rB - rA;
+      });
+    } else if (filters.sortBy === "price_low") {
+      list.sort((a, b) => (a.startingPrice || 500) - (b.startingPrice || 500));
+    } else if (filters.sortBy === "price_high") {
+      list.sort((a, b) => (b.startingPrice || 500) - (a.startingPrice || 500));
+    }
+
+    return list;
+  }, [salons, filters]);
+
   const handleSalonPress = useCallback((salon) => {
     if (navigate) navigate("SalonDetail", { salon });
   }, [navigate]);
@@ -300,6 +389,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
         hasUnread={hasUnread}
         search={search}
         onSearchChange={handleSearchChange}
+        onFilterPress={() => setFilterModalVisible(true)}
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
         navigate={navigate}
@@ -310,6 +400,13 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
         selectedCity={selectedCity}
         onSelectCity={handleCitySelect}
         onClose={() => setLocationModalVisible(false)}
+      />
+
+      <FilterModal
+        visible={filterModalVisible}
+        filters={filters}
+        onApplyFilters={setFilters}
+        onClose={() => setFilterModalVisible(false)}
       />
 
       {/* Salon Results List */}
@@ -326,14 +423,14 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
             <SalonCardSkeleton />
             <SalonCardSkeleton />
           </View>
-        ) : salons.length === 0 ? (
+        ) : filteredSalons.length === 0 ? (
           <View style={[styles.centerContainer, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
             <Ionicons name="sparkles-outline" size={24} color={theme.primary} />
             <Text style={[styles.emptyTitle, { color: theme.ink }]}>No studios found</Text>
-            <Text style={[styles.emptySub, { color: theme.muted }]}>Try adjusting your search or category filter.</Text>
+            <Text style={[styles.emptySub, { color: theme.muted }]}>Try adjusting your search, rating, or price filter.</Text>
           </View>
         ) : (
-          salons.map((salon, idx) => (
+          filteredSalons.map((salon, idx) => (
             <SalonCard key={salon._id || salon.id} salon={salon} index={idx} onPress={handleSalonPress} />
           ))
         )}

@@ -18,6 +18,7 @@ import SupportScreen from "../screen/SupportScreen";
 import AllSalonsScreen from "../screen/AllSalonsScreen";
 import NotificationCenterScreen from "../screen/NotificationCenterScreen";
 import SavedSalonsScreen from "../screen/SavedSalonsScreen";
+import BannerDetailScreen from "../screen/BannerDetailScreen";
 import LegalScreen from "../screen/LegalScreen";
 import OnboardingScreen from "../screen/OnboardingScreen";
 import SplashScreen from "../screen/SplashScreen";
@@ -46,6 +47,7 @@ export default function AppNavigator() {
   const { theme, isDark } = useTheme();
   const [currentTab, setCurrentTab] = useState("Home");
   const [screenStack, setScreenStack] = useState([]); // Navigation stack: [{ name, params }]
+  const [tabParams, setTabParams] = useState({});
   const [hasOnboarded, setHasOnboarded] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
 
@@ -116,6 +118,7 @@ export default function AppNavigator() {
     squeezeAnim.setValue(0);
     if (["Home", "Explore", "Bookings", "Profile"].includes(screenName)) {
       setCurrentTab(screenName);
+      setTabParams((prev) => ({ ...prev, [screenName]: params }));
       setScreenStack([]);
     } else {
       setScreenStack((prev) => [...prev, { name: screenName, params }]);
@@ -217,6 +220,9 @@ export default function AppNavigator() {
         {activeScreen === "SavedSalons" && (
           <SavedSalonsScreen onBack={goBack} navigate={navigate} />
         )}
+        {activeScreen === "BannerDetail" && (
+          <BannerDetailScreen onBack={goBack} navigate={navigate} routeParams={screenParams} />
+        )}
         {activeScreen === "Legal" && (
           <LegalScreen goBack={goBack} navigate={navigate} routeParams={screenParams} onScroll={handleScroll} />
         )}
@@ -231,7 +237,7 @@ export default function AppNavigator() {
         <HomeScreen navigate={navigate} onScroll={handleScroll} />
       </View>
       <View style={{ flex: 1, display: currentTab === "Explore" ? "flex" : "none" }}>
-        <ExploreScreen navigate={navigate} routeParams={screenParams} onScroll={handleScroll} />
+        <ExploreScreen navigate={navigate} routeParams={tabParams["Explore"] || screenParams} onScroll={handleScroll} />
       </View>
       <View style={{ flex: 1, display: currentTab === "Bookings" ? "flex" : "none" }}>
         <BookingsScreen navigate={navigate} onScroll={handleScroll} />

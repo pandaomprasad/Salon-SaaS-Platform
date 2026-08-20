@@ -13,10 +13,11 @@ import { C, S, FS, FW, R } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 
 const SAMPLE_SUGGESTIONS = [
-  { id: "1", stage: "POPULAR", color: C.grep, query: "Haircut & Styling" },
-  { id: "2", stage: "SPA", color: C.read, query: "Facials & Skin Care" },
-  { id: "3", stage: "LUXURY", color: C.edit, query: "Bridal Makeup" },
-  { id: "4", stage: "NAILS", color: C.thinking, query: "Manicure & Pedicure" },
+  { id: "1", stage: "SALON", query: "Naturals Salon" },
+  { id: "2", stage: "POPULAR", query: "Haircut & Styling" },
+  { id: "3", stage: "SPA", query: "Facials & Skin Care" },
+  { id: "4", stage: "LUXURY", query: "Bridal Makeup" },
+  { id: "5", stage: "NAILS", query: "Manicure & Pedicure" },
 ];
 
 export default function FloatingSearchCapsule({
@@ -26,6 +27,7 @@ export default function FloatingSearchCapsule({
   onSelectSuggestion,
   onFilterPress,
   placeholder = "Search by salon name or service...",
+  showDropdown = true,
 }) {
   const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -69,8 +71,10 @@ export default function FloatingSearchCapsule({
     query ? s.query.toLowerCase().includes(query.toLowerCase()) : true
   );
 
+  const cardHeight = Math.min(filtered.length * 46 + 16, 210);
+
   const opacity = expandAnim;
-  const animHeight = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 190] });
+  const animHeight = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, cardHeight] });
   const animMarginTop = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 6] });
   const translateY = expandAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] });
 
@@ -106,15 +110,15 @@ export default function FloatingSearchCapsule({
         </TouchableOpacity>
       </View>
 
-      {/* Autocomplete Card */}
-      {isMounted ? (
+      {/* Autocomplete Suggestions Card — Only rendered if showDropdown is true AND filtered list has items */}
+      {showDropdown && isMounted && filtered.length > 0 ? (
         <Animated.View
           style={[
             styles.dropdown,
             {
               backgroundColor: theme.surface,
               borderColor: theme.hairline,
-              height: animHeight,
+              maxHeight: animHeight,
               marginTop: animMarginTop,
               opacity,
               transform: [{ translateY }],

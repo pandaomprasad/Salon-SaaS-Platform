@@ -61,14 +61,16 @@ function formatDateShort(dateStr: string): string {
   return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 }
 
+import { toLocalDateStr } from "@/lib/utils";
+
 function getToday(): string {
-  return new Date().toISOString().split("T")[0];
+  return toLocalDateStr();
 }
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  return toLocalDateStr(d);
 }
 
 function getWeekDates(startDate: string): string[] {
@@ -80,7 +82,7 @@ function getMonday(dateStr: string): string {
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   d.setDate(diff);
-  return d.toISOString().split("T")[0];
+  return toLocalDateStr(d);
 }
 
 function getStaffName(staffId: SlotItem["staffId"]): string {
