@@ -7,9 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const INITIAL_ADDRESSES = [
   {
@@ -58,11 +61,13 @@ export default function SavedAddressesScreen({ goBack }) {
   };
 
   const styles = getStyles();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={18} color={C.ink} />
         </TouchableOpacity>

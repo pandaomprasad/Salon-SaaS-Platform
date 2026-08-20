@@ -11,10 +11,12 @@ import {
   Platform,
   Alert,
   Clipboard,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function BannerDetailScreen({ routeParams, onBack, navigate }) {
   const { theme, isDark } = useTheme();
@@ -54,10 +56,13 @@ export default function BannerDetailScreen({ routeParams, onBack, navigate }) {
     if (navigate) navigate("Explore", { search: banner.promoCode || "" });
   };
 
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Top Header Bar */}
-      <View style={styles.topHeader}>
+      <View style={[styles.topHeader, { paddingTop: topInset + 8 }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => (onBack ? onBack() : navigate && navigate("Home"))}
@@ -172,7 +177,7 @@ export default function BannerDetailScreen({ routeParams, onBack, navigate }) {
           <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -10,10 +10,12 @@ import {
   ScrollView,
   SafeAreaView,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PAGE_SIZE = 5; // Number of reviews per page inside full-screen modal
 
@@ -105,6 +107,10 @@ export default function ReviewsSection({
       </View>
     </View>
   );
+
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+  const bottomInset = Math.max(insets.bottom, 12);
 
   return (
     <View style={styles.container}>
@@ -207,9 +213,9 @@ export default function ReviewsSection({
         presentationStyle="fullScreen"
         onRequestClose={() => setModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalContainer}>
           {/* Modal Header */}
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { paddingTop: topInset + 10 }]}>
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setModalVisible(false)}
@@ -278,7 +284,7 @@ export default function ReviewsSection({
 
           {/* Bottom Pagination Bar */}
           {totalPages > 1 && (
-            <View style={styles.paginationBar}>
+            <View style={[styles.paginationBar, { paddingBottom: bottomInset + 10 }]}>
               <TouchableOpacity
                 style={[
                   styles.pageBtn,
@@ -332,7 +338,7 @@ export default function ReviewsSection({
               </TouchableOpacity>
             </View>
           )}
-        </SafeAreaView>
+        </View>
       </Modal>
     </View>
   );

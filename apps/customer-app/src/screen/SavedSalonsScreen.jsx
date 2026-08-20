@@ -9,12 +9,14 @@ import {
   RefreshControl,
   StyleSheet,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { customerService } from "../services/customerService";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SalonCard from "../components/SalonCard";
 
 export default function SavedSalonsScreen({ navigate, onBack }) {
@@ -71,10 +73,13 @@ export default function SavedSalonsScreen({ navigate, onBack }) {
     setRemoteFavorites((prev) => prev.filter((s) => (s._id || s.id) !== (salon._id || salon.id)));
   };
 
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topInset + 10 }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack || (() => navigate && navigate("Profile"))}

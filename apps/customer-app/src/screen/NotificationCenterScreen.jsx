@@ -8,10 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, SHADOWS } from "../theme";
 import { customerService } from "../services/customerService";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function formatTimestamp(dateStr) {
   if (!dateStr) return "";
@@ -150,10 +153,13 @@ export default function NotificationCenterScreen({ navigate, onBack }) {
       .map((key) => ({ title: key, data: groups[key] }));
   }, [visibleNotifications]);
 
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topInset + 10 }]}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity
             style={styles.backBtn}

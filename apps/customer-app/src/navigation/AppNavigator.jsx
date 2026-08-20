@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform, Animated, LayoutAnimation, UIManager, LogBox } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform, Animated, LayoutAnimation, UIManager, LogBox, BackHandler } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, SHADOWS } from "../theme";
 import { useTheme } from "../context/ThemeContext";
@@ -85,6 +85,30 @@ export default function AppNavigator() {
       }
     };
   }, []);
+
+  // Handle Android hardware/system navigation back button press
+  React.useEffect(() => {
+    const onHardwareBackPress = () => {
+      if (screenStack.length > 0) {
+        if (Platform.OS === "android") {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        }
+        setScreenStack((prev) => (prev.length <= 1 ? [] : prev.slice(0, prev.length - 1)));
+        return true; // Handled internally, do not exit app
+      }
+      if (currentTab !== "Home") {
+        if (Platform.OS === "android") {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        }
+        setCurrentTab("Home");
+        return true; // Handled: return to Home tab
+      }
+      return false; // On Home screen with no stack: allow default app exit
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onHardwareBackPress);
+    return () => subscription.remove();
+  }, [screenStack, currentTab]);
 
   const handleScroll = (event) => {
     if (Platform.OS !== "ios") return;
