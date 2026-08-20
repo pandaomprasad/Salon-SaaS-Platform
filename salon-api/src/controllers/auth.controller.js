@@ -411,7 +411,17 @@ const updateMe = async (req, res, next) => {
 
 const { OAuth2Client } = require("google-auth-library");
 const googleClient = new OAuth2Client();
-const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || "")
+const googleClientIds = (
+  process.env.GOOGLE_CLIENT_IDS ||
+  [
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    "23232568516-arksroglu4uhc0ogqm94uh3e6cbln9lv.apps.googleusercontent.com",
+    "23232568516-744mk3m6va3up35md674td07vdqseqnh.apps.googleusercontent.com",
+  ]
+    .filter(Boolean)
+    .join(",")
+)
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean);

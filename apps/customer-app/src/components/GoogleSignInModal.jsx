@@ -17,9 +17,12 @@ import { useAuth } from "../context/AuthContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const DEFAULT_WEB_CLIENT_ID = "23232568516-arksroglu4uhc0ogqm94uh3e6cbln9lv.apps.googleusercontent.com";
+const DEFAULT_ANDROID_CLIENT_ID = "23232568516-744mk3m6va3up35md674td07vdqseqnh.apps.googleusercontent.com";
+
+const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || DEFAULT_WEB_CLIENT_ID;
 const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || DEFAULT_ANDROID_CLIENT_ID;
 
 const isGoogleConfigured = Boolean(webClientId || iosClientId || androidClientId);
 
