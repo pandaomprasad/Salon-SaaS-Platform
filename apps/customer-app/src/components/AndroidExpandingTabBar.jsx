@@ -4,42 +4,53 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Animated,
   StyleSheet,
   Dimensions,
+  Platform,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BAR_MARGIN = 16; // left: 16, right: 16
-const BAR_PADDING = 8;  // inner container padding
+const BAR_MARGIN = 16;
+const BAR_PADDING = 8;
 const TRACK_WIDTH = SCREEN_WIDTH - BAR_MARGIN * 2 - BAR_PADDING * 2;
 const NUM_TABS = 4;
 const TAB_COL_WIDTH = TRACK_WIDTH / NUM_TABS;
 
 export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 12) + 8;
+  const isAndroid = Platform.OS === "android";
+  const baseBottomInset = isAndroid ? Math.max(insets.bottom, 36) : Math.max(insets.bottom, 12);
+  const bottomInset = baseBottomInset + 10;
+
   const activeIndex = tabs.findIndex((t) => t.id === currentTab);
   const selectedIndex = activeIndex >= 0 ? activeIndex : 0;
 
+  // Inverted styling per user request:
+  // Light Theme -> Pure obsidian black bar (#000000), active pill (#27272A), white icons/text
+  // Dark Theme  -> Crisp white bar (#FFFFFF), active pill (#F4F4F5), dark icons/text
+  const barBg = isDark ? "#FFFFFF" : "#000000";
+  const barBorder = isDark ? "#E4E4E7" : "#18181B";
+  const activePillBg = isDark ? "#F4F4F5" : "#27272A";
+  const activeContentColor = isDark ? "#18181B" : "#FFFFFF";
+  const inactiveIconColor = isDark ? "#71717A" : "#FFFFFF";
+
   const animValue = useRef(new Animated.Value(selectedIndex)).current;
-  const styles = getStyles();
 
   useEffect(() => {
     Animated.spring(animValue, {
       toValue: selectedIndex,
-      friction: 9,
-      tension: 85,
+      friction: 8,
+      tension: 75,
       useNativeDriver: false,
     }).start();
   }, [selectedIndex]);
 
-  // Pixel-perfect sliding indicator position
+  // Interpolate position of the sliding active capsule pill
   const indicatorLeft = animValue.interpolate({
     inputRange: [0, 1, 2, 3],
     outputRange: [
@@ -50,23 +61,25 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
     ],
   });
 
+  const styles = getStyles();
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.hairline, bottom: bottomInset }]}>
-      {/* Moving Pill Indicator */}
+    <View style={[styles.container, { backgroundColor: barBg, borderColor: barBorder, bottom: bottomInset }]}>
+      {/* Sliding Active Pill Background */}
       <Animated.View
         style={[
-          styles.movingIndicator,
+          styles.slidingPill,
           {
             left: indicatorLeft,
             width: TAB_COL_WIDTH,
-            backgroundColor: theme.primary,
+            backgroundColor: activePillBg,
           },
         ]}
       />
 
-      {/* Tabs Track */}
+      {/* Interactive Tabs Track */}
       <View style={styles.tabsTrack}>
-        {tabs.map((tab, idx) => {
+        {tabs.map((tab) => {
           const isSelected = currentTab === tab.id;
 
           return (
@@ -76,21 +89,17 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
               onPress={() => onSelectTab(tab.id)}
               style={styles.tabColumn}
             >
-              <View style={styles.tabInner}>
+              <View style={styles.tabContentRow}>
                 <Ionicons
                   name={isSelected ? tab.iconActive : tab.iconInactive}
-                  size={19}
-                  color={isSelected ? "#FFFFFF" : theme.muted}
+                  size={isSelected ? 19 : 22}
+                  color={isSelected ? activeContentColor : inactiveIconColor}
                 />
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    isSelected ? styles.labelActive : { color: theme.muted, fontWeight: "600" },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {tab.label}
-                </Text>
+                {isSelected ? (
+                  <Text style={[styles.activeLabel, { color: activeContentColor }]} numberOfLines={1}>
+                    {tab.label}
+                  </Text>
+                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -104,7 +113,6 @@ function getStyles() {
   return StyleSheet.create({
     container: {
       position: "absolute",
-      bottom: 24,
       left: BAR_MARGIN,
       right: BAR_MARGIN,
       height: 64,
@@ -112,6 +120,18 @@ function getStyles() {
       justifyContent: "center",
       paddingHorizontal: BAR_PADDING,
       borderWidth: 1,
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    slidingPill: {
+      position: "absolute",
+      top: 8,
+      height: 48,
+      borderRadius: 24,
+      zIndex: 1,
     },
     tabsTrack: {
       flexDirection: "row",
@@ -126,28 +146,15 @@ function getStyles() {
       alignItems: "center",
       justifyContent: "center",
     },
-    tabInner: {
+    tabContentRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 6,
     },
-    tabLabel: {
-      fontSize: 12,
-      marginLeft: 5,
-    },
-    labelActive: {
-      color: "#FFFFFF",
-      fontWeight: "800",
-    },
-    labelInactive: {
+    activeLabel: {
+      fontSize: 13,
       fontWeight: "600",
-    },
-    movingIndicator: {
-      position: "absolute",
-      top: 8,
-      height: 48,
-      borderRadius: 24,
-      zIndex: 1,
     },
   });
 }

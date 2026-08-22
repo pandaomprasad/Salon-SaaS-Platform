@@ -43,6 +43,12 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
 
+    appleId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
     // reference to Role document
     role: {
       type: mongoose.Schema.Types.ObjectId,
@@ -86,6 +92,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
       select: false, // never return in queries
+    },
+
+    // 6-digit OTP code for password reset
+    resetPasswordOtp: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    // Expiry timestamp for password reset OTP (15 minutes)
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+      select: false,
     },
 
     // ================================
@@ -136,6 +156,11 @@ const userSchema = new mongoose.Schema(
         lowercase: true,
       },
     ],
+
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
 
     isActive: {
       type: Boolean,

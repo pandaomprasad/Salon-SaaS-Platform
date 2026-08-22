@@ -34,6 +34,7 @@ import { paiseToINR } from "../services/apiClient";
 import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { useAuth } from "../context/AuthContext";
+import VerifyEmailModal from "../components/VerifyEmailModal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -292,8 +293,15 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     setSelectedServices([]);
   }, []);
 
+  const { user } = useAuth();
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+
   const handleBookNow = useCallback(() => {
     if (!selectedBranch) return;
+    if (user && (user.isEmailVerified === false || user.email_verified === false)) {
+      setShowVerifyModal(true);
+      return;
+    }
     const targetServices = selectedServices.length > 0 ? selectedServices : (services.length > 0 ? [services[0]] : []);
     if (targetServices.length === 0) return;
     if (navigate) {
@@ -304,7 +312,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         selectedServices: targetServices,
       });
     }
-  }, [selectedServices, services, selectedBranch, navigate, salonData]);
+  }, [selectedServices, services, selectedBranch, navigate, salonData, user]);
 
   const styles = getStyles();
 
@@ -323,7 +331,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         scrollEventThrottle={16}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: selectedServices.length > 0 ? 110 : insets.bottom + 24 },
+          { paddingBottom: selectedServices.length > 0 ? 140 : Math.max(insets.bottom, 36) + 36 },
         ]}
       >
         <View style={styles.heroCardContainer}>
@@ -638,6 +646,13 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           </View>
         </BlurView>
       </Animated.View>
+
+      <VerifyEmailModal
+        visible={showVerifyModal}
+        email={user?.email}
+        onClose={() => setShowVerifyModal(false)}
+        onVerified={() => setShowVerifyModal(false)}
+      />
     </View>
   );
 }
@@ -973,7 +988,7 @@ function getStyles() {
     floatingBottomBar: {
       paddingHorizontal: S.md,
       paddingTop: 14,
-      paddingBottom: Platform.OS === "ios" ? 28 : 16,
+      paddingBottom: Platform.OS === "ios" ? 28 : 36,
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       overflow: "hidden",

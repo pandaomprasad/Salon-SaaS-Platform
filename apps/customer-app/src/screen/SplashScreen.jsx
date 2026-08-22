@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../theme";
@@ -333,9 +334,11 @@ export default function SplashScreen({ onFinish }) {
             },
           ]}
         >
-          <Animated.View style={{ transform: [{ rotate: iconRotate }] }}>
-            <Ionicons name="cut" size={32} color={COLORS.primary} />
-          </Animated.View>
+          <Image
+            source={require("../../assets/logo.png")}
+            style={{ width: 68, height: 68, borderRadius: 14 }}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* Brand name */}
@@ -348,7 +351,7 @@ export default function SplashScreen({ onFinish }) {
             },
           ]}
         >
-          <Text style={styles.brandName}>SALON LUXE</Text>
+          <Text style={styles.brandName}>ST CUT</Text>
         </Animated.View>
 
         {/* Tagline */}
@@ -358,7 +361,7 @@ export default function SplashScreen({ onFinish }) {
             transform: [{ translateY: taglineSlide }],
           }}
         >
-          <Text style={styles.tagline}>Premium Beauty, Effortlessly Booked</Text>
+          <Text style={styles.tagline}>BOOK YOUR STYLE.</Text>
         </Animated.View>
       </View>
 

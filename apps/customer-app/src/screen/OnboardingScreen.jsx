@@ -11,8 +11,10 @@ import {
   StatusBar,
   Platform,
   Easing,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { storage } from "../services/storage";
 import { C } from "../theme";
 import { useTheme } from "../context/ThemeContext";
@@ -87,6 +89,10 @@ const SLIDES = [
 export default function OnboardingScreen({ onFinish, navigate }) {
   const styles = getStyles();
   const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 8;
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 16 : Math.max(insets.bottom, 20) + 12;
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
@@ -565,6 +571,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
         style={[
           styles.header,
           {
+            paddingTop: topInset,
             opacity: headerAnim,
             transform: [
               {
@@ -578,10 +585,12 @@ export default function OnboardingScreen({ onFinish, navigate }) {
         ]}
       >
         <View style={styles.logoRow}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="cut" size={14} color={COLORS.primary} />
-          </View>
-          <Text style={styles.logoText}>SALON LUXE</Text>
+          <Image
+            source={require("../../assets/logo.png")}
+            style={{ width: 36, height: 36, borderRadius: 8, marginRight: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={styles.logoText}>ST CUT</Text>
         </View>
 
         {currentIndex < SLIDES.length - 1 && (
@@ -637,6 +646,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
         style={[
           styles.footer,
           {
+            paddingBottom: bottomInset,
             opacity: footerAnim,
             transform: [
               {

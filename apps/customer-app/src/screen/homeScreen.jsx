@@ -49,6 +49,17 @@ const SalonVerticalList = memo(({ salons, onSalonPress, styles }) => (
 
 const GLOBAL_SALON_CACHE = {};
 
+function getSalonRating(s) {
+  if (!s) return 0;
+  if (typeof s.rating === "number") return s.rating;
+  if (typeof s.rating === "object" && s.rating !== null) {
+    return s.rating.average || s.rating.score || s.rating.avg || 4.5;
+  }
+  return 4.5;
+}
+
+const PAGE_SIZE = 5;
+
 function HomeScreen({ navigate, onScroll }) {
   const { isDark } = useTheme();
   const { user, isAuthenticated } = useAuth();
@@ -59,11 +70,26 @@ function HomeScreen({ navigate, onScroll }) {
   const [loading, setLoading] = useState(initialSalons.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [page, setPage] = useState(1);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState(null);
   const [reviewModalAppt, setReviewModalAppt] = useState(null);
   const promptedReviewIdsRef = React.useRef(new Set());
+
+  // Filter salons to only show those with > 3 stars rating
+  const topRatedSalons = React.useMemo(() => {
+    return (salons || []).filter((s) => getSalonRating(s) > 3.0);
+  }, [salons]);
+
+  // Paginated list slice
+  const paginatedSalons = React.useMemo(() => {
+    return topRatedSalons.slice(0, page * PAGE_SIZE);
+  }, [topRatedSalons, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCity]);
 
   const handleAddReviewSubmit = async ({ rating, comment }) => {
     if (!reviewModalAppt) return;
@@ -138,33 +164,44 @@ function HomeScreen({ navigate, onScroll }) {
       } else { if (upcomingApptRef.current !== null) setUpcomingAppt(null); }
     } catch (err) {
       if (!hasCachedData) { setSalons([]); setLoadError(err.message || "Unable to connect"); }
-    } finally { setLoading(false); setRefreshing(false); }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [selectedCity, isAuthenticated]);
 
   useEffect(() => {
-    const cleanCity = cleanCityName(selectedCity);
-    const cached = GLOBAL_SALON_CACHE[cleanCity] || salonCacheRef.current[cleanCity];
-    loadData((cached && cached.length > 0) || salonsRef.current.length > 0);
+    loadData(false);
   }, [selectedCity, isAuthenticated, loadData]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    const userId = user?._id || user?.id;
-    if (userId) socketClient.connect(userId);
-    const unsubscribeStatus = socketClient.onAppointmentStatusChanged(() => loadData(true));
-    const unsubscribeUpdated = socketClient.onAppointmentUpdated(() => loadData(true));
+    const cleanupSocket = socketClient.onAppointmentStatusChanged(({ appointment }) => {
+      loadData(true);
+    });
     return () => {
-      if (typeof unsubscribeStatus === "function") unsubscribeStatus();
-      if (typeof unsubscribeUpdated === "function") unsubscribeUpdated();
+      if (typeof cleanupSocket === "function") cleanupSocket();
     };
-  }, [isAuthenticated, user, loadData]);
+  }, [loadData]);
 
-  const onRefresh = useCallback(() => { setRefreshing(true); loadData(false); }, [loadData]);
-  const handleSalonPress = useCallback((salon) => { if (navigate) navigate("SalonDetail", { salon }); }, [navigate]);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setPage(1);
+    loadData(true);
+  }, [loadData]);
+
+  const handleSalonPress = useCallback((salon) => {
+    if (navigate) navigate("SalonDetail", { salonId: salon._id || salon.id, salon });
+  }, [navigate]);
+
   const handleSearchClick = useCallback(() => { if (navigate) navigate("Explore"); }, [navigate]);
-  const handleBannerPress = useCallback((banner) => {
-    if (!navigate) return;
-    navigate("BannerDetail", { banner });
+  const handleBannerPress = useCallback((promo) => {
+    if (promo?.salonId) {
+      if (navigate) navigate("SalonDetail", { salonId: promo.salonId });
+    } else if (promo?.serviceName) {
+      if (navigate) navigate("Explore", { search: promo.serviceName });
+    } else {
+      if (navigate) navigate("Explore");
+    }
   }, [navigate]);
   const handleRebook = useCallback(() => {
     if (!navigate) return;
@@ -182,9 +219,6 @@ function HomeScreen({ navigate, onScroll }) {
   const handleCitySelect = useCallback((city) => { setSelectedCity(city); storage.setItem("@user_selected_city", city); }, []);
   const handleLocationClose = useCallback(() => setLocationModalVisible(false), []);
   const handleLocationClick = useCallback(() => setLocationModalVisible(true), []);
-  const handleSeeAll = useCallback(() => {
-    if (navigate) navigate("AllSalons", { city: selectedCity });
-  }, [navigate, selectedCity]);
   const handleSearchSubmit = useCallback((term) => { if (navigate) navigate("Explore", { search: term }); }, [navigate]);
 
   const styles = buildStyles();
@@ -223,8 +257,8 @@ function HomeScreen({ navigate, onScroll }) {
         {/* Section: Featured Studios */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleBlock}>
-            <Text style={styles.sectionTag}>FEATURED PARTNERS</Text>
-            <Text style={styles.sectionTitle}>Featured in {selectedCity}</Text>
+            <Text style={styles.sectionTag}>HANDPICKED</Text>
+            <Text style={styles.sectionTitle}>Loved in {selectedCity}</Text>
           </View>
 
           <View style={styles.headerActions}>
@@ -232,19 +266,15 @@ function HomeScreen({ navigate, onScroll }) {
               <Ionicons name="map-outline" size={13} color={C.ink} />
               <Text style={styles.buttonSecondaryText}>Map</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleSeeAll} style={styles.buttonSecondary}>
-              <Text style={styles.buttonSecondaryText}>All</Text>
-              <Ionicons name="arrow-forward" size={13} color={C.ink} />
-            </TouchableOpacity>
           </View>
         </View>
 
         {loading ? (
           <View style={styles.emptyBlock}>
             <ActivityIndicator size="small" color={C.main} />
-            <Text style={styles.emptyText}>Fetching studios…</Text>
+            <Text style={styles.emptyText}>Loading salons…</Text>
           </View>
-        ) : loadError && salons.length === 0 ? (
+        ) : loadError && topRatedSalons.length === 0 ? (
           <View style={styles.emptyBlock}>
             <Ionicons name="wifi-outline" size={24} color={C.muted} />
             <Text style={styles.emptyTitle}>Unable to connect</Text>
@@ -253,26 +283,44 @@ function HomeScreen({ navigate, onScroll }) {
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : salons.length === 0 ? (
+        ) : topRatedSalons.length === 0 ? (
           <View style={styles.emptyBlock}>
-            <Ionicons name="storefront-outline" size={24} color={C.muted} />
-            <Text style={styles.emptyTitle}>No studios in {selectedCity}</Text>
-            <Text style={styles.emptyText}>Check back soon for new partner salons.</Text>
+            <Ionicons name="star-outline" size={24} color={C.muted} />
+            <Text style={styles.emptyTitle}>No 3+★ salons in {selectedCity}</Text>
+            <Text style={styles.emptyText}>Check back soon for top-rated salons.</Text>
           </View>
         ) : (
-          <SalonCarousel salons={salons} onSalonPress={handleSalonPress} styles={styles} />
+          <SalonCarousel salons={topRatedSalons} onSalonPress={handleSalonPress} styles={styles} />
         )}
 
-        {/* Section: All Studios */}
-        {salons.length > 0 ? (
+        {/* Section: All Studios (>3 Stars with Pagination) */}
+        {topRatedSalons.length > 0 ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleBlock}>
-                <Text style={styles.sectionTag}>ALL STUDIOS</Text>
-                <Text style={styles.sectionTitle}>Explore all partners</Text>
+                <Text style={styles.sectionTag}>THE FULL LIST</Text>
+                <Text style={styles.sectionTitle}>Every salon in {selectedCity}</Text>
               </View>
             </View>
-            <SalonVerticalList salons={salons} onSalonPress={handleSalonPress} styles={styles} />
+
+            <SalonVerticalList salons={paginatedSalons} onSalonPress={handleSalonPress} styles={styles} />
+
+            {topRatedSalons.length > paginatedSalons.length ? (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={() => setPage((p) => p + 1)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.loadMoreText}>
+                  Load More Salons ({topRatedSalons.length - paginatedSalons.length} remaining)
+                </Text>
+                <Ionicons name="chevron-down" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            ) : topRatedSalons.length > PAGE_SIZE ? (
+              <View style={styles.endOfListBlock}>
+                <Text style={styles.endOfListText}>Showing all {topRatedSalons.length} top-rated salons</Text>
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -304,7 +352,7 @@ function buildStyles() {
     flex: 1,
   },
   content: {
-    paddingBottom: 110,
+    paddingBottom: 84,
   },
 
   // Section Headers per cursor/DESIGN.md
@@ -393,6 +441,33 @@ function buildStyles() {
     color: C.bg,
     fontWeight: FW.medium,
     fontSize: FS.bodySm,
+  },
+
+  // Pagination Styles
+  loadMoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.main,
+    paddingVertical: S.sm,
+    paddingHorizontal: S.md,
+    borderRadius: R.button,
+    marginTop: S.md,
+    marginHorizontal: S.md,
+  },
+  loadMoreText: {
+    color: "#FFFFFF",
+    fontSize: FS.bodySm,
+    fontWeight: FW.semiBold,
+  },
+  endOfListBlock: {
+    alignItems: "center",
+    marginTop: S.md,
+    paddingVertical: S.xs,
+  },
+  endOfListText: {
+    fontSize: FS.caption,
+    color: C.muted,
   },
   });
 }

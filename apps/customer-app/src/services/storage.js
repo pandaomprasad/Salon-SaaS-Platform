@@ -1,5 +1,5 @@
 // src/services/storage.js
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 const memoryStore = new Map();
@@ -11,7 +11,7 @@ export const storage = {
       if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
         val = window.localStorage.getItem(key);
       } else {
-        val = await AsyncStorage.getItem(key);
+        val = await SecureStore.getItemAsync(key);
       }
       if (val === null || val === undefined) {
         val = memoryStore.get(key) || null;
@@ -33,7 +33,7 @@ export const storage = {
         window.localStorage.setItem(key, value);
         return;
       }
-      await AsyncStorage.setItem(key, value);
+      await SecureStore.setItemAsync(key, value);
     } catch (e) {
       // Silent fallback
     }
@@ -46,7 +46,7 @@ export const storage = {
         window.localStorage.removeItem(key);
         return;
       }
-      await AsyncStorage.removeItem(key);
+      await SecureStore.deleteItemAsync(key);
     } catch (e) {
       // Silent fallback
     }

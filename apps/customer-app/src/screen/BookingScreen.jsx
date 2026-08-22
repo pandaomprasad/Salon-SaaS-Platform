@@ -9,8 +9,10 @@ import {
   StyleSheet,
   Platform,
   Animated,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import SlotPicker from "../components/SlotPicker";
 import StaffPicker from "../components/StaffPicker";
@@ -20,10 +22,15 @@ import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { paiseToINR, toLocalDateStr } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
-
+import VerifyEmailModal from "../components/VerifyEmailModal";
 
 export default function BookingScreen({ salon, branch, service, selectedServices, goBack, navigate }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 8;
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 12 : Math.max(insets.bottom, 16) + 8;
   const todayObj = new Date();
   const todayStr = toLocalDateStr(todayObj);
 
@@ -136,6 +143,11 @@ export default function BookingScreen({ salon, branch, service, selectedServices
           redirectData: { salon, branch, service, selectedServices: allServices },
         });
       }
+      return;
+    }
+
+    if (user && (user.isEmailVerified === false || user.email_verified === false)) {
+      setShowVerifyModal(true);
       return;
     }
 
@@ -269,7 +281,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
         }}
       />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topInset }]}>
         <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={20} color={C.ink} />
         </TouchableOpacity>
@@ -287,7 +299,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Selected Services Section */}
@@ -416,7 +428,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
         </View>
       </ScrollView>
 
-      <View style={styles.floatingBottomContainer}>
+      <View style={[styles.floatingBottomContainer, { bottom: bottomInset }]}>
         <View style={styles.floatingBar}>
           <View style={styles.floatingPriceBlock}>
             <Text style={styles.floatingPriceLabel}>Total:</Text>
@@ -439,6 +451,13 @@ export default function BookingScreen({ salon, branch, service, selectedServices
           </TouchableOpacity>
         </View>
       </View>
+
+      <VerifyEmailModal
+        visible={showVerifyModal}
+        email={user?.email}
+        onClose={() => setShowVerifyModal(false)}
+        onVerified={() => setShowVerifyModal(false)}
+      />
     </View>
   );
 }

@@ -4,8 +4,8 @@ import Providers from "./providers";
 import LayoutWrapper from "@/app/LayoutWrapper";
 
 export const metadata: Metadata = {
-  title: "Admin Panel — Salon HQ",
-  description: "Super admin panel for Salon HQ platform",
+  title: "ST CUT — SuperAdmin Control Panel",
+  description: "Super admin control panel for ST CUT platform",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -130,12 +130,12 @@ function EditorialHeader({
       {/* Header Title Row */}
       <View style={styles.headerTitleRow}>
         <View style={{ flex: 1, paddingRight: S.sm }}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>SEARCH &amp; EXPLORE</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>FIND YOUR NEXT APPOINTMENT</Text>
           <Text style={[styles.title, { color: theme.ink, fontFamily: FONT_FAMILY.serif }]}>
             Search Salons
           </Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
-            Find luxury hair, beauty &amp; spa studios near you
+            Hair, skin &amp; spa — handpicked near you
           </Text>
         </View>
       </View>

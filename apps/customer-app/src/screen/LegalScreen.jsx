@@ -11,10 +11,9 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { C, S, FS, FW, R } from "../theme";
 import { useTheme } from "../context/ThemeContext";
-
-const TOP_INSET = Platform.OS === "ios" ? 56 : (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 40);
 
 const TABS = [
   { id: "privacy", label: "Privacy Policy", icon: "shield-checkmark-outline" },
@@ -25,6 +24,10 @@ const TABS = [
 export default function LegalScreen({ goBack, routeParams, onScroll }) {
   const styles = getStyles();
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 8;
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 20 : Math.max(insets.bottom, 20) + 20;
   const initialTab = routeParams?.tab || "privacy";
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -33,7 +36,7 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* Top Header */}
-      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.hairline }]}>
+      <View style={[styles.header, { paddingTop: topInset, backgroundColor: theme.surface, borderBottomColor: theme.hairline }]}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: theme.grep }]}
           onPress={() => goBack && goBack()}
@@ -87,7 +90,7 @@ export default function LegalScreen({ goBack, routeParams, onScroll }) {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}

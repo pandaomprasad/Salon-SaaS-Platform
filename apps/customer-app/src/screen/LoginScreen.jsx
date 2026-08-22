@@ -12,14 +12,22 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "react-native";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
 import BouncyButton from "../components/BouncyButton";
 import GoogleSignInModal from "../components/GoogleSignInModal";
+import ForgotPasswordModal from "../components/ForgotPasswordModal";
+import AppleSignInButton from "../components/AppleSignInButton";
 
 export default function LoginScreen({ navigate, goBack, routeParams }) {
   const styles = getStyles();
+  const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 12;
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 16 : Math.max(insets.bottom, 20) + 16;
   const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +35,8 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -49,8 +59,6 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
     }
   };
 
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-
   const handleGoogleLogin = () => {
     setError("");
     setShowGoogleModal(true);
@@ -62,7 +70,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topInset, paddingBottom: bottomInset }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -93,6 +101,18 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             title="Sign In Error"
             message={error}
             onClose={() => setError("")}
+          />
+
+          {/* Apple Sign-In Button (Renders on iOS / Apple-supported devices) */}
+          <AppleSignInButton
+            onSuccess={() => {
+              if (routeParams?.redirectTo && navigate) {
+                navigate(routeParams.redirectTo, routeParams.redirectData);
+              } else if (navigate) {
+                navigate("Profile");
+              }
+            }}
+            onError={(err) => setError(err)}
           />
 
           {/* Google Sign-In Button */}
@@ -135,7 +155,16 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>PASSWORD</Text>
+              <TouchableOpacity
+                onPress={() => setShowForgotModal(true)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.inputWrapper}>
               <Ionicons name="lock-closed-outline" size={16} color={C.muted} style={styles.inputIcon} />
               <TextInput
@@ -158,6 +187,14 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
                 />
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={styles.forgotPassTouch}
+              onPress={() => setShowForgotModal(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.forgotPassText}>Forgot Password?</Text>
+            </TouchableOpacity>
           </View>
 
           {/* button-primary: flat #BD4444 */}
@@ -191,6 +228,11 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
                 navigate("Profile");
               }
             }}
+          />
+
+          <ForgotPasswordModal
+            visible={showForgotModal}
+            onClose={() => setShowForgotModal(false)}
           />
         </View>
       </ScrollView>
@@ -291,6 +333,28 @@ function getStyles() {
   },
   eyeBtn: {
     padding: S.xxs,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: S.xxs,
+  },
+  forgotText: {
+    fontSize: 12,
+    color: C.main || "#BD4444",
+    fontWeight: FW.semiBold,
+  },
+  forgotPassTouch: {
+    alignSelf: "flex-end",
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 4,
+  },
+  forgotPassText: {
+    fontSize: 13,
+    color: "#B45309",
+    fontWeight: FW.bold,
   },
   // button-primary per cursor/DESIGN.md: 8px radius
   submitBtnGradient: {

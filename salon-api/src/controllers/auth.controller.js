@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const AppError = require("../utils/AppError");
@@ -8,7 +9,12 @@ const {
   verifyRefreshToken,
 } = require("../utils/token");
 const bcrypt = require("bcryptjs");
-const { sendOwnerRegistrationReceivedEmail } = require("../services/email.service");
+const {
+  sendOwnerRegistrationReceivedEmail,
+  sendPasswordResetOtpEmail,
+  sendEmailVerificationLink,
+} = require("../services/email.service");
+const { validateEmail } = require("../utils/emailValidation");
 
 // ================================
 // Helper — build user payload for token
@@ -33,8 +39,16 @@ const register = async (req, res, next) => {
   try {
     const { name, email, phone, password } = req.body;
 
+    // Reject disposable emails & invalid MX records
+    const check = await validateEmail(email);
+    if (!check.valid) {
+      return next(new AppError(check.reason, 400));
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
     // check if email already exists
-    const existing = await User.findOne({ email });
+    const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
       return next(new AppError("Email already registered", 400));
     }
@@ -50,11 +64,27 @@ const register = async (req, res, next) => {
     // create user — password gets hashed by pre-save hook
     const user = await User.create({
       name,
-      email,
+      email: cleanEmail,
       phone,
       password,
       role: customerRole._id,
+      isEmailVerified: false,
     });
+
+    // Generate JWT verification token (expires in 1 hour)
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+    const verificationToken = jwt.sign(
+      { userId: user._id, email: user.email },
+      verificationSecret,
+      { expiresIn: "1h" }
+    );
+
+    // Send confirmation link email asynchronously
+    sendEmailVerificationLink({
+      to: user.email,
+      userName: user.name,
+      token: verificationToken,
+    }).catch((err) => console.error("Error sending verification link email:", err));
 
     // build tokens
     const payload = await buildUserPayload(user);
@@ -68,7 +98,7 @@ const register = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: "Registration successful",
+      message: "Registration successful. Please check your email to verify your account.",
       data: {
         user: {
           id: user._id,
@@ -76,6 +106,8 @@ const register = async (req, res, next) => {
           email: user.email,
           phone: user.phone,
           role: "customer",
+          isEmailVerified: false,
+          email_verified: false,
         },
         accessToken,
         refreshToken,
@@ -223,6 +255,8 @@ const login = async (req, res, next) => {
           role: user.role.name,
           salonId: user.salonId,
           branchId: user.branchId,
+          isEmailVerified: user.isEmailVerified !== false,
+          email_verified: user.isEmailVerified !== false,
         },
         salon,
         accessToken,
@@ -546,4 +580,404 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
-module.exports = { register, registerOwner, login, googleLogin, refresh, logout, me, updateMe };
+// ================================
+// POST /api/v1/auth/apple
+// ================================
+const appleLogin = async (req, res, next) => {
+  try {
+    const { identityToken, user: appleUserId, fullName, email: providedEmail } = req.body;
+
+    if (!identityToken) {
+      return next(new AppError("Apple identityToken is required", 400));
+    }
+
+    const decoded = jwt.decode(identityToken);
+    if (!decoded) {
+      return next(new AppError("Invalid Apple identity token", 400));
+    }
+
+    const appleId = appleUserId || decoded.sub;
+    const email = (providedEmail || decoded.email || `${appleId}@privaterelay.appleid.com`).toLowerCase();
+
+    let name = "Apple User";
+    if (fullName) {
+      const parts = [fullName.givenName, fullName.familyName].filter(Boolean);
+      if (parts.length > 0) name = parts.join(" ");
+    }
+
+    const customerRole = await Role.findOne({ name: "customer" });
+    if (!customerRole) {
+      return next(new AppError("Customer role not found", 500));
+    }
+
+    let user = await User.findOne({
+      $or: [{ appleId }, { email }],
+    }).populate("role", "name");
+
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        appleId,
+        role: customerRole._id,
+      });
+      user = await User.findById(user._id).populate("role", "name");
+    } else {
+      if (!user.isActive) {
+        return next(new AppError("Your account has been deactivated", 401));
+      }
+      if (!user.appleId) {
+        user.appleId = appleId;
+      }
+    }
+
+    const payload = {
+      _id: user._id,
+      salonId: user.salonId,
+      branchId: user.branchId,
+      tokenVersion: user.tokenVersion,
+      roleName: user.role?.name || "customer",
+    };
+
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Apple login successful",
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role?.name || "customer",
+          avatar: user.avatar,
+          salonId: user.salonId,
+          branchId: user.branchId,
+        },
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// POST /api/v1/auth/forgot-password
+// ================================
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return next(new AppError("Email is required", 400));
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account with that email exists, a verification code has been sent.",
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.resetPasswordOtp = await bcrypt.hash(otp, 10);
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save();
+
+    sendPasswordResetOtpEmail({
+      to: user.email,
+      userName: user.name,
+      otp,
+    }).catch((err) => console.error("Error sending reset OTP email:", err));
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to your email.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// POST /api/v1/auth/reset-password
+// ================================
+const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return next(new AppError("Email, OTP code, and new password are required", 400));
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() }).select(
+      "+password +resetPasswordOtp +resetPasswordExpires"
+    );
+
+    if (!user || !user.resetPasswordOtp || !user.resetPasswordExpires) {
+      return next(new AppError("Invalid or expired password reset request", 400));
+    }
+
+    if (user.resetPasswordExpires < new Date()) {
+      return next(new AppError("Verification code has expired. Please request a new code.", 400));
+    }
+
+    const isValidOtp = await bcrypt.compare(otp, user.resetPasswordOtp);
+    if (!isValidOtp) {
+      return next(new AppError("Invalid 6-digit verification code", 400));
+    }
+
+    user.password = newPassword;
+    user.resetPasswordOtp = null;
+    user.resetPasswordExpires = null;
+    user.tokenVersion += 1;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful. Please log in with your new password.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// POST /api/v1/auth/change-password
+// ================================
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return next(new AppError("Current and new passwords are required", 400));
+    }
+
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user || !user.password) {
+      return next(new AppError("User password not found or signed in via Google", 400));
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return next(new AppError("Incorrect current password", 400));
+    }
+
+    user.password = newPassword;
+    user.tokenVersion += 1;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// DELETE /api/v1/auth/delete-account
+// ================================
+const deleteAccount = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    user.isActive = false;
+    user.email = `deleted_${userId}_${Date.now()}@anonymized.local`;
+    user.phone = null;
+    user.googleId = null;
+    user.refreshToken = null;
+    user.tokenVersion += 1;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Account deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// GET /api/v1/auth/verify-email
+// ================================
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return next(new AppError("Missing verification token", 400));
+    }
+
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+
+    let payload;
+    try {
+      payload = jwt.verify(token, verificationSecret);
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return next(new AppError("Verification link expired. Please request a new link.", 400));
+      }
+      return next(new AppError("Invalid verification link", 400));
+    }
+
+    const user = await User.findById(payload.userId);
+    if (!user) {
+      return next(new AppError("User account not found", 404));
+    }
+
+    if (user.email.toLowerCase() !== payload.email.toLowerCase()) {
+      return next(new AppError("Token does not match account email", 400));
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(200).json({
+        success: true,
+        message: "Email is already verified.",
+        data: { isEmailVerified: true, email_verified: true },
+      });
+    }
+
+    user.isEmailVerified = true;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully.",
+      data: { isEmailVerified: true, email_verified: true },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ================================
+// GET /api/v1/auth/verify-email-landing (Web Page Option A)
+// ================================
+const verifyEmailLanding = async (req, res) => {
+  const { token } = req.query;
+  const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+
+  let success = false;
+  let title = "Verification Failed";
+  let message = "Invalid or expired verification link.";
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, verificationSecret);
+      const user = await User.findById(payload.userId);
+      if (user && user.email.toLowerCase() === payload.email.toLowerCase()) {
+        user.isEmailVerified = true;
+        await user.save();
+        success = true;
+        title = "Email Confirmed!";
+        message = "Your ST CUT account is active. Tap the button below to return to the app.";
+      }
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        message = "This confirmation link has expired (valid for 1 hour). Please request a new link inside the app.";
+      }
+    }
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ST CUT — Email Verification</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D0D0D; color: #F4F4F2; margin: 0; padding: 24px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #1C1C1E; border: 1px solid #2A2A2C; border-radius: 24px; padding: 40px 32px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 24px; font-weight: 700; margin: 0 0 12px 0; color: #FFFFFF; }
+    p { font-size: 15px; color: #A0A09C; line-height: 1.6; margin: 0 0 28px 0; }
+    .btn { display: inline-block; background: linear-gradient(135deg, #D49B45 0%, #C48B36 100%); color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 28px; border-radius: 14px; box-shadow: 0 8px 16px rgba(196,139,54,0.3); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${success ? "✨" : "❌"}</div>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    ${success ? `<a href="stcut://verify-email?token=${token}" class="btn">Open ST CUT App</a>` : `<p style="color:#D49B45; font-weight:600;">Return to ST CUT app to request a new link.</p>`}
+  </div>
+</body>
+</html>
+  `;
+
+  res.setHeader("Content-Type", "text/html");
+  res.send(html);
+};
+
+// ================================
+// POST /api/v1/auth/resend-verification
+// ================================
+const resendVerification = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return next(new AppError("Email is required", 400));
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return next(new AppError("Account not found with this email", 404));
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified.",
+      });
+    }
+
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+    const verificationToken = jwt.sign(
+      { userId: user._id, email: user.email },
+      verificationSecret,
+      { expiresIn: "1h" }
+    );
+
+    await sendEmailVerificationLink({
+      to: user.email,
+      userName: user.name,
+      token: verificationToken,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Verification email resent successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  register,
+  registerOwner,
+  login,
+  googleLogin,
+  appleLogin,
+  refresh,
+  logout,
+  me,
+  updateMe,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+  deleteAccount,
+  verifyEmail,
+  verifyEmailLanding,
+  resendVerification,
+};

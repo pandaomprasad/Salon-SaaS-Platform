@@ -197,39 +197,38 @@ export function applyTheme(isDark) {
   }
 }
 
-// ── Typography (Serif Editorial Headers + Sans Body) ───────
-
-const SERIF_FONT = Platform.select({
-  ios: "Georgia",
-  android: "serif",
-  web: "Georgia, 'Times New Roman', serif",
-  default: "serif",
-});
-
-const SANS_FONT = Platform.select({
-  ios: "System",
-  android: "sans-serif",
-  web: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  default: "sans-serif",
-});
+// ── Typography (Fraunces Editorial Serif Headers + Inter Body) ───────
 
 export const FONT_FAMILY = {
-  primary: SANS_FONT,
-  serif: SERIF_FONT,
-  code: SANS_FONT,
+  primary: "Inter_400Regular",
+  body: "Inter_400Regular",
+  bodyMedium: "Inter_500Medium",
+  bodySemiBold: "Inter_600SemiBold",
+  bodyBold: "Inter_700Bold",
+  display: "Fraunces_600SemiBold",
+  displayMedium: "Fraunces_500Medium",
+  displayBold: "Fraunces_700Bold",
+  serif: "Fraunces_600SemiBold",
+  code: "Inter_400Regular",
 };
+export const FF = FONT_FAMILY;
 
 export const FONT_SIZE = {
   badge: 10,
   caption: 11,
   eyebrow: 11,
+  subheadline: 14,
   sub: 12,
   bodySm: 14,
   body: 16,
   bodyLg: 16,
+  cardTitle: 17,
+  cardMeta: 13,
+  button: 14,
   titleSm: 16,
   title: 18,
   titleLg: 22,
+  headline: 30,
   hero: 30,
   display: 34,
 };
@@ -306,53 +305,62 @@ export const SHADOWS = {
 
 export const TYPO = {
   eyebrow: {
-    fontFamily: FONT_FAMILY.primary,
-    fontSize: FONT_SIZE.caption,
-    fontWeight: FONT_WEIGHT.semiBold,
+    fontFamily: FONT_FAMILY.bodySemiBold,
+    fontSize: FONT_SIZE.eyebrow,
     color: C.goldDark,
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
+  headline: {
+    fontFamily: FONT_FAMILY.display,
+    fontSize: FONT_SIZE.headline,
+    color: C.ink,
+    lineHeight: FONT_SIZE.headline * 1.08,
+  },
+  subheadline: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: FONT_SIZE.subheadline,
+    color: C.muted,
+  },
   screenTitle: {
-    fontFamily: FONT_FAMILY.serif,
+    fontFamily: FONT_FAMILY.display,
     fontSize: FONT_SIZE.hero,
-    fontWeight: FONT_WEIGHT.bold,
     color: C.textPrimary,
     letterSpacing: -0.3,
   },
   sectionTitle: {
-    fontFamily: FONT_FAMILY.serif,
+    fontFamily: FONT_FAMILY.display,
     fontSize: FONT_SIZE.titleLg,
-    fontWeight: FONT_WEIGHT.bold,
     color: C.textPrimary,
     letterSpacing: -0.2,
   },
   cardTitle: {
-    fontFamily: FONT_FAMILY.serif,
-    fontSize: FONT_SIZE.title,
-    fontWeight: FONT_WEIGHT.semiBold,
+    fontFamily: FONT_FAMILY.display,
+    fontSize: FONT_SIZE.cardTitle,
     color: C.textPrimary,
     letterSpacing: 0,
   },
+  cardMeta: {
+    fontFamily: FONT_FAMILY.body,
+    fontSize: FONT_SIZE.cardMeta,
+    color: C.textMuted,
+  },
   bodyText: {
-    fontFamily: FONT_FAMILY.primary,
+    fontFamily: FONT_FAMILY.body,
     fontSize: FONT_SIZE.body,
-    fontWeight: FONT_WEIGHT.regular,
     color: C.textSecondary,
     lineHeight: 24,
   },
   badgeText: {
-    fontFamily: FONT_FAMILY.primary,
+    fontFamily: FONT_FAMILY.bodySemiBold,
     fontSize: FONT_SIZE.caption,
-    fontWeight: FONT_WEIGHT.semiBold,
     color: C.textPrimary,
     letterSpacing: 1.0,
     textTransform: "uppercase",
   },
   navLink: {
-    fontFamily: FONT_FAMILY.primary,
+    fontFamily: FONT_FAMILY.bodyMedium,
     fontSize: FONT_SIZE.bodySm,
-    fontWeight: FONT_WEIGHT.medium,
     color: C.textPrimary,
   },
 };

@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Luxe Salon — Salon Management Platform",
+  title: "ST CUT — Partner Salon Management Panel",
   description:
-    "The all-in-one salon management platform. Bookings, staff, services and revenue for salon owners.",
+    "The all-in-one salon management platform for ST CUT partner studios. Bookings, staff, services and revenue.",
 };
 
 export default function RootLayout({

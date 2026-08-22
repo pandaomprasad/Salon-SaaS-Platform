@@ -44,12 +44,10 @@ export default function Sidebar({ currentPath, name, email, onNavigate, onLogout
       {/* Brand */}
       <div className="px-5 pt-6 pb-5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-            <Shield size={14} className="text-white" />
-          </div>
+          <img src="/logo.png" alt="ST CUT Logo" className="w-8 h-8 rounded-lg object-contain bg-black p-0.5 shrink-0" />
           <div>
-            <p className="text-xs font-semibold text-white">Salon HQ</p>
-            <p className="text-[9px] text-muted uppercase tracking-wider">Admin Panel</p>
+            <p className="text-xs font-bold text-white tracking-wide">ST CUT HQ</p>
+            <p className="text-[9px] text-amber-500 uppercase tracking-wider font-semibold">SuperAdmin Panel</p>
           </div>
         </div>
       </div>

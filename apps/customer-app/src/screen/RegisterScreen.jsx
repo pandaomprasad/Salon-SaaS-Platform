@@ -11,6 +11,8 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "react-native";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
@@ -19,6 +21,10 @@ import GoogleSignInModal from "../components/GoogleSignInModal";
 
 export default function RegisterScreen({ navigate, goBack, routeParams }) {
   const styles = getStyles();
+  const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 12;
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 16 : Math.max(insets.bottom, 20) + 16;
   const { register, loginWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -57,7 +63,7 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: topInset, paddingBottom: bottomInset }]}>
       {/* Top Nav */}
       <View style={styles.topNav}>
         {goBack ? (

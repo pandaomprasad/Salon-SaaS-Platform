@@ -149,19 +149,20 @@ export default function Sidebar({
         {/* Brand */}
         <div className={`px-5 pt-6 pb-5 shrink-0 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
           {!collapsed ? (
-            <div>
-              <p className="text-[9px] font-semibold tracking-[0.2em] text-muted uppercase">
-                Salon
-              </p>
-              <h1 className="text-lg font-semibold text-ink mt-0.5 leading-tight truncate flex items-center gap-1.5">
-                <span>{salonName}</span>
-                <VerifiedBadge size={16} color="#3897F0" />
-              </h1>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img src="/logo.png" alt="ST CUT Logo" className="w-8 h-8 rounded-lg object-contain bg-black p-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold tracking-[0.2em] text-amber-600 uppercase">
+                  ST CUT Partner
+                </p>
+                <h1 className="text-sm font-semibold text-ink leading-tight truncate flex items-center gap-1">
+                  <span className="truncate">{salonName}</span>
+                  <VerifiedBadge size={14} color="#3897F0" />
+                </h1>
+              </div>
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold">
-              {salonName[0]}
-            </div>
+            <img src="/logo.png" alt="ST CUT Logo" className="w-8 h-8 rounded-lg object-contain bg-black p-0.5 shrink-0" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}

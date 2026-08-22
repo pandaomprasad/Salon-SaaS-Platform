@@ -18,8 +18,10 @@ import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { authService } from "../services/authService";
 
+import { Alert } from "react-native";
+
 export default function EditProfileScreen({ goBack }) {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, changePassword, deleteAccount } = useAuth();
 
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -27,6 +29,16 @@ export default function EditProfileScreen({ goBack }) {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState(null);
+
+  // Change Password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPass, setChangingPass] = useState(false);
+  const [passSuccess, setPassSuccess] = useState(false);
+  const [passError, setPassError] = useState(null);
+
+  // Delete Account state
+  const [deleting, setDeleting] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -58,9 +70,58 @@ export default function EditProfileScreen({ goBack }) {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword) {
+      setPassError("Please enter both your current and new password.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPassError("New password must be at least 8 characters.");
+      return;
+    }
+    setChangingPass(true);
+    setPassError(null);
+
+    const res = await changePassword(currentPassword, newPassword);
+    setChangingPass(false);
+
+    if (res.success) {
+      setPassSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setTimeout(() => setPassSuccess(false), 2000);
+    } else {
+      setPassError(res.error || "Failed to change password.");
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Permanent",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            const res = await deleteAccount();
+            setDeleting(false);
+            if (!res.success) {
+              Alert.alert("Error", res.error || "Failed to delete account.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const styles = getStyles();
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 0);
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 20 : Math.max(insets.bottom, 20) + 20;
 
   return (
     <View style={styles.container}>
@@ -69,27 +130,25 @@ export default function EditProfileScreen({ goBack }) {
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={18} color={C.ink} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Personal Info</Text>
+        <Text style={styles.headerTitle}>Account Settings</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
         {/* Avatar Editor */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarBox}>
             <Image
-              source={{ uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" }}
+              source={{ uri: user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" }}
               style={styles.avatar}
             />
-            <TouchableOpacity style={styles.editBadge} activeOpacity={0.8}>
-              <Ionicons name="camera" size={14} color={C.bg} />
-            </TouchableOpacity>
           </View>
-          <Text style={styles.avatarHint}>Tap camera to update profile photo</Text>
         </View>
 
         {/* Inputs Form */}
         <View style={styles.formGroup}>
+          <Text style={styles.sectionTitle}>PERSONAL DETAILS</Text>
+
           <Text style={styles.inputLabel}>FULL NAME</Text>
           <TextInput
             style={styles.input}
@@ -122,23 +181,84 @@ export default function EditProfileScreen({ goBack }) {
           {saveError ? (
             <Text style={styles.errorText}>{saveError}</Text>
           ) : null}
+
+          <TouchableOpacity
+            style={[styles.saveBtn, savedSuccess && styles.successBtn]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.88}
+          >
+            {saving ? (
+              <ActivityIndicator color={C.bg} size="small" />
+            ) : savedSuccess ? (
+              <Text style={styles.saveBtnText}>✓ Details Saved</Text>
+            ) : (
+              <Text style={styles.saveBtnText}>Save Profile Details</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveBtn, savedSuccess && styles.successBtn]}
-          onPress={handleSave}
-          disabled={saving}
-          activeOpacity={0.88}
-        >
-          {saving ? (
-            <ActivityIndicator color={C.bg} size="small" />
-          ) : savedSuccess ? (
-            <Text style={styles.saveBtnText}>✓ Saved</Text>
-          ) : (
-            <Text style={styles.saveBtnText}>Save Changes</Text>
-          )}
-        </TouchableOpacity>
+        {/* Change Password Form */}
+        <View style={styles.formGroup}>
+          <Text style={styles.sectionTitle}>SECURITY & PASSWORD</Text>
+
+          <Text style={styles.inputLabel}>CURRENT PASSWORD</Text>
+          <TextInput
+            style={styles.input}
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry
+            placeholder="Enter current password"
+            placeholderTextColor={C.dustTaupe}
+          />
+
+          <Text style={styles.inputLabel}>NEW PASSWORD</Text>
+          <TextInput
+            style={styles.input}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            secureTextEntry
+            placeholder="At least 8 characters"
+            placeholderTextColor={C.dustTaupe}
+          />
+
+          {passError ? <Text style={styles.errorText}>{passError}</Text> : null}
+          {passSuccess ? <Text style={styles.successText}>✓ Password updated successfully</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.secondaryBtn, passSuccess && styles.successBtn]}
+            onPress={handleChangePassword}
+            disabled={changingPass}
+            activeOpacity={0.88}
+          >
+            {changingPass ? (
+              <ActivityIndicator color={C.ink} size="small" />
+            ) : (
+              <Text style={styles.secondaryBtnText}>Update Password</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Delete Account Form */}
+        <View style={styles.dangerGroup}>
+          <Text style={styles.dangerTitle}>PRIVACY & DATA DELETION</Text>
+          <Text style={styles.dangerText}>
+            Permanently delete your account and remove all personal booking data.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={handleDeleteAccount}
+            disabled={deleting}
+            activeOpacity={0.88}
+          >
+            {deleting ? (
+              <ActivityIndicator color="#DC2626" size="small" />
+            ) : (
+              <Text style={styles.deleteBtnText}>Delete My Account</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -260,6 +380,67 @@ function getStyles() {
       color: C.bg,
       fontSize: FS.bodySm,
       fontWeight: FW.medium,
+    },
+    sectionTitle: {
+      fontSize: 11,
+      fontWeight: FW.bold,
+      color: C.ink,
+      letterSpacing: 0.8,
+      marginBottom: S.xs,
+    },
+    secondaryBtn: {
+      backgroundColor: C.surface,
+      borderWidth: 1,
+      borderColor: C.border,
+      paddingVertical: 12,
+      borderRadius: R.md,
+      alignItems: "center",
+      marginTop: S.sm,
+    },
+    secondaryBtnText: {
+      color: C.ink,
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+    },
+    successText: {
+      color: "#065F46",
+      fontSize: FS.caption,
+      fontWeight: FW.medium,
+      marginTop: S.xs,
+    },
+    dangerGroup: {
+      backgroundColor: "#FEF2F2",
+      borderRadius: R.lg,
+      padding: S.md,
+      marginVertical: S.sm,
+      borderWidth: 1,
+      borderColor: "#FCA5A5",
+      gap: 6,
+    },
+    dangerTitle: {
+      fontSize: 11,
+      fontWeight: FW.bold,
+      color: "#991B1B",
+      letterSpacing: 0.8,
+    },
+    dangerText: {
+      fontSize: FS.caption,
+      color: "#7F1D1D",
+      lineHeight: 18,
+    },
+    deleteBtn: {
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#FCA5A5",
+      paddingVertical: 10,
+      borderRadius: R.md,
+      alignItems: "center",
+      marginTop: S.xs,
+    },
+    deleteBtnText: {
+      color: "#DC2626",
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
     },
   });
 }

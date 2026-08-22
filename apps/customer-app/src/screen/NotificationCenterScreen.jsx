@@ -154,7 +154,9 @@ export default function NotificationCenterScreen({ navigate, onBack }) {
   }, [visibleNotifications]);
 
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 0);
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 20 : Math.max(insets.bottom, 20) + 20;
 
   return (
     <View style={styles.container}>
@@ -217,7 +219,7 @@ export default function NotificationCenterScreen({ navigate, onBack }) {
       ) : (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.main} />}
         >

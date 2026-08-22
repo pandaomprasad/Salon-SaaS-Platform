@@ -306,7 +306,7 @@ function buildStyles(isDark) {
     listContainer: {
       paddingHorizontal: S.md,
       paddingTop: S.sm,
-      paddingBottom: 60,
+      paddingBottom: 84,
     },
     salonsList: {
       gap: S.sm,

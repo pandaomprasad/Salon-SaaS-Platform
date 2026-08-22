@@ -37,8 +37,8 @@ export default function QuickRebookWidget({ isAuthenticated = true, appointment,
           <Ionicons name="calendar-outline" size={18} color={C.ink} />
         </View>
         <View style={styles.textBlock}>
-          <Text style={styles.cardTitle}>Track your appointments</Text>
-          <Text style={styles.cardSub}>Sign in to view active bookings</Text>
+          <Text style={styles.cardTitle}>Your bookings, all in one place</Text>
+          <Text style={styles.cardSub}>Sign in to keep track</Text>
         </View>
         <View style={styles.primaryBtn}>
           <Text style={styles.primaryBtnText}>Sign in</Text>

@@ -80,7 +80,7 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
         {isTopRated ? (
           <View style={styles.topRatedBadge}>
             <Ionicons name="star" size={11} color="#FFFFFF" style={{ marginRight: 3 }} />
-            <Text style={styles.topRatedText}>Top Rated</Text>
+            <Text style={styles.topRatedText}>Guest Favorite</Text>
           </View>
         ) : null}
       </View>

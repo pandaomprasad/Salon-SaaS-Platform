@@ -45,10 +45,16 @@ export const API_BASE_URL = getBaseUrl();
 console.log("API Base URL active:", API_BASE_URL);
 
 let userToken = null;
+let tokenRefreshHandler = null;
 let unauthorizedHandler = null;
+let isRefreshing = false;
 
 export const setAuthToken = (token) => {
   userToken = token;
+};
+
+export const setRefreshTokenHandler = (handler) => {
+  tokenRefreshHandler = handler;
 };
 
 export const setUnauthorizedHandler = (handler) => {
@@ -57,7 +63,7 @@ export const setUnauthorizedHandler = (handler) => {
 
 export const getAuthToken = () => userToken;
 
-async function request(endpoint, options = {}, retries = 1) {
+async function request(endpoint, options = {}, retries = 1, isAuthRetry = false) {
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers = {
@@ -110,9 +116,33 @@ async function request(endpoint, options = {}, retries = 1) {
       err.status = response.status;
       err.conflictAppointment = data?.conflictAppointment || null;
 
-      // Handle 401 Unauthorized or Token Expiry automatically
-      if ((response.status === 401 || msg.toLowerCase().includes("token expired")) && unauthorizedHandler) {
-        unauthorizedHandler();
+      // Handle 401 Unauthorized or Token Expiry automatically via Refresh Token
+      if (
+        (response.status === 401 || msg.toLowerCase().includes("token expired")) &&
+        !isAuthRetry &&
+        endpoint !== "/auth/refresh" &&
+        endpoint !== "/auth/login"
+      ) {
+        if (tokenRefreshHandler && !isRefreshing) {
+          isRefreshing = true;
+          try {
+            console.log("[ApiClient] 401 received. Attempting silent token refresh...");
+            const newToken = await tokenRefreshHandler();
+            isRefreshing = false;
+
+            if (newToken) {
+              userToken = newToken;
+              return request(endpoint, options, retries, true);
+            }
+          } catch (refreshErr) {
+            isRefreshing = false;
+            console.warn("[ApiClient] Silent token refresh failed:", refreshErr.message);
+          }
+        }
+
+        if (unauthorizedHandler) {
+          unauthorizedHandler();
+        }
       }
 
       throw err;

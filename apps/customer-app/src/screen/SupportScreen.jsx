@@ -65,7 +65,9 @@ export default function SupportScreen({ goBack }) {
 
   const styles = getStyles();
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0);
+  const isAndroid = Platform.OS === "android";
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 0);
+  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 20 : Math.max(insets.bottom, 20) + 20;
 
   return (
     <View style={styles.container}>
@@ -78,7 +80,7 @@ export default function SupportScreen({ goBack }) {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerIcon}>

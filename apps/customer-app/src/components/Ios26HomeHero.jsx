@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R, TYPO } from "../theme";
+import { C, S, FS, FW, R, TYPO, FF } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
 import { customerService } from "../services/customerService";
@@ -56,7 +56,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.locationChip} onPress={onLocationClick} activeOpacity={0.7}>
           <Ionicons name="location-outline" size={14} color={C.main} />
-          <Text style={styles.locationCity} numberOfLines={1}>{selectedCity || "Mumbai"}</Text>
+          <Text style={styles.locationCity} numberOfLines={1}>{selectedCity || "Brahmapur"}</Text>
           <Ionicons name="chevron-down" size={12} color={C.muted} />
         </TouchableOpacity>
 
@@ -86,12 +86,12 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
 
       {/* Hero Header - Display weight 400 with negative tracking per cursor/DESIGN.md */}
       <View style={styles.greetingBlock}>
-        <Text style={styles.sectionTag}>STUDIO DISCOVERY</Text>
+        <Text style={styles.sectionTag}>THE SALON EDIT</Text>
         <Text style={styles.greeting}>
           {getGreeting()}{displayName ? `, ${displayName}` : ""}
         </Text>
         <Text style={styles.subGreeting}>
-          Find and book top luxury salons & spas
+          {selectedCity || "Brahmapur"}'s finest, ready to book
         </Text>
       </View>
 
@@ -180,16 +180,15 @@ function getStyles() {
       color: C.main,
     },
     greeting: {
-      fontSize: 28,
-      fontWeight: "400", // Weight 400 per cursor/DESIGN.md
+      fontFamily: FF.display,
+      fontSize: FS.headline,
       color: C.ink,
-      letterSpacing: -0.72,
-      lineHeight: 34,
+      lineHeight: FS.headline * 1.08,
     },
     subGreeting: {
-      fontSize: FS.body,
-      fontWeight: "400",
-      color: C.body,
+      fontFamily: FF.body,
+      fontSize: FS.subheadline,
+      color: C.muted,
       marginTop: S.xxs,
     },
   });

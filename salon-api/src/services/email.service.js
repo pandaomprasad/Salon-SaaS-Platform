@@ -35,7 +35,7 @@ const createTransporter = () => {
 }
 
 const transporter = createTransporter()
-const EMAIL_FROM = process.env.EMAIL_FROM || '"Luxe Salon Platform" <no-reply@salonplatform.com>'
+const EMAIL_FROM = process.env.EMAIL_FROM || '"ST CUT" <no-reply@stcut.com>'
 
 // ── BullMQ & Connection Setup ─────────────────────────────
 const isRedisEnabled = (process.env.REDIS_ENABLED ?? 'true').toLowerCase() !== 'false'
@@ -86,8 +86,15 @@ if (isRedisEnabled && isRedisConfigured) {
       'emailQueue',
       async (job) => {
         const mailOptions = job.data
-        await transporter.sendMail(mailOptions)
-        if (logger.info) logger.info(`BullMQ Worker: Sent email [${job.id}] to ${mailOptions.to}`)
+        try {
+          await transporter.sendMail(mailOptions)
+          if (logger.info) logger.info(`BullMQ Worker: Sent email [${job.id}] to ${mailOptions.to}`)
+        } catch (err) {
+          console.warn(`⚠️ [SMTP DISPATCH WARN] Could not send via SMTP (${err.message}). Printing mail to console:`)
+          console.log(`📧 To: ${mailOptions.to}`)
+          console.log(`📌 Subject: ${mailOptions.subject}`)
+          console.log(`📝 Text: ${mailOptions.text}`)
+        }
       },
       { connection: redisConnection }
     )
@@ -130,7 +137,10 @@ const dispatchEmail = async (mailOptions) => {
     try {
       await transporter.sendMail(mailOptions)
     } catch (err) {
-      console.error(`❌ [EMAIL DISPATCH ERROR] To: ${mailOptions.to} — ${err.message}`)
+      console.warn(`⚠️ [SMTP DISPATCH WARN] To: ${mailOptions.to} — ${err.message}`)
+      console.log(`📧 Mock Fallback To: ${mailOptions.to}`)
+      console.log(`📌 Subject: ${mailOptions.subject}`)
+      console.log(`📝 Text: ${mailOptions.text}`)
     }
   })
 }
@@ -477,6 +487,88 @@ const sendOwnerRegistrationRejectedEmail = async ({ to, ownerName, salonName, no
   })
 }
 
+/**
+ * Send Password Reset OTP Email (6-Digit OTP)
+ */
+const sendPasswordResetOtpEmail = async ({ to, userName, otp }) => {
+  if (!to) return;
+
+  const subject = `Your Password Reset OTP Code: ${otp}`;
+  const html = wrapTemplate("Password Reset Verification", `
+    <div class="badge badge-rescheduled">🔒 SECURITY VERIFICATION</div>
+    <h2 style="margin-top:0; color:#ffffff;">Password Reset Request</h2>
+    <p style="color:#cbd5e1; font-size:14.5px; line-height:1.6;">
+      Hello ${userName || "User"}, we received a request to reset your password. Use the verification code below:
+    </p>
+
+    <!-- Prominently Highlighted OTP Banner -->
+    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border: 1px solid #6366f1; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);">
+      <p style="color: #a5b4fc; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 8px 0;">YOUR 6-DIGIT VERIFICATION CODE</p>
+      <p style="color: #ffffff; font-size: 36px; font-weight: 800; margin: 0; letter-spacing: 8px; font-family: monospace;">${otp}</p>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">
+      This code is valid for <strong>15 minutes</strong>. If you did not request a password reset, you can safely ignore this email.
+    </p>
+  `);
+
+  await dispatchEmail({
+    from: EMAIL_FROM,
+    to,
+    subject,
+    text: `Your password reset OTP code is ${otp}. It is valid for 15 minutes.`,
+    html,
+  });
+};
+
+/**
+ * Send Email Verification Link (Account Activation)
+ */
+const sendEmailVerificationLink = async ({ to, userName, token }) => {
+  if (!to || !token) return;
+
+  const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+  const verifyUrl = `${baseUrl}/api/auth/verify-email-landing?token=${token}`;
+
+  const subject = "Confirm your ST CUT email address";
+  const html = wrapTemplate("Confirm Your Email", `
+    <div class="badge badge-rescheduled">✉️ EMAIL VERIFICATION</div>
+    <h2 style="margin-top:0; color:#ffffff;">Confirm Your Account, ${userName || "Valued Member"}!</h2>
+    <p style="color:#cbd5e1; font-size:14.5px; line-height:1.6;">
+      Thank you for creating an account with <strong>ST CUT</strong>. Tap the button below to confirm your email address and activate your account:
+    </p>
+
+    <!-- Prominently Highlighted Verification Link Button -->
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${verifyUrl}" style="background: linear-gradient(135deg, #d49b45 0%, #c48b36 100%); color: #ffffff; display: inline-block; padding: 14px 32px; border-radius: 12px; font-weight: 700; font-size: 15px; text-decoration: none; box-shadow: 0 10px 20px rgba(196, 139, 54, 0.3);">
+        Confirm My Email Address
+      </a>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; text-align: center;">
+      Link not working? Copy and paste this URL into your web browser:<br/>
+      <a href="${verifyUrl}" style="color: #d49b45; word-break: break-all;">${verifyUrl}</a>
+    </p>
+
+    <p style="color: #64748b; font-size: 12.5px; line-height: 1.5; margin-top: 24px;">
+      This link expires in <strong>1 hour</strong>. If you did not create an account with ST CUT, you can safely ignore this email.
+    </p>
+  `);
+
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log(`✉️ [EMAIL VERIFICATION DISPATCH] To: ${to}`);
+  console.log(`🔗 [VERIFICATION LINK]: ${verifyUrl}`);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  await dispatchEmail({
+    from: EMAIL_FROM,
+    to,
+    subject,
+    text: `Confirm your ST CUT email address: ${verifyUrl}`,
+    html,
+  });
+};
+
 module.exports = {
   sendBookingConfirmationEmail,
   sendAppointmentStatusEmail,
@@ -484,6 +576,8 @@ module.exports = {
   sendOwnerRegistrationReceivedEmail,
   sendOwnerRegistrationApprovedEmail,
   sendOwnerRegistrationRejectedEmail,
+  sendPasswordResetOtpEmail,
+  sendEmailVerificationLink,
   emailQueue,
   emailWorker,
-}
+};

@@ -361,7 +361,7 @@ function getStyles() {
   scrollContent: {
     paddingHorizontal: S.md,
     paddingTop: TOP_INSET,
-    paddingBottom: 130,
+    paddingBottom: 84,
   },
   topTitleBox: {
     marginBottom: S.md,

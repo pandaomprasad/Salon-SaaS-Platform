@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -8,15 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import { makeRedirectUri } from "expo-auth-session";
-import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { C, FS, FW, R, S } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-WebBrowser.maybeCompleteAuthSession();
 
 const DEFAULT_WEB_CLIENT_ID = "23232568516-arksroglu4uhc0ogqm94uh3e6cbln9lv.apps.googleusercontent.com";
 const DEFAULT_ANDROID_CLIENT_ID = "23232568516-744mk3m6va3up35md674td07vdqseqnh.apps.googleusercontent.com";
@@ -27,18 +22,29 @@ const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || DEFA
 
 const isGoogleConfigured = Boolean(webClientId || iosClientId || androidClientId);
 
+let GoogleSignin = null;
+let isGoogleSdkAvailable = false;
+
+try {
+  const GoogleModule = require("@react-native-google-signin/google-signin");
+  GoogleSignin = GoogleModule.GoogleSignin;
+  if (GoogleSignin && typeof GoogleSignin.configure === "function") {
+    GoogleSignin.configure({
+      webClientId,
+      offlineAccess: false,
+    });
+    isGoogleSdkAvailable = true;
+  }
+} catch (err) {
+  console.warn("[GoogleSignin Native Module Warning]", err?.message || err);
+  isGoogleSdkAvailable = false;
+}
+
 export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
   const styles = getStyles();
   const { loginWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const redirectUri = useMemo(() => {
-    return makeRedirectUri({
-      scheme: "customerapp",
-      preferLocalhost: true,
-    });
-  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -50,6 +56,11 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
   const handleGoogleOAuthPress = async () => {
     setError("");
 
+    if (!isGoogleSdkAvailable) {
+      setError("Google Sign-In native module ('RNGoogleSignin') is not registered in this binary. Please rebuild your APK using 'npx expo run:android'.");
+      return;
+    }
+
     if (!isGoogleConfigured) {
       setError("Google sign-in is not configured yet. Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in apps/customer-app/.env.");
       return;
@@ -57,51 +68,35 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
 
     try {
       setLoading(true);
-      const nonce = Math.random().toString(36).substring(2);
-      const authUrl =
-        `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(webClientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&response_type=id_token` +
-        `&scope=${encodeURIComponent("openid profile email")}` +
-        `&nonce=${encodeURIComponent(nonce)}`;
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      console.log("[Google Native SignIn Response]", JSON.stringify(userInfo, null, 2));
 
-      console.log("[Google Auth Direct URL]", authUrl);
-      console.log("[Google Auth Redirect URI]", redirectUri);
+      const idToken = userInfo.data?.idToken || userInfo.idToken;
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      console.log("[Google Auth Result]", JSON.stringify(result, null, 2));
-
-      if (result.type === "success" && result.url) {
-        // Extract id_token from URL fragment
-        const hash = result.url.split("#")[1] || result.url.split("?")[1] || "";
-        const urlParams = new URLSearchParams(hash);
-        const idToken = urlParams.get("id_token");
-
-        if (idToken) {
-          console.log("[Google Auth Success] Extract ID Token:", idToken.substring(0, 20) + "...");
-          const res = await loginWithGoogle({ idToken });
-          console.log("[Google Auth Backend Res]", JSON.stringify(res));
-
-          if (res.success) {
-            onClose?.();
-            onSuccess?.(res);
-            return;
-          }
-
-          setError(res.error || "Backend authentication failed.");
-        } else {
-          console.error("[Google Auth Error] No id_token in URL:", result.url);
-          setError("Google login did not return an id_token.");
-        }
-      } else if (result.type === "cancel" || result.type === "dismiss") {
-        console.log("[Google Auth Cancelled]", result.type);
-      } else {
-        setError(`Google login status: ${result.type}`);
+      if (!idToken) {
+        setError("Google sign-in completed, but no ID token was received.");
+        return;
       }
+
+      console.log("[Google Auth Success] Extract ID Token:", idToken.substring(0, 20) + "...");
+      const res = await loginWithGoogle({ idToken });
+      console.log("[Google Auth Backend Res]", JSON.stringify(res));
+
+      if (res.success) {
+        onClose?.();
+        onSuccess?.(res);
+        return;
+      }
+
+      setError(res.error || "Backend authentication failed.");
     } catch (err) {
-      console.error("[Google Auth Exception]", err);
-      setError("OAuth Exception: " + (err.message || "Failed to complete Google login"));
+      console.error("[Google SignIn Exception]", err);
+      if (err.code === "SIGN_IN_CANCELLED" || err.message?.includes("CANCELLED")) {
+        console.log("[Google SignIn Cancelled]");
+      } else {
+        setError("Google sign-in failed: " + (err.message || "Unknown error"));
+      }
     } finally {
       setLoading(false);
     }
@@ -136,11 +131,11 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
           </View>
 
           <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>Google OAuth</Text>
+            <Text style={styles.infoTitle}>Native Google Sign-In</Text>
             <Text style={styles.infoText}>
-              The browser will open Google sign-in and return to the app after verification.
+              Google Play Services native prompt will open to sign you in securely.
             </Text>
-            <Text style={styles.infoMeta}>Redirect URI: {redirectUri}</Text>
+            <Text style={styles.infoMeta}>Web Client ID: {webClientId.substring(0, 25)}...</Text>
           </View>
 
           {!isGoogleConfigured ? (
@@ -166,7 +161,7 @@ export default function GoogleSignInModal({ visible, onClose, onSuccess }) {
               ) : (
                 <>
                   <Ionicons name="logo-google" size={18} color={C.bg} />
-                  <Text style={styles.googleText}>Sign in via Google Browser</Text>
+                  <Text style={styles.googleText}>Sign in with Google Account</Text>
                 </>
               )}
             </View>

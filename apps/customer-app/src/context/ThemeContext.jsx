@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { Animated, Easing } from "react-native";
+import { Animated, Easing, Platform } from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
 import { storage } from "../services/storage";
 import { applyTheme } from "../theme";
 
@@ -33,10 +34,12 @@ export const LIGHT = {
   errorBg: "rgba(196, 139, 54, 0.08)",
   success: "#121212",
   successBg: "rgba(18, 18, 18, 0.06)",
-  // Tab bar
+  // Tab bar & System Nav Bar (Inverted)
   tabBg: "#FFFFFF",
   tabBorder: "#E8E8E0",
   statusBar: "dark-content",
+  navBarColor: "#fff",
+  navBarButtonStyle: "dark",
 };
 
 // ── Dark Tokens (Luxe Obsidian & Gold Accent) ─────────────
@@ -67,22 +70,32 @@ export const DARK = {
   errorBg: "rgba(212, 155, 69, 0.15)",
   success: "#F4F4F2",
   successBg: "rgba(244, 244, 242, 0.1)",
-  // Tab bar
+  // Tab bar & System Nav Bar (Inverted)
   tabBg: "#1C1C1E",
   tabBorder: "#2A2A2C",
   statusBar: "light-content",
+  navBarColor: "#FFFFFF",
+  navBarButtonStyle: "dark",
 };
 
 const ThemeContext = createContext({
   theme: LIGHT,
   isDark: false,
-  toggleTheme: () => {},
+  toggleTheme: () => { },
   toggleAnim: null,
 });
 
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(false);
   const toggleAnim = useRef(new Animated.Value(0)).current;
+
+  // Sync nav bar button contrast icons on Android
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      const activeTheme = isDark ? DARK : LIGHT;
+      NavigationBar.setButtonStyleAsync(activeTheme.navBarButtonStyle).catch(() => { });
+    }
+  }, [isDark]);
 
   // Load persisted preference on mount
   useEffect(() => {

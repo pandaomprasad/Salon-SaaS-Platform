@@ -644,7 +644,7 @@ function getStyles() {
     },
     contentContainer: {
       paddingHorizontal: S.md,
-      paddingBottom: 110,
+      paddingBottom: 84,
     },
     loadingContainer: {
       flex: 1,
