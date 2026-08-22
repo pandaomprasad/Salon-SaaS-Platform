@@ -11,6 +11,7 @@ interface BookingDrawerProps {
   canManage: boolean;
   isStaff: boolean;
   onUpdateStatus: (id: string, status: AppointmentStatus) => void;
+  onOpenCancelModal?: (appt: any) => void;
   updatingId: string | null;
   onClose: () => void;
 }
@@ -46,6 +47,7 @@ export default function BookingDrawer({
   canManage,
   isStaff,
   onUpdateStatus,
+  onOpenCancelModal,
   updatingId,
   onClose,
 }: BookingDrawerProps) {
@@ -147,7 +149,12 @@ export default function BookingDrawer({
               <Button className="flex-1" onClick={() => onUpdateStatus(a._id, "CONFIRMED")} loading={isUpdating}>
                 Accept Appointment
               </Button>
-              <Button className="flex-1" variant="danger" onClick={() => onUpdateStatus(a._id, "CANCELLED")} loading={isUpdating}>
+              <Button
+                className="flex-1"
+                variant="danger"
+                onClick={() => onOpenCancelModal ? onOpenCancelModal(a) : onUpdateStatus(a._id, "CANCELLED")}
+                loading={isUpdating}
+              >
                 Cancel
               </Button>
             </>
@@ -157,7 +164,12 @@ export default function BookingDrawer({
               <Button className="flex-1" onClick={() => onUpdateStatus(a._id, "IN_PROGRESS")} loading={isUpdating}>
                 Start Service
               </Button>
-              <Button className="flex-1" variant="danger" onClick={() => onUpdateStatus(a._id, "CANCELLED")} loading={isUpdating}>
+              <Button
+                className="flex-1"
+                variant="danger"
+                onClick={() => onOpenCancelModal ? onOpenCancelModal(a) : onUpdateStatus(a._id, "CANCELLED")}
+                loading={isUpdating}
+              >
                 Cancel
               </Button>
             </>

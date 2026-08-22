@@ -1,5 +1,5 @@
 // src/screen/ProfileScreen.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   StatusBar,
   Platform,
+  AppState,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R } from "../theme";
@@ -15,14 +16,46 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useFavorites } from "../context/FavoritesContext";
 import ThemeToggle from "../components/ThemeToggle";
+import VerifyEmailModal from "../components/VerifyEmailModal";
 
 const TOP_INSET = Platform.OS === "ios" ? 56 : (StatusBar.currentHeight ? StatusBar.currentHeight + 14 : 40);
 
 export default function ProfileScreen({ navigate, onScroll }) {
   const styles = getStyles();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, refreshProfile } = useAuth();
   const { theme, isDark } = useTheme();
   const { favorites } = useFavorites();
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+
+  const isVerified = Boolean(user?.isEmailVerified || user?.email_verified);
+
+  // Auto-sync user profile when returning from browser to the app or periodically if unverified
+  useEffect(() => {
+    if (!isAuthenticated || !refreshProfile) return;
+
+    // Initial check on mount
+    refreshProfile();
+
+    // AppState change listener (runs when user switches back from Chrome/Safari to ST CUT)
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        refreshProfile();
+      }
+    });
+
+    // Short interval polling if email is currently unverified (every 4 seconds)
+    let interval = null;
+    if (!isVerified) {
+      interval = setInterval(() => {
+        refreshProfile();
+      }, 4000);
+    }
+
+    return () => {
+      subscription.remove();
+      if (interval) clearInterval(interval);
+    };
+  }, [isAuthenticated, isVerified, refreshProfile]);
 
   const initials = user?.name
     ? user.name
@@ -74,6 +107,23 @@ export default function ProfileScreen({ navigate, onScroll }) {
                 <Text style={[styles.heroEmail, { color: theme.body }]} numberOfLines={1}>
                   {user?.email}
                 </Text>
+                {user ? (
+                  isVerified ? (
+                    <View style={styles.verifiedCapsule}>
+                      <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                      <Text style={styles.verifiedCapsuleText}>Verified Account</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.unverifiedCapsule}
+                      onPress={() => setShowVerifyModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="alert-circle" size={13} color="#D49B45" />
+                      <Text style={styles.unverifiedCapsuleText}>Unverified • Tap to Verify</Text>
+                    </TouchableOpacity>
+                  )
+                ) : null}
               </View>
             </View>
 
@@ -349,6 +399,13 @@ export default function ProfileScreen({ navigate, onScroll }) {
           </Text>
         </View>
       </ScrollView>
+
+      <VerifyEmailModal
+        visible={showVerifyModal}
+        email={user?.email}
+        onClose={() => setShowVerifyModal(false)}
+        onVerified={() => setShowVerifyModal(false)}
+      />
     </View>
   );
 }
@@ -427,6 +484,44 @@ function getStyles() {
   heroEmail: {
     fontSize: FS.xs,
     marginTop: 2,
+  },
+  verifiedCapsule: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    marginTop: 6,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  verifiedCapsuleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#10B981",
+    letterSpacing: 0.2,
+  },
+  unverifiedCapsule: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    marginTop: 6,
+    backgroundColor: "rgba(212, 155, 69, 0.12)",
+    borderColor: "rgba(212, 155, 69, 0.3)",
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  unverifiedCapsuleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#D49B45",
+    letterSpacing: 0.2,
   },
   statsRow: {
     flexDirection: "row",

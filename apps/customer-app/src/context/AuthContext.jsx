@@ -286,7 +286,8 @@ export function AuthProvider({ children }) {
       const userData = res?.data?.user || res?.data;
       if (userData) {
         setUser((prev) => {
-          const merged = { ...prev, ...userData, isEmailVerified: userData.isEmailVerified !== false, email_verified: userData.isEmailVerified !== false };
+          const verified = Boolean(userData.isEmailVerified || userData.email_verified);
+          const merged = { ...prev, ...userData, isEmailVerified: verified, email_verified: verified };
           storage.setItem(AUTH_USER_KEY, JSON.stringify(merged));
           return merged;
         });

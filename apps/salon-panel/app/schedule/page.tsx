@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
-import { RootState } from "@/store";
+import { useDispatch } from "react-redux";
+import { selectBranch } from "@/store/slices/authSlice";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Button from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -105,19 +106,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 // ── Page ──
 
 export default function SchedulePage() {
-  // const { user } = useSelector((state: RootState) => state.auth);
-  // const role = (user?.role || "staff") as UserRole;
-  // const canManage = role === "owner" || role === "manager";
-
-  // const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  // const decoded = token ? JSON.parse(atob(token.split(".")[1])) : null;
-  // const salonId = decoded?.salonId || "";
-  // const userBranchId = decoded?.branchId || "";
-
-  // const [branches, setBranches] = useState<BranchOption[]>([]);
-  // const [selectedBranch, setSelectedBranch] = useState("");
-
-  // Inside the component:
+  const dispatch = useDispatch();
   const { branchId, salonId, role, canManage } = useBranch();
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [staffFilter, setStaffFilter] = useState("all");
@@ -136,25 +125,22 @@ export default function SchedulePage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
 
-  // Fetch branches
-  // useEffect(() => {
-  //   if (!salonId) return;
-  //   async function fetchBranches() {
-  //     try {
-  //       const { data } = await apiClient.get(`/salons/${salonId}/branches`);
-  //       const list = data.data?.branches || [];
-  //       setBranches(list);
-  //       if (role === "manager" && userBranchId) {
-  //         setSelectedBranch(userBranchId);
-  //       } else if (list.length > 0) {
-  //         setSelectedBranch(list[0]._id);
-  //       }
-  //     } catch {
-  //       setError("Failed to load branches");
-  //     }
-  //   }
-  //   fetchBranches();
-  // }, [salonId, role, userBranchId]);
+  // Auto-fetch branches if branchId is not yet initialized
+  useEffect(() => {
+    if (branchId || !salonId) return;
+    async function fetchBranches() {
+      try {
+        const { data } = await apiClient.get(`/salons/${salonId}/branches`);
+        const list = data.data?.branches || data.branches || (Array.isArray(data) ? data : []);
+        if (list.length > 0) {
+          dispatch(selectBranch(list[0]));
+        }
+      } catch {
+        setError("Failed to load branches");
+      }
+    }
+    fetchBranches();
+  }, [branchId, salonId, dispatch]);
 
   // Fetch staff
   useEffect(() => {
@@ -162,7 +148,7 @@ export default function SchedulePage() {
     async function fetchStaff() {
       try {
         const { data } = await apiClient.get(`/branches/${branchId}/staff`);
-        const list = (data.data?.staff || []).filter((s: any) => s.isActive);
+        const list = (data.data?.staff || data.staff || []).filter((s: any) => s.isActive);
         setStaffList(list.map((s: any) => ({ _id: s._id, name: s.name })));
       } catch { }
     }
@@ -185,7 +171,10 @@ export default function SchedulePage() {
       const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
         params: { date: selectedDate, status: "all" },
       });
-      const list = data.data?.slots || [];
+      const resData = data?.data || data;
+      const list = Array.isArray(resData)
+        ? resData
+        : (resData?.slots || data?.slots || []);
       setSlots(list);
     } catch {
       setError("Failed to load slots");
@@ -209,7 +198,11 @@ export default function SchedulePage() {
       );
       const map: Record<string, SlotItem[]> = {};
       dates.forEach((date, i) => {
-        map[date] = results[i].data.data?.slots || [];
+        const d = results[i]?.data;
+        const resData = d?.data || d;
+        map[date] = Array.isArray(resData)
+          ? resData
+          : (resData?.slots || d?.slots || []);
       });
       setWeekSlots(map);
     } catch {

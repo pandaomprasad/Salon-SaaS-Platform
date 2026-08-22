@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import BookingDrawer from "@/components/bookings/BookingDrawer";
+import CancellationReasonModal from "@/components/bookings/CancellationReasonModal";
 import {
   Search,
   RefreshCw,
@@ -88,6 +89,7 @@ export default function BookingsPage() {
   const [branchOptions, setBranchOptions] = useState<{ _id: string; name: string }[]>([]);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [cancelModalAppt, setCancelModalAppt] = useState<any>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -263,13 +265,13 @@ export default function BookingsPage() {
   });
 
 
-  async function handleUpdateStatus(id: string, status: AppointmentStatus) {
+  async function handleUpdateStatus(id: string, status: AppointmentStatus, note?: string) {
     setUpdatingId(id);
     try {
-      await updateAppointmentStatus(id, { status });
+      await updateAppointmentStatus(id, { status, note });
       invalidateCache("bookings_");
       setAppointments((prev) =>
-        prev.map((a: any) => (a._id === id ? { ...a, status } : a)),
+        prev.map((a: any) => (a._id === id ? { ...a, status, cancellation: note ? { reason: note } : a.cancellation } : a)),
       );
       setSelected((prev: any) =>
         prev?._id === id ? { ...prev, status } : prev,
@@ -282,6 +284,10 @@ export default function BookingsPage() {
       setUpdatingId(null);
     }
   }
+
+  const handleConfirmCancelWithReason = async (id: string, reason: string) => {
+    await handleUpdateStatus(id, "CANCELLED", reason);
+  };
 
   // Pagination helpers
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -493,16 +499,21 @@ export default function BookingsPage() {
                               <Button size="sm" onClick={() => handleUpdateStatus(a._id, "CONFIRMED")} loading={updatingId === a._id}>
                                 Accept Appointment
                               </Button>
-                              <Button size="sm" variant="danger" onClick={() => handleUpdateStatus(a._id, "CANCELLED")} loading={updatingId === a._id}>
+                              <Button size="sm" variant="danger" onClick={() => setCancelModalAppt(a)} loading={updatingId === a._id}>
                                 Cancel
                               </Button>
                             </div>
                           )}
 
                           {canManage && a.status === "CONFIRMED" && (
-                            <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "IN_PROGRESS")} loading={updatingId === a._id}>
-                              Start Service
-                            </Button>
+                            <div className="flex gap-1.5">
+                              <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "IN_PROGRESS")} loading={updatingId === a._id}>
+                                Start Service
+                              </Button>
+                              <Button size="sm" variant="danger" onClick={() => setCancelModalAppt(a)} loading={updatingId === a._id}>
+                                Cancel
+                              </Button>
+                            </div>
                           )}
                           {(role === "staff" || canManage) && a.status === "IN_PROGRESS" && (
                             <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(a._id, "COMPLETED")} loading={updatingId === a._id}>
@@ -603,8 +614,19 @@ export default function BookingsPage() {
             canManage={canManage}
             isStaff={role === "staff"}
             onUpdateStatus={handleUpdateStatus}
+            onOpenCancelModal={(appt) => setCancelModalAppt(appt)}
             updatingId={updatingId}
             onClose={() => setSelected(null)}
+          />
+        )}
+
+        {/* Cancellation Reason Modal */}
+        {cancelModalAppt && (
+          <CancellationReasonModal
+            isOpen={!!cancelModalAppt}
+            appointment={cancelModalAppt}
+            onClose={() => setCancelModalAppt(null)}
+            onConfirmCancel={handleConfirmCancelWithReason}
           />
         )}
       </div>

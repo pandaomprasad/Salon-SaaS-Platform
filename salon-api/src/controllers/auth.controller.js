@@ -13,6 +13,7 @@ const {
   sendOwnerRegistrationReceivedEmail,
   sendPasswordResetOtpEmail,
   sendEmailVerificationLink,
+  sendWelcomeOAuthEmail,
 } = require("../services/email.service");
 const { validateEmail } = require("../utils/emailValidation");
 
@@ -380,6 +381,7 @@ res.status(200).json({
           role: user.role.name,
           salon: user.salonId,
           branch: user.branchId,
+          isEmailVerified: user.isEmailVerified !== false,
           lastLoginAt: user.lastLoginAt,
         },
       },
@@ -517,13 +519,17 @@ const googleLogin = async (req, res, next) => {
           googleId,
           avatar: picture || null,
           role: targetRole._id,
+          isEmailVerified: true,
         });
+
+        // Send Welcome email asynchronously for Google Sign-In
+        sendWelcomeOAuthEmail({
+          to: user.email,
+          userName: user.name,
+          provider: "Google",
+        }).catch((err) => console.error("Error sending Google welcome email:", err));
       } catch (createErr) {
         if (createErr.code === 11000) {
-          // Duplicate key — most likely a race where another request
-          // created the same user between our findOne and create.
-          // Re-fetch instead of dropping indexes (the phone unique index
-          // is sparse, so Google users without a phone never conflict).
           user = await User.findOne({ email: email.toLowerCase() }).populate(
             "role",
             "name",
@@ -620,7 +626,16 @@ const appleLogin = async (req, res, next) => {
         email,
         appleId,
         role: customerRole._id,
+        isEmailVerified: true,
       });
+
+      // Send Welcome email asynchronously for Apple Sign-In
+      sendWelcomeOAuthEmail({
+        to: user.email,
+        userName: user.name,
+        provider: "Apple",
+      }).catch((err) => console.error("Error sending Apple welcome email:", err));
+
       user = await User.findById(user._id).populate("role", "name");
     } else {
       if (!user.isActive) {

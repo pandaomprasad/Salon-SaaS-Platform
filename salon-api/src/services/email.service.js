@@ -1,9 +1,52 @@
 const nodemailer = require('nodemailer')
+const SibApiV3Sdk = require('sib-api-v3-sdk')
+const brevo = require('@getbrevo/brevo')
 const { Queue, Worker } = require('bullmq')
 const logger = require('../utils/logger')
 
-// Initialize Transporter — uses SMTP if environment variables exist, else logs to console
+// Parses "Name <email@domain.com>" or a plain "email@domain.com" string
+const parseFromString = (fromStr) => {
+  const match = /^"?([^"<]*)"?\s*<(.+)>$/.exec(fromStr || '')
+  if (match) {
+    return { name: match[1].trim() || 'ST CUT', email: match[2].trim() }
+  }
+  return { name: process.env.MAIL_FROM_NAME || 'ST CUT', email: fromStr || process.env.MAIL_FROM || 'stcut8454@gmail.com' }
+}
+
+// Initialize Transporter — uses Brevo HTTP API if BREVO_API_KEY exists, else falls back to SMTP / Mock
 const createTransporter = () => {
+  const brevoApiKey = process.env.BREVO_API_KEY
+
+  if (brevoApiKey) {
+    const defaultClient = SibApiV3Sdk.ApiClient.instance
+    const apiKey = defaultClient.authentications['api-key']
+    apiKey.apiKey = brevoApiKey
+
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
+
+    return {
+      sendMail: async (mailOptions) => {
+        const sender = parseFromString(mailOptions.from)
+        const recipients = Array.isArray(mailOptions.to)
+          ? mailOptions.to.map((email) => ({ email }))
+          : [{ email: mailOptions.to }]
+
+        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
+        sendSmtpEmail.sender = sender
+        sendSmtpEmail.to = recipients
+        sendSmtpEmail.subject = mailOptions.subject
+        sendSmtpEmail.htmlContent = mailOptions.html
+        if (mailOptions.text) {
+          sendSmtpEmail.textContent = mailOptions.text
+        }
+
+        const result = await apiInstance.sendTransacEmail(sendSmtpEmail)
+        return { messageId: result?.messageId || result?.body?.messageId || `brevo-${Date.now()}` }
+      },
+    }
+  }
+
+  // Secondary fallback: SMTP relay
   const host = process.env.SMTP_HOST
   const port = process.env.SMTP_PORT || 587
   const user = process.env.SMTP_USER
@@ -21,7 +64,7 @@ const createTransporter = () => {
     })
   }
 
-  // Fallback console log transport for local dev / testing
+  // Final fallback: console log transport for local dev / testing
   return {
     sendMail: async (mailOptions) => {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -35,7 +78,7 @@ const createTransporter = () => {
 }
 
 const transporter = createTransporter()
-const EMAIL_FROM = process.env.EMAIL_FROM || '"ST CUT" <no-reply@stcut.com>'
+const EMAIL_FROM = process.env.EMAIL_FROM || '"ST CUT" <stcut8454@gmail.com>'
 
 // ── BullMQ & Connection Setup ─────────────────────────────
 const isRedisEnabled = (process.env.REDIS_ENABLED ?? 'true').toLowerCase() !== 'false'
@@ -87,10 +130,10 @@ if (isRedisEnabled && isRedisConfigured) {
       async (job) => {
         const mailOptions = job.data
         try {
-          await transporter.sendMail(mailOptions)
+          await createTransporter().sendMail(mailOptions)
           if (logger.info) logger.info(`BullMQ Worker: Sent email [${job.id}] to ${mailOptions.to}`)
         } catch (err) {
-          console.warn(`⚠️ [SMTP DISPATCH WARN] Could not send via SMTP (${err.message}). Printing mail to console:`)
+          console.warn(`⚠️ [EMAIL DISPATCH WARN] Could not send email (${err.message}). Printing mail to console:`)
           console.log(`📧 To: ${mailOptions.to}`)
           console.log(`📌 Subject: ${mailOptions.subject}`)
           console.log(`📝 Text: ${mailOptions.text}`)
@@ -135,9 +178,9 @@ const dispatchEmail = async (mailOptions) => {
   // Fallback direct non-blocking send
   setImmediate(async () => {
     try {
-      await transporter.sendMail(mailOptions)
+      await createTransporter().sendMail(mailOptions)
     } catch (err) {
-      console.warn(`⚠️ [SMTP DISPATCH WARN] To: ${mailOptions.to} — ${err.message}`)
+      console.warn(`⚠️ [EMAIL DISPATCH WARN] To: ${mailOptions.to} — ${err.message}`)
       console.log(`📧 Mock Fallback To: ${mailOptions.to}`)
       console.log(`📌 Subject: ${mailOptions.subject}`)
       console.log(`📝 Text: ${mailOptions.text}`)
@@ -176,15 +219,16 @@ const wrapTemplate = (title, content) => `
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>LUXE<span>SALON</span> PLATFORM</h1>
+    <div class="header" style="background: linear-gradient(135deg, #090d16 0%, #1e1b4b 100%); padding: 30px 28px; text-align: center; border-bottom: 1px solid #1e293b;">
+      <h1 style="margin:0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: 2px; text-transform: uppercase;">ST <span style="color: #d49b45;">CUT</span></h1>
+      <p style="margin: 4px 0 0 0; font-size: 11px; font-weight: 700; color: #94a3b8; letter-spacing: 3px; text-transform: uppercase;">BOOK YOUR STYLE</p>
     </div>
     <div class="content">
       ${content}
     </div>
     <div class="footer">
-      <p>Thank you for using Luxe Salon SaaS Platform.</p>
-      <p>© ${new Date().getFullYear()} Luxe Salon Platform. All rights reserved.</p>
+      <p>Thank you for choosing ST CUT.</p>
+      <p>© ${new Date().getFullYear()} ST CUT. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -373,7 +417,7 @@ const sendOwnerRegistrationReceivedEmail = async ({ to, ownerName, salonName }) 
   const html = wrapTemplate('Registration Received', `
     <div class="badge badge-rescheduled">⏳ PENDING APPROVAL</div>
     <h2 style="margin-top:0; color:#ffffff;">Hello ${ownerName || 'Salon Owner'},</h2>
-    <p style="color:#cbd5e1; font-size:14px; line-height:1.6;">Thank you for registering your salon <strong>"${salonName}"</strong> on Luxe Salon SaaS Platform!</p>
+    <p style="color:#cbd5e1; font-size:14px; line-height:1.6;">Thank you for registering your salon <strong>"${salonName}"</strong> on ST CUT!</p>
     
     <div class="details-box">
       <div class="detail-row">
@@ -414,7 +458,7 @@ const sendOwnerRegistrationReceivedEmail = async ({ to, ownerName, salonName }) 
 const sendOwnerRegistrationApprovedEmail = async ({ to, ownerName, salonName }) => {
   if (!to) return
 
-  const subject = `Account Approved! Welcome to Luxe Salon — ${salonName}`
+  const subject = `Account Approved! Welcome to ST CUT — ${salonName}`
   const html = wrapTemplate('Account Approved', `
     <div class="badge badge-confirmed">✓ APPROVED & ACTIVATED</div>
     <h2 style="margin-top:0; color:#ffffff;">Congratulations, ${ownerName}!</h2>
@@ -521,14 +565,29 @@ const sendPasswordResetOtpEmail = async ({ to, userName, otp }) => {
   });
 };
 
+const os = require('os');
+
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
 /**
  * Send Email Verification Link (Account Activation)
  */
 const sendEmailVerificationLink = async ({ to, userName, token }) => {
   if (!to || !token) return;
 
-  const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
-  const verifyUrl = `${baseUrl}/api/auth/verify-email-landing?token=${token}`;
+  const port = process.env.PORT || 6969;
+  const baseUrl = process.env.APP_BASE_URL || `http://${getLocalIp()}:${port}`;
+  const verifyUrl = `${baseUrl}/api/v1/auth/verify-email-landing?token=${token}`;
 
   const subject = "Confirm your ST CUT email address";
   const html = wrapTemplate("Confirm Your Email", `
@@ -569,15 +628,112 @@ const sendEmailVerificationLink = async ({ to, userName, token }) => {
   });
 };
 
+/**
+ * Send Welcome Email for Google & Apple Sign-In
+ */
+const sendWelcomeOAuthEmail = async ({ to, userName, provider = "Google" }) => {
+  if (!to) return;
+
+  const subject = `Welcome to ST CUT, ${userName || "Valued Member"}! 🎉`;
+  const html = wrapTemplate("Welcome to ST CUT", `
+    <div class="badge badge-confirmed">✓ VERIFIED WITH ${provider.toUpperCase()}</div>
+    <h2 style="margin-top:0; color:#ffffff;">Welcome to ST CUT, ${userName || "Valued Member"}!</h2>
+    <p style="color:#cbd5e1; font-size:14.5px; line-height:1.6;">
+      Your account has been successfully signed up using <strong>${provider} Sign-In</strong>.
+    </p>
+
+    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border: 1px solid #6366f1; border-radius: 16px; padding: 20px; text-align: center; margin: 24px 0; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);">
+      <p style="color: #a5b4fc; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 6px 0;">✨ YOUR ST CUT ACCOUNT IS ACTIVE</p>
+      <p style="color: #ffffff; font-size: 18px; font-weight: 800; margin: 0;">Explore &amp; Book Top Rated Luxury Salons Near You</p>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6;">
+      Since your account is verified through ${provider}, your email address is automatically verified and you have full access to instant appointment bookings.
+    </p>
+  `);
+
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log(`✉️ [OAUTH WELCOME EMAIL DISPATCH] To: ${to} (${provider})`);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  await dispatchEmail({
+    from: EMAIL_FROM,
+    to,
+    subject,
+    text: `Welcome to ST CUT, ${userName || "Valued Member"}! Your account is active and verified via ${provider}.`,
+    html,
+  });
+};
+
+/**
+ * Send New Booking Alert to Salon Manager / Owner
+ */
+const sendNewBookingAlertToSalon = async ({ to, ownerOrManagerName, customerName, customerPhone, salonName, branchName, serviceName, staffName, date, time, bookingId }) => {
+  if (!to) return;
+
+  const subject = `🔔 New Booking Received — ${customerName || 'Customer'} (#${String(bookingId).slice(-6)})`;
+  const html = wrapTemplate('New Appointment Alert', `
+    <div class="badge badge-rescheduled">🔔 NEW BOOKING REQUEST</div>
+    <h2 style="margin-top:0; color:#ffffff;">Hello ${ownerOrManagerName || 'Salon Team'},</h2>
+    <p style="color:#cbd5e1; font-size:14.5px; line-height:1.6;">
+      A new customer appointment has just been requested for <strong>${salonName}</strong>!
+    </p>
+
+    <!-- Prominently Highlighted Date & Time Banner -->
+    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border: 1px solid #6366f1; border-radius: 16px; padding: 20px; text-align: center; margin: 24px 0; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);">
+      <p style="color: #a5b4fc; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 6px 0;">🗓 SCHEDULED APPOINTMENT TIME</p>
+      <p style="color: #ffffff; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">${date}${time ? ` &nbsp;•&nbsp; ${time}` : ''}</p>
+    </div>
+
+    <div class="details-box">
+      <div class="detail-row">
+        <span class="detail-label">Customer Name</span>
+        <span class="detail-value" style="color:#ffffff; font-weight:700;">${customerName || 'Client'}</span>
+      </div>
+      ${customerPhone ? `
+      <div class="detail-row">
+        <span class="detail-label">Customer Phone</span>
+        <span class="detail-value" style="color:#34d399;">${customerPhone}</span>
+      </div>` : ''}
+      <div class="detail-row">
+        <span class="detail-label">Service Requested</span>
+        <span class="detail-value" style="color:#818cf8; font-weight:700;">${serviceName || 'Service'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Assigned Specialist</span>
+        <span class="detail-value">${staffName || 'Any Specialist'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Booking ID</span>
+        <span class="detail-value">#${bookingId}</span>
+      </div>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">
+      Please log in to your Salon Management Panel to accept or manage this appointment.
+    </p>
+  `);
+
+  await dispatchEmail({
+    from: EMAIL_FROM,
+    to,
+    subject,
+    text: `New booking received from ${customerName} for ${serviceName} on ${date} at ${time}. Log in to your Salon Panel to review.`,
+    html,
+  });
+};
+
 module.exports = {
   sendBookingConfirmationEmail,
   sendAppointmentStatusEmail,
   sendRescheduleConfirmationEmail,
+  sendNewBookingAlertToSalon,
   sendOwnerRegistrationReceivedEmail,
   sendOwnerRegistrationApprovedEmail,
   sendOwnerRegistrationRejectedEmail,
   sendPasswordResetOtpEmail,
   sendEmailVerificationLink,
+  sendWelcomeOAuthEmail,
   emailQueue,
   emailWorker,
 };

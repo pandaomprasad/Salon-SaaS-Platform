@@ -95,6 +95,8 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
   const [reviewsList, setReviewsList] = useState([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const { user } = useAuth();
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
 
   const totalPrice = useMemo(() => {
     return selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -104,16 +106,37 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     return selectedServices.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0);
   }, [selectedServices]);
 
-  const handleCallSalon = useCallback(() => {
-    const phone = selectedBranch?.contactPhone || salonData?.contactPhone || "9876543210";
-    Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
+  const handleGetDirections = useCallback(() => {
+    const lat = selectedBranch?.coordinates?.coordinates?.[1] || selectedBranch?.latitude || salonData?.latitude || 19.3150;
+    const lng = selectedBranch?.coordinates?.coordinates?.[0] || selectedBranch?.longitude || salonData?.longitude || 84.7941;
+    const branchTitle = selectedBranch?.name || salonData?.name || "ST CUT Salon";
+    const encodedTitle = encodeURIComponent(branchTitle);
+
+    const mapsUrl = Platform.select({
+      ios: `maps:0,0?q=${encodedTitle}@${lat},${lng}`,
+      android: `geo:${lat},${lng}?q=${lat},${lng}(${encodedTitle})`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+    });
+
+    const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${encodedTitle}`;
+
+    Linking.canOpenURL(mapsUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(mapsUrl);
+        } else {
+          Linking.openURL(googleMapsWebUrl);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(googleMapsWebUrl);
+      });
   }, [selectedBranch, salonData]);
 
-  const handleGetDirections = useCallback(() => {
-    const rawAddress = selectedBranch?.address || salonData?.address || salonData?.name || "Salon Luxe";
-    const addressStr = typeof rawAddress === "string" ? rawAddress : `${rawAddress.street || ""}, ${rawAddress.city || ""}`;
-    const query = encodeURIComponent(addressStr);
-    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  const handleCallSalon = useCallback(() => {
+    const phone = selectedBranch?.contactPhone || selectedBranch?.phone || salonData?.contactPhone || "9861012345";
+    const telUrl = `tel:${phone.replace(/\s+/g, "")}`;
+    Linking.openURL(telUrl).catch((err) => console.log("Call error:", err));
   }, [selectedBranch, salonData]);
 
   const animVal = useRef(new Animated.Value(selectedServices.length > 0 ? 1 : 0)).current;
@@ -293,12 +316,10 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     setSelectedServices([]);
   }, []);
 
-  const { user } = useAuth();
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-
   const handleBookNow = useCallback(() => {
     if (!selectedBranch) return;
-    if (user && (user.isEmailVerified === false || user.email_verified === false)) {
+    const isVerified = Boolean(user?.isEmailVerified || user?.email_verified);
+    if (user && !isVerified) {
       setShowVerifyModal(true);
       return;
     }

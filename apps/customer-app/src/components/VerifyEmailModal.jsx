@@ -11,14 +11,18 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FF } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import { authService } from "../services/authService";
 
 export default function VerifyEmailModal({ visible, email, onClose, onVerified }) {
   const { isDark } = useTheme();
+  const { user, refreshProfile } = useAuth();
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [resendStatus, setResendStatus] = useState("");
   const [checking, setChecking] = useState(false);
+
+  const targetEmail = email || user?.email;
 
   useEffect(() => {
     let timer = null;
@@ -29,11 +33,16 @@ export default function VerifyEmailModal({ visible, email, onClose, onVerified }
   }, [cooldown]);
 
   const handleResend = async () => {
-    if (!email || cooldown > 0 || resending) return;
+    if (!targetEmail || cooldown > 0 || resending) {
+      if (!targetEmail) {
+        setResendStatus("Email address missing. Please log in again.");
+      }
+      return;
+    }
     setResending(true);
     setResendStatus("");
     try {
-      await authService.resendVerificationLink(email);
+      await authService.resendVerificationLink(targetEmail);
       setResendStatus("Verification link resent! Check your inbox.");
       setCooldown(45);
     } catch (err) {
@@ -46,9 +55,8 @@ export default function VerifyEmailModal({ visible, email, onClose, onVerified }
   const handleCheckStatus = async () => {
     setChecking(true);
     try {
-      const res = await authService.getProfile();
-      const user = res.data?.user || res.data;
-      if (user?.isEmailVerified || user?.email_verified) {
+      const freshUser = await refreshProfile();
+      if (freshUser?.isEmailVerified || freshUser?.email_verified) {
         if (onVerified) onVerified();
         if (onClose) onClose();
       } else {
@@ -81,7 +89,7 @@ export default function VerifyEmailModal({ visible, email, onClose, onVerified }
 
           <Text style={[styles.description, { color: isDark ? "#A0A09C" : "#666666" }]}>
             We've sent a verification link to{"\n"}
-            <Text style={{ color: C.main, fontWeight: "700" }}>{email || "your email"}</Text>.
+            <Text style={{ color: C.main, fontWeight: "700" }}>{targetEmail || "your email"}</Text>.
             Tap the link to activate your ST CUT account.
           </Text>
 

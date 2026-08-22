@@ -54,6 +54,10 @@ export default function BookingScreen({ salon, branch, service, selectedServices
   const [conflictModalVisible, setConflictModalVisible] = useState(false);
   const [conflictData, setConflictData] = useState(null);
 
+  const minScale = useRef(new Animated.Value(1)).current;
+  const plusScale = useRef(new Animated.Value(1)).current;
+  const countScale = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     if (!branch) return;
     const fetchStaff = async () => {
@@ -116,7 +120,22 @@ export default function BookingScreen({ salon, branch, service, selectedServices
             }
           });
         }
-        setSlots(Array.from(slotMap.values()));
+
+        // Filter out past & current hour slots if selectedDate is today
+        const now = new Date();
+        const todayStr = now.toISOString().split("T")[0];
+        const isToday = selectedDate === todayStr;
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        const filteredSlots = Array.from(slotMap.values()).filter((slot) => {
+          if (!isToday) return true;
+          const [h, m] = (slot.startTime || "").split(":").map(Number);
+          if (isNaN(h)) return true;
+          const slotMinutes = h * 60 + (m || 0);
+          return slotMinutes > currentMinutes;
+        });
+
+        setSlots(filteredSlots);
       } catch (err) {
         console.log("Error loading slots:", err.message);
         if (!cancelled) setSlots([]);
@@ -146,7 +165,8 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       return;
     }
 
-    if (user && (user.isEmailVerified === false || user.email_verified === false)) {
+    const isVerified = Boolean(user?.isEmailVerified || user?.email_verified);
+    if (user && !isVerified) {
       setShowVerifyModal(true);
       return;
     }
@@ -224,11 +244,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       </View>
     );
   }
-
   const totalPrice = paiseToINR(service?.price || 49900);
-  const minScale = useRef(new Animated.Value(1)).current;
-  const plusScale = useRef(new Animated.Value(1)).current;
-  const countScale = useRef(new Animated.Value(1)).current;
 
   const maxGuests = 10;
   const isMin = guestCount <= 1;

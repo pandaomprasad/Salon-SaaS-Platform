@@ -1,3 +1,4 @@
+const mongoose = require('mongoose')
 const Salon = require('../models/salon.model')
 const Branch = require('../models/branch.model')
 const Service = require('../models/service.model')
@@ -526,26 +527,28 @@ const filter = {
       status: "AVAILABLE",
     }
 
-    if (staffId) {
-      filter.staffId = staffId
+    const isStaffValid = staffId && staffId !== "any" && mongoose.Types.ObjectId.isValid(staffId);
+    if (isStaffValid) {
+      filter.staffId = staffId;
     }
 
-    if (serviceId) {
-      const service = await Service.findById(serviceId).lean()
+    const isServiceValid = serviceId && mongoose.Types.ObjectId.isValid(serviceId);
+    if (isServiceValid) {
+      const service = await Service.findById(serviceId).lean();
       if (!service) {
-        return next(new AppError('Service not found', 404))
+        return next(new AppError('Service not found', 404));
       }
 
       if (service.eligibleStaff && service.eligibleStaff.length > 0) {
-        if (staffId) {
+        if (isStaffValid) {
           if (!service.eligibleStaff.map((id) => id.toString()).includes(staffId.toString())) {
             return res.status(200).json({
               success: true,
               data: { date, branchId, availability: [] }
-            })
+            });
           }
         } else {
-          filter.staffId = { $in: service.eligibleStaff }
+          filter.staffId = { $in: service.eligibleStaff };
         }
       }
     }
@@ -556,7 +559,15 @@ const filter = {
       .sort({ startTime: 1 })
       .lean()
 
+    const now = dayjs()
+    const isToday = dayjs(date).isSame(now, 'day')
+
     const slotsByStaff = slots.reduce((acc, slot) => {
+      if (isToday) {
+        const slotTime = dayjs(`${slot.date} ${slot.startTime}`)
+        if (!slotTime.isAfter(now)) return acc
+      }
+
       const staffName = slot.staffId?.name || 'Unknown'
       const staffId = slot.staffId?._id?.toString()
 

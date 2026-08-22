@@ -18,6 +18,7 @@ const {
   sendBookingConfirmationEmail,
   sendAppointmentStatusEmail,
   sendRescheduleConfirmationEmail,
+  sendNewBookingAlertToSalon,
 } = require("../services/email.service");
 
 // Build a human push notification for an appointment status change.
@@ -356,6 +357,25 @@ const bookAppointment = async (req, res, next) => {
           },
         });
       }
+
+      // Also notify Salon Owner / Manager via email
+      const salonDoc = await Salon.findById(appointment.salonId).populate("owner", "email name").lean();
+      const salonContactEmail = salonDoc?.owner?.email || salonDoc?.contactEmail;
+      if (salonContactEmail) {
+        await sendNewBookingAlertToSalon({
+          to: salonContactEmail,
+          ownerOrManagerName: salonDoc?.owner?.name || salonName,
+          customerName: custUser?.name || "Customer",
+          customerPhone: custUser?.phone,
+          salonName,
+          branchName,
+          serviceName,
+          staffName,
+          date: apptDate,
+          time: apptTime,
+          bookingId: appointment._id,
+        });
+      }
     } catch (e) {
       console.log("Email dispatch error:", e.message);
     }
@@ -589,19 +609,32 @@ const updateAppointmentStatus = async (req, res, next) => {
       await session.withTransaction(async () => {
         if (appointment.slotId) {
           if (status === "CANCELLED") {
-            await Slot.findByIdAndUpdate(
+            const freedSlot = await Slot.findByIdAndUpdate(
               appointment.slotId,
               {
                 status: "AVAILABLE",
                 appointmentId: null,
               },
-              { session },
+              { session, new: true },
             );
             appointment.cancellation = {
               cancelledBy: userId,
               reason: note || "No reason provided",
               cancelledAt: new Date(),
             };
+            if (freedSlot) {
+              delCachePattern(`branch:slots:${freedSlot.branchId}:${freedSlot.date}:*`);
+              try {
+                const branchForCache = await Branch.findById(freedSlot.branchId)
+                  .select("citySlug")
+                  .lean();
+                if (branchForCache?.citySlug) {
+                  delCachePattern(`initial_load:${branchForCache.citySlug}:*`);
+                }
+              } catch (e) {
+                console.log("initial_load invalidation error:", e.message);
+              }
+            }
           } else if (status === "COMPLETED") {
             // Free the slot time — the appointment is done, so the slot
             // becomes bookable again for another customer
@@ -657,6 +690,9 @@ const updateAppointmentStatus = async (req, res, next) => {
               { status: "AVAILABLE", appointmentId: null },
               { session },
             );
+            if (appointment.branchId && appointment.date) {
+              delCachePattern(`branch:slots:${appointment.branchId}:${appointment.date}:*`);
+            }
           } else if (status === "COMPLETED") {
             await Slot.updateMany(
               {

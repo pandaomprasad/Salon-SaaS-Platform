@@ -139,6 +139,7 @@ app.get("/health", async (req, res) => {
 // API Routes
 // ================================
 app.use("/api/v1/auth", require("./routes/auth.routes"));
+app.use("/api/auth", require("./routes/auth.routes"));
 app.use('/api/v1/admin', adminRoutes);
 app.use("/api/v1/browse", require("./routes/browse.routes"));
 app.use("/api/v1/salons", require("./routes/salon.routes"));

@@ -14,6 +14,7 @@ import { C, S, FS, FW, R, TYPO } from "../theme";
 import { appointmentService } from "../services/appointmentService";
 import { paiseToINR } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { socketClient } from "../services/socketClient";
 import { notificationService } from "../services/notificationService";
 import ErrorCardModal from "../components/ErrorCardModal";
@@ -66,6 +67,7 @@ function formatTimeRange(start, end) {
 
 export default function BookingsScreen({ navigate, onScroll }) {
   const { isAuthenticated, user } = useAuth();
+  const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState("Active");
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,7 @@ export default function BookingsScreen({ navigate, onScroll }) {
   const promptedReviewIdsRef = React.useRef(new Set());
   const selectedApptRef = React.useRef(selectedAppt);
   selectedApptRef.current = selectedAppt;
-  const styles = getStyles();
+  const styles = getStyles(theme, isDark);
 
   const handleAddReviewSubmit = async ({ rating, comment }) => {
     if (!reviewModalAppt) return;
@@ -445,24 +447,44 @@ export default function BookingsScreen({ navigate, onScroll }) {
               >
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1, paddingRight: S.xs }}>
-                    <Text style={styles.salonName}>{salonName}</Text>
+                    <View style={styles.salonNameRow}>
+                      <Ionicons name="sparkles" size={11} color="#D49B45" style={{ marginRight: 4 }} />
+                      <Text style={styles.salonName} numberOfLines={1}>{salonName}</Text>
+                    </View>
                     <Text style={styles.serviceName}>{serviceName}</Text>
-                    <Text style={styles.staffText}>Stylist: {staffName}</Text>
+                    <View style={styles.staffRow}>
+                      <Ionicons name="person-circle-outline" size={13} color={theme.body} />
+                      <Text style={styles.staffText}>Stylist: {staffName}</Text>
+                    </View>
                   </View>
 
                   <View style={[styles.statusBadge, getStatusStyle(status)]}>
+                    {isPending ? (
+                      <Ionicons name="time-outline" size={11} color="#D49B45" style={{ marginRight: 3 }} />
+                    ) : isConfirmed ? (
+                      <Ionicons name="checkmark-circle-outline" size={11} color="#10B981" style={{ marginRight: 3 }} />
+                    ) : isCompleted ? (
+                      <Ionicons name="sparkles-outline" size={11} color="#A855F7" style={{ marginRight: 3 }} />
+                    ) : (
+                      <Ionicons name="close-circle-outline" size={11} color="#EF4444" style={{ marginRight: 3 }} />
+                    )}
                     <Text style={[styles.statusText, getStatusTextStyle(status)]}>
                       {status}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.cardDivider} />
-
-                <View style={styles.cardDetails}>
+                {/* Embedded Details Box */}
+                <View style={styles.cardDetailsBox}>
                   <View style={styles.metaRow}>
-                    <Text style={styles.detailText}>📅 {dateText}</Text>
-                    <Text style={styles.detailText}>⏰ {timeText}</Text>
+                    <View style={styles.metaLine}>
+                      <Ionicons name="calendar-outline" size={13} color="#D49B45" />
+                      <Text style={styles.detailText}>{dateText}</Text>
+                    </View>
+                    <View style={styles.metaLine}>
+                      <Ionicons name="time-outline" size={13} color="#D49B45" />
+                      <Text style={styles.detailText}>{timeText}</Text>
+                    </View>
                   </View>
 
                   <Text style={styles.detailPrice}>{paiseToINR(appt.pricePaid ?? appt.totalAmount ?? appt.price ?? 0)}</Text>
@@ -477,9 +499,9 @@ export default function BookingsScreen({ navigate, onScroll }) {
                         e.stopPropagation();
                         setSelectedAppt(appt);
                       }}
-                      activeOpacity={0.8}
+                      activeOpacity={0.85}
                     >
-                      <Ionicons name="qr-code-outline" size={14} color={C.main} />
+                      <Ionicons name="qr-code-outline" size={13} color="#000" />
                       <Text style={styles.passBtnText}>View Pass &amp; QR</Text>
                     </TouchableOpacity>
 
@@ -489,8 +511,9 @@ export default function BookingsScreen({ navigate, onScroll }) {
                         e.stopPropagation();
                         setRescheduleAppt(appt);
                       }}
-                      activeOpacity={0.8}
+                      activeOpacity={0.85}
                     >
+                      <Ionicons name="calendar-outline" size={13} color={theme.ink} />
                       <Text style={styles.rescheduleBtnText}>Reschedule</Text>
                     </TouchableOpacity>
 
@@ -500,8 +523,9 @@ export default function BookingsScreen({ navigate, onScroll }) {
                         e.stopPropagation();
                         setCancelApptModal(appt);
                       }}
-                      activeOpacity={0.8}
+                      activeOpacity={0.85}
                     >
+                      <Ionicons name="close-circle-outline" size={13} color="#EF4444" />
                       <Text style={styles.cancelBtnText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
@@ -541,32 +565,40 @@ export default function BookingsScreen({ navigate, onScroll }) {
 function getStatusStyle(status) {
   switch ((status || "").toUpperCase()) {
     case "CONFIRMED":
-      return { backgroundColor: C.grep };
+      return { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.3)", borderWidth: 1 };
     case "PENDING":
-      return { backgroundColor: C.thinking };
+      return { backgroundColor: "rgba(212, 155, 69, 0.12)", borderColor: "rgba(212, 155, 69, 0.3)", borderWidth: 1 };
     case "IN_PROGRESS":
-      return { backgroundColor: C.read };
+      return { backgroundColor: "rgba(99, 102, 241, 0.12)", borderColor: "rgba(99, 102, 241, 0.3)", borderWidth: 1 };
     case "COMPLETED":
-      return { backgroundColor: C.edit };
+      return { backgroundColor: "rgba(168, 85, 247, 0.12)", borderColor: "rgba(168, 85, 247, 0.3)", borderWidth: 1 };
     case "CANCELLED":
     case "NO_SHOW":
-      return { backgroundColor: C.errorBg, borderWidth: 1, borderColor: C.error };
+      return { backgroundColor: "rgba(239, 68, 68, 0.12)", borderColor: "rgba(239, 68, 68, 0.3)", borderWidth: 1 };
     default:
-      return { backgroundColor: C.lifted };
+      return { backgroundColor: "rgba(148, 163, 184, 0.12)", borderColor: "rgba(148, 163, 184, 0.3)", borderWidth: 1 };
   }
 }
 
 function getStatusTextStyle(status) {
   switch ((status || "").toUpperCase()) {
+    case "CONFIRMED":
+      return { color: "#10B981", fontWeight: "700" };
+    case "PENDING":
+      return { color: "#D49B45", fontWeight: "700" };
+    case "IN_PROGRESS":
+      return { color: "#6366F1", fontWeight: "700" };
+    case "COMPLETED":
+      return { color: "#A855F7", fontWeight: "700" };
     case "CANCELLED":
     case "NO_SHOW":
-      return { color: C.error };
+      return { color: "#EF4444", fontWeight: "700" };
     default:
-      return { color: C.ink, fontWeight: FW.semiBold };
+      return { color: "#94A3B8", fontWeight: "700" };
   }
 }
 
-function getStyles() {
+function getStyles(theme = {}, isDark = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -691,117 +723,153 @@ function getStyles() {
       fontWeight: FW.medium,
     },
     card: {
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
+      backgroundColor: theme.isDark ? "#121824" : "#FFFFFF",
+      borderRadius: 20,
       padding: S.md,
       marginBottom: S.md,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: theme.isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: theme.isDark ? 0.4 : 0.05,
+      shadowRadius: 12,
+      elevation: 3,
     },
     cardHeader: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "flex-start",
     },
+    salonNameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 2,
+    },
     salonName: {
-      ...TYPO.eyebrow,
-      color: C.main,
+      fontSize: 11,
+      fontWeight: "800",
+      color: "#D49B45",
+      letterSpacing: 1,
+      textTransform: "uppercase",
     },
     serviceName: {
-      fontSize: FS.titleSm,
-      fontWeight: FW.semiBold,
-      color: C.ink,
+      fontSize: 16,
+      fontWeight: "700",
+      color: theme.ink,
       marginTop: 2,
+    },
+    staffRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 4,
     },
     staffText: {
-      fontSize: FS.bodySm,
-      color: C.muted,
-      marginTop: 2,
+      fontSize: FS.xs + 1,
+      color: theme.body,
     },
     statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: R.pill,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
     },
     statusText: {
       fontSize: 10,
-      fontWeight: FW.semiBold,
-      color: C.ink,
-      letterSpacing: 0.88,
+      letterSpacing: 0.5,
     },
-    cardDivider: {
-      height: 1,
-      backgroundColor: C.borderLight,
-      marginVertical: S.sm,
-    },
-    cardDetails: {
+    cardDetailsBox: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
+      backgroundColor: theme.isDark ? "#0A0E17" : "#F8FAFC",
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      marginVertical: S.sm + 2,
+      borderWidth: 1,
+      borderColor: theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
     },
     metaRow: {
-      gap: 2,
+      gap: 4,
+    },
+    metaLine: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
     },
     detailText: {
-      fontSize: FS.bodySm,
-      color: C.body,
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: theme.ink,
     },
     detailPrice: {
-      fontSize: FS.titleSm,
-      fontWeight: FW.semiBold,
-      color: C.ink,
+      fontSize: 18,
+      fontWeight: "800",
+      color: "#D49B45",
     },
     cardActions: {
-      marginTop: S.sm,
+      marginTop: 2,
       alignItems: "flex-end",
     },
     cardActionsRow: {
-      marginTop: S.sm,
+      marginTop: 4,
       flexDirection: "row",
       justifyContent: "flex-end",
-      gap: S.xs,
-    },
-    rescheduleBtn: {
-      paddingHorizontal: S.md,
-      paddingVertical: 6,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.borderDark,
-    },
-    rescheduleBtnText: {
-      color: C.ink,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-    },
-    cancelBtn: {
-      paddingHorizontal: S.md,
-      paddingVertical: 6,
-      borderRadius: R.md,
-      backgroundColor: C.errorBg,
-      borderWidth: 1,
-      borderColor: C.error,
-    },
-    cancelBtnText: {
-      color: C.error,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+      alignItems: "center",
+      gap: 8,
     },
     passBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      paddingHorizontal: S.sm + 2,
-      paddingVertical: 6,
-      borderRadius: R.md,
-      backgroundColor: C.infoBg,
-      borderWidth: 1,
-      borderColor: C.main,
+      gap: 5,
+      paddingHorizontal: 13,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: "#D49B45",
+      shadowColor: "#D49B45",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 2,
     },
     passBtnText: {
-      color: C.main,
-      fontSize: FS.bodySm - 1,
-      fontWeight: FW.bold,
+      color: "#000000",
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    rescheduleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 13,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+      borderWidth: 1,
+      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
+    },
+    rescheduleBtnText: {
+      color: theme.ink,
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    cancelBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 13,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: "rgba(239, 68, 68, 0.08)",
+      borderWidth: 1,
+      borderColor: "rgba(239, 68, 68, 0.25)",
+    },
+    cancelBtnText: {
+      color: "#EF4444",
+      fontSize: 12,
+      fontWeight: "700",
     },
     rateBtn: {
       flexDirection: "row",

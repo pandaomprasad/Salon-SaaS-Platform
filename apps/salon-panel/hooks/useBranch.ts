@@ -12,10 +12,12 @@ export function useBranch() {
   const salonId: string = decoded?.salonId || "";
   const userBranchId: string = decoded?.branchId || "";
 
+  const selectedBranchId = typeof selectedBranch === "object" ? selectedBranch?._id : selectedBranch;
+  const userBranchIdStr = typeof userBranchId === "object" ? (userBranchId as any)?._id : userBranchId;
+  const userObjBranchId = typeof user?.branchId === "object" ? (user?.branchId as any)?._id : user?.branchId;
+
   // Owner uses the global branch selector, others use their assigned branch
-  const branchId = role === "owner"
-    ? selectedBranch?._id || ""
-    : userBranchId;
+  const branchId = selectedBranchId || userBranchIdStr || userObjBranchId || "";
 
   return { salonId, branchId, role, canManage };
 }
