@@ -56,27 +56,58 @@ console.log("✅ Cron jobs initialized.");
 // helmet adds security headers to every response
 app.use(helmet());
 
-// Configure CORS for development & production
+// Configure strict CORS for development, staging, & production
 const parseAllowedOrigins = () => {
   const envOrigins = process.env.ALLOWED_ORIGINS;
-  if (!envOrigins || envOrigins === "*") return "*";
-  return envOrigins.split(",").map((o) => o.trim());
+  if (!envOrigins) return [];
+  return envOrigins
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
 };
 
-app.use(
-  cors({
-    origin: parseAllowedOrigins(),
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "bypass-tunnel-reminder",
-      "ngrok-skip-browser-warning",
-      "X-Requested-With",
-    ],
-    credentials: true,
-  }),
-);
+const allowedOriginsList = parseAllowedOrigins();
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile native apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // Development mode: allow explicit origins, localhost, local dev IPs
+    if (process.env.NODE_ENV === "development") {
+      if (
+        allowedOriginsList.includes("*") ||
+        allowedOriginsList.includes(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(
+          origin
+        )
+      ) {
+        return callback(null, true);
+      }
+    }
+
+    // Production & Staging: Strict whitelist match ONLY (wildcards explicitly forbidden)
+    if (allowedOriginsList.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(
+      new Error(`CORS Security Violation: Origin ${origin} is not allowed by CORS policy.`)
+    );
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "bypass-tunnel-reminder",
+    "ngrok-skip-browser-warning",
+    "X-Requested-With",
+  ],
+  exposedHeaders: ["X-Response-Time"],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 // rate limiting — max 500 requests per 15 minutes per IP
 const limiter = rateLimit({
@@ -96,11 +127,26 @@ app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ================================
-// Request Logging
+// Request Logging & Timing & Prometheus Metrics
 // ================================
+const apiTiming = require("./middleware/apiTiming");
+const { metricsMiddleware, metricsHandler } = require("./middleware/metrics.middleware");
+
+app.use(apiTiming);
+app.use(metricsMiddleware);
+
 if (process.env.NODE_ENV !== "test") {
   app.use(morgan("dev"));
 }
+
+// Prometheus scrapeable metrics endpoint
+app.get("/metrics", metricsHandler);
+
+// ================================
+// OpenAPI Swagger UI Documentation
+// ================================
+const setupSwagger = require("./config/swagger");
+setupSwagger(app);
 
 // ================================
 // Health Check & Diagnostics Route
@@ -196,10 +242,12 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 initSocket(server);
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
-  logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode with WebSockets on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
+    logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode with WebSockets on port ${PORT}`);
+  });
+}
 
 // Graceful shutdown process listeners
 const gracefulShutdown = (signal) => {

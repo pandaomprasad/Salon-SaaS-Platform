@@ -36,6 +36,26 @@ const {
 
 router.use(authenticate);
 
+/**
+ * @openapi
+ * /branches/{branchId}/staff:
+ *   post:
+ *     summary: Onboard a new staff member to a branch
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Staff member created
+ *   get:
+ *     summary: List staff specialists for a branch
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of staff members
+ */
 router.post(
   "/",
   checkPermission("staff:create"),
@@ -46,6 +66,34 @@ router.post(
 
 router.get("/", checkPermission("staff:read"), getStaff);
 
+/**
+ * @openapi
+ * /branches/{branchId}/staff/{staffId}:
+ *   get:
+ *     summary: Get staff profile
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Staff member profile
+ *   patch:
+ *     summary: Update staff member details
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Staff member updated
+ *   delete:
+ *     summary: Soft delete staff member
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Staff member deleted
+ */
 router.get("/:staffId", checkPermission("staff:read"), getStaffMember);
 
 router.patch(
@@ -58,14 +106,49 @@ router.patch(
 
 router.delete("/:staffId", checkPermission("staff:delete"), deleteStaff);
 
-// permission management — owner only
+/**
+ * @openapi
+ * /branches/{branchId}/staff/{staffId}/permissions:
+ *   get:
+ *     summary: Get permissions granted to staff member
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Staff permission list
+ *   patch:
+ *     summary: Update staff permissions
+ *     tags: [Staff Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Permissions updated
+ */
 router.get("/:staffId/permissions", getStaffPermissions);
-
 router.patch("/:staffId/permissions", updateStaffPermissions);
 
-// ================================
-// Staff leave / availability
-// ================================
+/**
+ * @openapi
+ * /branches/{branchId}/staff/{staffId}/leaves:
+ *   post:
+ *     summary: Submit staff leave request
+ *     tags: [Staff Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Leave request submitted
+ *   get:
+ *     summary: Get staff leave history
+ *     tags: [Staff Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of staff leaves
+ */
 router.post(
   "/:staffId/leaves",
   checkPermission("staff:update"),
@@ -75,7 +158,6 @@ router.post(
 );
 
 router.get("/:staffId/leaves", checkPermission("staff:read"), getStaffLeaves);
-
 router.get("/:staffId/leaves/:leaveId", checkPermission("staff:read"), getLeave);
 
 router.patch(
@@ -92,7 +174,18 @@ router.delete(
   deleteLeave,
 );
 
-// approval workflow — owner/manager reviews a staff self-service request
+/**
+ * @openapi
+ * /branches/{branchId}/staff/{staffId}/leaves/{leaveId}/approve:
+ *   post:
+ *     summary: Approve staff leave request
+ *     tags: [Staff Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Leave approved
+ */
 router.post(
   "/:staffId/leaves/:leaveId/approve",
   checkPermission("staff:update"),
@@ -101,6 +194,18 @@ router.post(
   approveLeave,
 );
 
+/**
+ * @openapi
+ * /branches/{branchId}/staff/{staffId}/leaves/{leaveId}/reject:
+ *   post:
+ *     summary: Reject staff leave request
+ *     tags: [Staff Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Leave rejected
+ */
 router.post(
   "/:staffId/leaves/:leaveId/reject",
   checkPermission("staff:update"),

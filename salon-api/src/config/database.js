@@ -28,9 +28,17 @@ const connectDB = async (retryCount = 0) => {
     const conn = await mongoose.connect(process.env.MONGO_URI.trim(), {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      maxPoolSize: 25,
+      minPoolSize: 5,
     })
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`)
     logger.info(`MongoDB connected: ${conn.connection.host}`)
+
+    // Trigger cache warming asynchronously so public endpoints are pre-cached immediately
+    setTimeout(() => {
+      const warmCacheOnBoot = require('../utils/cacheWarmer');
+      warmCacheOnBoot();
+    }, 500);
 
     // Backfill citySlug on branches created before the field existed.
     try {

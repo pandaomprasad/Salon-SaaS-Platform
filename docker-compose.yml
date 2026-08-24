@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  salon-api:
+    build:
+      context: ./salon-api
+      dockerfile: Dockerfile
+    container_name: salon-api
+    ports:
+      - "6969:6969"
+    environment:
+      PORT: 6969
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongo:27017/salon-db
+      REDIS_URL: redis://redis:6379
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      JWT_ACCESS_SECRET: docker_access_secret_key_84920192
+      JWT_REFRESH_SECRET: docker_refresh_secret_key_84920192
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0
+    container_name: salon-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: salon-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

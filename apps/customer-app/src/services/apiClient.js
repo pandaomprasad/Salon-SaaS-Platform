@@ -65,6 +65,8 @@ export const getAuthToken = () => userToken;
 
 async function request(endpoint, options = {}, retries = 1, isAuthRetry = false) {
   const url = `${API_BASE_URL}${endpoint}`;
+  const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const startTimeISO = new Date().toISOString();
 
   const headers = {
     "Content-Type": "application/json",
@@ -91,6 +93,12 @@ async function request(endpoint, options = {}, retries = 1, isAuthRetry = false)
 
     const response = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
+
+    const duration = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime).toFixed(2);
+    console.log(
+      `⏱️ [API CLIENT TIME] ${method} ${endpoint} | Status: ${response.status} | Duration: ${duration}ms | Started: ${startTimeISO}`
+    );
+
     const rawText = await response.text();
 
     let data = {};

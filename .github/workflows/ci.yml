@@ -1,0 +1,72 @@
+name: Salon SaaS Platform CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-test:
+    name: Backend API Integration Tests & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: salon-api/package-lock.json
+
+      - name: Install salon-api Dependencies
+        working-directory: ./salon-api
+        run: npm ci || npm install
+
+      - name: Execute Backend Tests
+        working-directory: ./salon-api
+        env:
+          NODE_ENV: test
+          JWT_ACCESS_SECRET: test_ci_access_secret_123
+          JWT_REFRESH_SECRET: test_ci_refresh_secret_456
+        run: npm test
+
+  frontend-typecheck:
+    name: Frontend TypeScript Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Type-check Salon Panel
+        run: |
+          cd apps/salon-panel
+          npm ci || npm install
+          npx tsc --noEmit
+
+      - name: Type-check Admin Panel
+        run: |
+          cd apps/admin-panel
+          npm ci || npm install
+          npx tsc --noEmit
+
+      - name: Type-check Owner Landing Page
+        run: |
+          cd apps/owner-landing-page
+          npm ci || npm install
+          npx tsc --noEmit

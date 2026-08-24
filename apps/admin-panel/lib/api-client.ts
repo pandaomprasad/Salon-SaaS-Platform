@@ -28,6 +28,8 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  (config as any)._startTime =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
   const token = tokenStorage.getAccessToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -36,8 +38,30 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 apiClient.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const startTime = (res.config as any)?._startTime;
+    if (startTime) {
+      const duration = (
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+        startTime
+      ).toFixed(2);
+      console.log(
+        `⏱️ [API CLIENT TIME] ${res.config.method?.toUpperCase()} ${res.config.url} | Status: ${res.status} | Duration: ${duration}ms`
+      );
+    }
+    return res;
+  },
   (error) => {
+    const startTime = (error.config as any)?._startTime;
+    if (startTime) {
+      const duration = (
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+        startTime
+      ).toFixed(2);
+      console.warn(
+        `⏱️ [API CLIENT TIME ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url} | Status: ${error.response?.status || "ERR"} | Duration: ${duration}ms`
+      );
+    }
     if (error.response?.status === 401) {
       tokenStorage.clearTokens();
       if (typeof window !== "undefined") window.location.href = "/login";

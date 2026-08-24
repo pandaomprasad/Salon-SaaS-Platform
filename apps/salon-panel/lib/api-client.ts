@@ -60,6 +60,8 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    (config as any)._startTime =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
     const token = tokenStorage.getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -70,7 +72,7 @@ apiClient.interceptors.request.use(
 );
 
 // ──────────────────────────────────────────
-// RESPONSE interceptor — silent refresh on 401
+// RESPONSE interceptor — timing log & silent refresh on 401
 // ──────────────────────────────────────────
 
 let isRefreshing = false;
@@ -88,8 +90,30 @@ const processQueue = (error: AxiosError | null, token: string | null) => {
 };
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const startTime = (response.config as any)?._startTime;
+    if (startTime) {
+      const duration = (
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+        startTime
+      ).toFixed(2);
+      console.log(
+        `⏱️ [API CLIENT TIME] ${response.config.method?.toUpperCase()} ${response.config.url} | Status: ${response.status} | Duration: ${duration}ms`
+      );
+    }
+    return response;
+  },
   async (error: AxiosError) => {
+    const startTime = (error.config as any)?._startTime;
+    if (startTime) {
+      const duration = (
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+        startTime
+      ).toFixed(2);
+      console.warn(
+        `⏱️ [API CLIENT TIME ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url} | Status: ${error.response?.status || "ERR"} | Duration: ${duration}ms`
+      );
+    }
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
