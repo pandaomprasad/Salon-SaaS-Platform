@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ST CUT",
-    "slug": "st-cut",
+    "slug": "customer-app",
     "scheme": "stcut",
     "version": "1.0.1",
     "orientation": "portrait",
