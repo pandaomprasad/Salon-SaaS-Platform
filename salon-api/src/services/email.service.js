@@ -18,12 +18,6 @@ const createTransporter = () => {
   const brevoApiKey = process.env.BREVO_API_KEY
 
   if (brevoApiKey) {
-    const defaultClient = SibApiV3Sdk.ApiClient.instance
-    const apiKey = defaultClient.authentications['api-key']
-    apiKey.apiKey = brevoApiKey
-
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
-
     return {
       sendMail: async (mailOptions) => {
         const sender = parseFromString(mailOptions.from)
@@ -31,22 +25,36 @@ const createTransporter = () => {
           ? mailOptions.to.map((email) => ({ email }))
           : [{ email: mailOptions.to }]
 
-        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
-        sendSmtpEmail.sender = sender
-        sendSmtpEmail.to = recipients
-        sendSmtpEmail.subject = mailOptions.subject
-        sendSmtpEmail.htmlContent = mailOptions.html
-        if (mailOptions.text) {
-          sendSmtpEmail.textContent = mailOptions.text
-        }
+        try {
+          // Use official Brevo API v3 transactional email endpoint
+          const defaultClient = SibApiV3Sdk.ApiClient.instance
+          const apiKey = defaultClient.authentications['api-key']
+          apiKey.apiKey = brevoApiKey
 
-        const result = await apiInstance.sendTransacEmail(sendSmtpEmail)
-        return { messageId: result?.messageId || result?.body?.messageId || `brevo-${Date.now()}` }
+          const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
+          const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
+
+          sendSmtpEmail.sender = sender
+          sendSmtpEmail.to = recipients
+          sendSmtpEmail.subject = mailOptions.subject
+          sendSmtpEmail.htmlContent = mailOptions.html
+          if (mailOptions.text) {
+            sendSmtpEmail.textContent = mailOptions.text
+          }
+
+          const result = await apiInstance.sendTransacEmail(sendSmtpEmail)
+          console.log(`✅ [BREVO EMAIL DISPATCH SUCCESS] MessageId: ${result?.messageId || result?.body?.messageId} to ${mailOptions.to}`)
+          return { messageId: result?.messageId || result?.body?.messageId || `brevo-${Date.now()}` }
+        } catch (apiError) {
+          const errMsg = apiError?.response?.body?.message || apiError?.message || apiError
+          console.error(`❌ [BREVO API ERROR] Failed to send to ${mailOptions.to}:`, errMsg)
+          throw new Error(`Brevo Dispatch Failed: ${errMsg}`)
+        }
       },
     }
   }
 
-  // Secondary fallback: SMTP relay
+  // Secondary fallback: SMTP relay (Brevo SMTP or Gmail SMTP)
   const host = process.env.SMTP_HOST
   const port = process.env.SMTP_PORT || 587
   const user = process.env.SMTP_USER
@@ -68,7 +76,7 @@ const createTransporter = () => {
   return {
     sendMail: async (mailOptions) => {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log(`📧 [EMAIL SERVICE] Mock Send to: ${mailOptions.to}`)
+      console.log(`📧 [EMAIL SERVICE MOCK] To: ${mailOptions.to}`)
       console.log(`📌 Subject: ${mailOptions.subject}`)
       console.log(`📝 Text Preview: ${mailOptions.text?.substring(0, 120)}...`)
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
