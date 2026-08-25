@@ -24,6 +24,7 @@ import { SalonCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { customerService } from "../services/customerService";
 import { storage } from "../services/storage";
+import { cleanCityName, getCurrentLocation } from "../services/locationService";
 
 const IS_IOS = Platform.OS === "ios";
 
@@ -216,13 +217,27 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
   const debounceRef = useRef(null);
 
   useEffect(() => {
+    let active = true;
     const loadSavedCity = async () => {
       try {
         const saved = await storage.getItem("@user_selected_city");
-        if (saved && saved.trim()) setSelectedCity(saved);
+        if (saved && saved.trim()) {
+          if (active) setSelectedCity(saved);
+          return;
+        }
+
+        const geoResult = await getCurrentLocation();
+        if (geoResult && geoResult.city) {
+          const detectedCity = cleanCityName(geoResult.city);
+          if (detectedCity && active) {
+            setSelectedCity(detectedCity);
+            await storage.setItem("@user_selected_city", detectedCity);
+          }
+        }
       } catch (e) {}
     };
     loadSavedCity();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

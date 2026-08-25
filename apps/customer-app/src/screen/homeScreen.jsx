@@ -23,7 +23,7 @@ import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { useAuth } from "../context/AuthContext";
 import { storage } from "../services/storage";
-import { cleanCityName } from "../services/locationService";
+import { cleanCityName, getCurrentLocation } from "../services/locationService";
 import { socketClient } from "../services/socketClient";
 
 const SalonCarousel = memo(({ salons, onSalonPress, styles }) => (
@@ -103,9 +103,32 @@ function HomeScreen({ navigate, onScroll }) {
   };
 
   useEffect(() => {
-    storage.getItem("@user_selected_city").then((savedCity) => {
-      if (savedCity && savedCity.trim()) setSelectedCity(savedCity);
-    });
+    let active = true;
+    const initLocation = async () => {
+      try {
+        const savedCity = await storage.getItem("@user_selected_city");
+        if (savedCity && savedCity.trim()) {
+          if (active) setSelectedCity(savedCity);
+          return;
+        }
+
+        // Automatically fetch customer's real GPS / IP location on app launch
+        console.log("📍 [HOME] Auto-detecting customer location on app open...");
+        const geoResult = await getCurrentLocation();
+        if (geoResult && geoResult.city) {
+          const detectedCity = cleanCityName(geoResult.city);
+          if (detectedCity && active) {
+            console.log(`📍 [HOME] Location auto-detected: "${detectedCity}"`);
+            setSelectedCity(detectedCity);
+            await storage.setItem("@user_selected_city", detectedCity);
+          }
+        }
+      } catch (err) {
+        console.warn("📍 [HOME] Auto-location detection fallback:", err.message);
+      }
+    };
+    initLocation();
+    return () => { active = false; };
   }, []);
 
   const salonsRef = React.useRef(salons);

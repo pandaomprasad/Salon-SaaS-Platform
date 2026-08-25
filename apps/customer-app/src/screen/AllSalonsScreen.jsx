@@ -16,7 +16,8 @@ import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import SalonCard from "../components/SalonCard";
 import { browseService } from "../services/browseService";
-import { cleanCityName } from "../services/locationService";
+import { cleanCityName, getCurrentLocation } from "../services/locationService";
+import { storage } from "../services/storage";
 
 const CATEGORIES = [
   { id: "all", label: "All", icon: "✨" },
@@ -28,8 +29,7 @@ const CATEGORIES = [
 
 export default function AllSalonsScreen({ navigate, goBack, routeParams, onScroll }) {
   const { isDark } = useTheme();
-  const initialCity = routeParams?.city || "Brahmapur";
-  const [selectedCity, setSelectedCity] = useState(initialCity);
+  const [selectedCity, setSelectedCity] = useState(routeParams?.city || "Brahmapur");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -37,6 +37,31 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const initCity = async () => {
+      if (routeParams?.city) return;
+      try {
+        const saved = await storage.getItem("@user_selected_city");
+        if (saved && saved.trim()) {
+          if (active) setSelectedCity(saved);
+          return;
+        }
+
+        const geoResult = await getCurrentLocation();
+        if (geoResult && geoResult.city) {
+          const detected = cleanCityName(geoResult.city);
+          if (detected && active) {
+            setSelectedCity(detected);
+            await storage.setItem("@user_selected_city", detected);
+          }
+        }
+      } catch (e) {}
+    };
+    initCity();
+    return () => { active = false; };
+  }, [routeParams?.city]);
 
   // 300ms Search Debounce
   useEffect(() => {
