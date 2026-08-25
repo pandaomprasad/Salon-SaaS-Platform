@@ -15,6 +15,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 
+import AppleBottomSheet from "./AppleBottomSheet";
+import AppleTouchable from "./AppleTouchable";
+import { triggerHaptic } from "../theme/appleMotion";
+
 const REVIEW_TERMS = [
   { id: "service", label: "Service", icon: "cut-outline" },
   { id: "cleanliness", label: "Cleanliness", icon: "sparkles-outline" },
@@ -45,6 +49,7 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
     "your appointment";
 
   const handleStarPress = (termId, starVal) => {
+    triggerHaptic("selection");
     setAspects((prev) => ({
       ...prev,
       [termId]: starVal,
@@ -57,6 +62,7 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
   };
 
   const handleSubmit = async () => {
+    triggerHaptic("success");
     setSubmitting(true);
     const overallScore = calculateOverallRating();
     try {
@@ -81,21 +87,20 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
   const overallScore = calculateOverallRating();
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <AppleBottomSheet visible={visible} onClose={onClose} height="80%">
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.backdrop}>
-          <View style={styles.card}>
-            <View style={styles.header}>
-              <Text style={styles.title}>RATE YOUR EXPERIENCE</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={18} color={C.ink} />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.sheetInner}>
+          <View style={styles.header}>
+            <Text style={styles.title}>RATE YOUR EXPERIENCE</Text>
+            <AppleTouchable onPress={onClose} style={styles.closeBtn} scaleTo={0.9}>
+              <Ionicons name="close" size={18} color={C.ink} />
+            </AppleTouchable>
+          </View>
 
-            <Text style={styles.subtitle}>
-              How was your recent <Text style={styles.salonBold}>{serviceName}</Text> at{" "}
-              <Text style={styles.salonBold}>{salonName}</Text>?
-            </Text>
+          <Text style={styles.subtitle}>
+            How was your recent <Text style={styles.salonBold}>{serviceName}</Text> at{" "}
+            <Text style={styles.salonBold}>{salonName}</Text>?
+          </Text>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
               {/* Aspect Ratings Section */}
@@ -158,33 +163,32 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
               />
 
               {/* Submit Button */}
-              <TouchableOpacity
-                style={[styles.submitBtn, submitting && styles.disabledBtn]}
+              <AppleTouchable
+                style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
                 onPress={handleSubmit}
                 disabled={submitting}
-                activeOpacity={0.85}
+                scaleTo={0.96}
+                hapticType="success"
               >
                 {submitting ? (
-                  <ActivityIndicator color={C.bg} />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text style={styles.submitBtnText}>Submit Review</Text>
                 )}
-              </TouchableOpacity>
+              </AppleTouchable>
             </ScrollView>
-          </View>
         </View>
       </TouchableWithoutFeedback>
-    </Modal>
+    </AppleBottomSheet>
   );
 }
 
 function getStyles() {
   return StyleSheet.create({
-  backdrop: {
+  sheetInner: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
     flex: 1,
-    backgroundColor: "rgba(38, 37, 30, 0.5)",
-    justifyContent: "center",
-    padding: S.md,
   },
   card: {
     backgroundColor: C.surface,

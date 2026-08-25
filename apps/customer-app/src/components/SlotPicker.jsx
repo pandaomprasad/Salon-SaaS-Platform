@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { toLocalDateStr } from "../services/apiClient";
 
+import AppleTouchable from "./AppleTouchable";
+
 export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSelectSlot, selectedDate, onSelectDate }) {
   const styles = getStyles();
   const currentSlotId = selectedSlotId || selectedSlot?._id || selectedSlot?.id || (typeof selectedSlot === "string" ? selectedSlot : null);
@@ -61,11 +63,12 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
         {dates.map((d) => {
           const isSelected = selectedDate === d.isoStr;
           return (
-            <TouchableOpacity
+            <AppleTouchable
               key={d.isoStr}
               style={[styles.dateCard, isSelected && styles.dateCardSelected]}
               onPress={() => onSelectDate(d.isoStr)}
-              activeOpacity={0.7}
+              scaleTo={0.92}
+              hapticType="selection"
             >
               <Text
                 style={[
@@ -78,7 +81,7 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
               </Text>
               <Text style={[styles.dateNum, isSelected && styles.dateNumSelected]}>{d.dayNum}</Text>
               <Text style={[styles.dateMonth, isSelected && styles.dateMonthSelected]}>{d.monthName}</Text>
-            </TouchableOpacity>
+            </AppleTouchable>
           );
         })}
       </ScrollView>
@@ -121,7 +124,7 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
               (selectedSlot && selectedSlot.startTime && selectedSlot.startTime === slot.startTime);
 
             return (
-              <TouchableOpacity
+              <AppleTouchable
                 key={slot._id || slot.id}
                 disabled={isBooked}
                 style={[
@@ -130,14 +133,9 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
                   isSelected && styles.slotChipSelected,
                 ]}
                 onPress={() => !isBooked && onSelectSlot(slot)}
-                activeOpacity={isBooked ? 1 : 0.7}
+                scaleTo={isBooked ? 1 : 0.94}
+                hapticType={isBooked ? "none" : "selection"}
               >
-                {/* {isSelected && (
-                  <View style={styles.slotCheck}>
-                    <Ionicons name="checkmark" size={9} color={C.bg} />
-                  </View>
-                )} */}
-
                 <View style={styles.slotChipBody}>
                   <Text
                     style={[
@@ -160,7 +158,7 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
                     </View>
                   )}
                 </View>
-              </TouchableOpacity>
+              </AppleTouchable>
             );
           })}
         </View>

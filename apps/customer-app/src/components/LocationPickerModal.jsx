@@ -16,6 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, S } from "../theme";
 import { getCurrentLocation, searchLocations, cleanCityName } from "../services/locationService";
 import { storage } from "../services/storage";
+import AppleBottomSheet from "./AppleBottomSheet";
+import AppleTouchable from "./AppleTouchable";
 
 const RECENT_KEY = "@recent_locations_v2";
 
@@ -227,59 +229,43 @@ export default function LocationPickerModal({
   const currentCardData = activeLocation || detectedGps || { city: selectedCity || "Bhubaneswar", state: "Odisha" };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      statusBarTranslucent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalRoot}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={styles.backdrop} />
-        </TouchableWithoutFeedback>
-
-        <View style={[styles.sheetContainer, (isFocused || search.length > 0) && styles.sheetContainerFullScreen]}>
-          {/* Bottom Solid Extension for Android safe area */}
-          <View style={styles.bottomFill} />
-
-          {/* Drag Handle Bar */}
-          <View style={styles.handleBar} />
-
-          {/* Header Row */}
-          <View style={styles.header}>
-            <View style={styles.headerTextWrap}>
-              <Text style={styles.title}>Select Location</Text>
-              <Text style={styles.subtitle}>Discover top salons near your city</Text>
-            </View>
-
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color={C.ink} />
-            </TouchableOpacity>
+    <AppleBottomSheet visible={visible} onClose={onClose} height={isFocused || search.length > 0 ? "90%" : "78%"}>
+      <View style={styles.sheetInner}>
+        {/* Header Row */}
+        <View style={styles.header}>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.title}>Select Location</Text>
+            <Text style={styles.subtitle}>Discover top salons near your city</Text>
           </View>
 
-          {/* GPS Auto Detect Dark Card */}
-          <TouchableOpacity
-            style={styles.gpsBtn}
-            onPress={handleGpsClick}
-            disabled={isDetecting}
-            activeOpacity={0.85}
-          >
-            <View style={styles.gpsIconBox}>
-              {isDetecting ? (
-                <ActivityIndicator size="small" color={C.bg} />
-              ) : (
-                <Ionicons name="navigate" size={18} color={C.bg} />
-              )}
-            </View>
-            <View style={styles.gpsTextInfo}>
-              <Text style={styles.gpsTitle}>Use Current GPS Location</Text>
-              <Text style={styles.gpsSub} numberOfLines={1}>
-                {detectStatus || (detectedGps ? detectedGps.label : isDetecting ? "Detecting location..." : "Auto-detect nearest area")}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
-          </TouchableOpacity>
+          <AppleTouchable style={styles.closeBtn} onPress={onClose}>
+            <Ionicons name="close" size={20} color={C.ink} />
+          </AppleTouchable>
+        </View>
+
+        {/* GPS Auto Detect Dark Card */}
+        <AppleTouchable
+          style={styles.gpsBtn}
+          onPress={handleGpsClick}
+          disabled={isDetecting}
+          scaleTo={0.97}
+          hapticType="medium"
+        >
+          <View style={styles.gpsIconBox}>
+            {isDetecting ? (
+              <ActivityIndicator size="small" color={C.bg} />
+            ) : (
+              <Ionicons name="navigate" size={18} color={C.bg} />
+            )}
+          </View>
+          <View style={styles.gpsTextInfo}>
+            <Text style={styles.gpsTitle}>Use Current GPS Location</Text>
+            <Text style={styles.gpsSub} numberOfLines={1}>
+              {detectStatus || (detectedGps ? detectedGps.label : isDetecting ? "Detecting location..." : "Auto-detect nearest area")}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.4)" />
+        </AppleTouchable>
 
           {/* Search Input Box */}
           <View style={styles.searchBox}>
@@ -446,16 +432,17 @@ export default function LocationPickerModal({
                 })}
           </ScrollView>
         </View>
-      </View>
-    </Modal>
+    </AppleBottomSheet>
   );
 }
 
 function getStyles() {
   return StyleSheet.create({
-  modalRoot: {
+  sheetInner: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
     flex: 1,
-    justifyContent: "flex-end",
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

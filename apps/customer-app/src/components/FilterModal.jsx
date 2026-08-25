@@ -43,6 +43,9 @@ const SERVICE_OPTIONS = [
   { id: "makeup", label: "Bridal & Makeup", icon: "rose-outline" },
 ];
 
+import AppleBottomSheet from "./AppleBottomSheet";
+import AppleTouchable from "./AppleTouchable";
+
 export default function FilterModal({
   visible,
   filters = {},
@@ -93,46 +96,33 @@ export default function FilterModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetContainer}>
-              {/* Top Grabber Indicator */}
-              <View style={styles.grabberRow}>
-                <View style={styles.grabber} />
-              </View>
+    <AppleBottomSheet visible={visible} onClose={onClose} height="82%">
+      <View style={styles.sheetInner}>
+        {/* Sheet Header */}
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.eyebrow}>FILTER & REFINE</Text>
+            <Text style={styles.title}>Refine Search</Text>
+          </View>
 
-              {/* Sheet Header */}
-              <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.eyebrow}>FILTER & REFINE</Text>
-                  <Text style={styles.title}>Refine Search</Text>
-                </View>
+          {activeCount > 0 && (
+            <AppleTouchable
+              style={styles.resetBtn}
+              onPress={handleReset}
+              scaleTo={0.92}
+            >
+              <Text style={styles.resetBtnText}>Reset All</Text>
+            </AppleTouchable>
+          )}
 
-                {activeCount > 0 && (
-                  <TouchableOpacity
-                    style={styles.resetBtn}
-                    onPress={handleReset}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.resetBtnText}>Reset All</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={styles.closeBtn}
-                  onPress={onClose}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="close" size={20} color={C.ink} />
-                </TouchableOpacity>
-              </View>
+          <AppleTouchable
+            style={styles.closeBtn}
+            onPress={onClose}
+            scaleTo={0.9}
+          >
+            <Ionicons name="close" size={20} color={C.ink} />
+          </AppleTouchable>
+        </View>
 
               {/* Filter Body Options */}
               <ScrollView
@@ -269,31 +259,29 @@ export default function FilterModal({
 
               {/* Bottom Apply CTA Button */}
               <View style={styles.footer}>
-                <TouchableOpacity
+                <AppleTouchable
                   style={styles.applyBtn}
                   onPress={handleApply}
-                  activeOpacity={0.85}
+                  scaleTo={0.97}
+                  hapticType="medium"
                 >
                   <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                   <Text style={styles.applyBtnText}>
                     Apply Filters {activeCount > 0 ? `(${activeCount})` : ""}
                   </Text>
-                </TouchableOpacity>
+                </AppleTouchable>
               </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+      </View>
+    </AppleBottomSheet>
   );
 }
 
 function getStyles(theme, isDark) {
   return StyleSheet.create({
-    overlay: {
+    sheetInner: {
       flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.55)",
-      justifyContent: "flex-end",
+      paddingHorizontal: 20,
+      paddingTop: 12,
     },
     sheetContainer: {
       backgroundColor: C.bg,

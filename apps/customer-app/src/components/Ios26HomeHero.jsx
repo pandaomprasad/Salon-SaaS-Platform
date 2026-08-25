@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FF } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
-import { customerService } from "../services/customerService";
+import AppleTouchable from "./AppleTouchable";
 
 export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, onFilterPress, userName, selectedCity, onSearchSubmit }) {
   const { isDark, toggleTheme, toggleAnim } = useTheme();
@@ -54,18 +54,19 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
     <View style={styles.hero}>
       {/* Top bar: Location selector & actions */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.locationChip} onPress={onLocationClick} activeOpacity={0.7}>
+        <AppleTouchable style={styles.locationChip} onPress={onLocationClick} scaleTo={0.96}>
           <Ionicons name="location-outline" size={14} color={C.main} />
           <Text style={styles.locationCity} numberOfLines={1}>{selectedCity || "Brahmapur"}</Text>
           <Ionicons name="chevron-down" size={12} color={C.muted} />
-        </TouchableOpacity>
+        </AppleTouchable>
 
         <View style={styles.topBarActions}>
           {/* Dark / light toggle */}
-          <TouchableOpacity
+          <AppleTouchable
             style={styles.themeBtn}
             onPress={toggleTheme}
-            activeOpacity={0.7}
+            scaleTo={0.92}
+            hapticType="medium"
             accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
             accessibilityRole="button"
           >
@@ -75,12 +76,12 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
             <Animated.View style={{ opacity: moonOpacity }}>
               <Ionicons name="moon-outline" size={17} color={C.main} />
             </Animated.View>
-          </TouchableOpacity>
+          </AppleTouchable>
 
-          <TouchableOpacity style={styles.notifBtn} onPress={onNotificationClick} activeOpacity={0.7}>
+          <AppleTouchable style={styles.notifBtn} onPress={onNotificationClick} scaleTo={0.92} hapticType="light">
             <Ionicons name="notifications-outline" size={18} color={C.ink} />
             {hasUnread && <View style={styles.notifBadgeDot} />}
-          </TouchableOpacity>
+          </AppleTouchable>
         </View>
       </View>
 

@@ -6,6 +6,7 @@ import { C, S, FS, FW, R, TYPO, SHADOWS, FONT_FAMILY } from "../theme";
 import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
 import BouncyButton from "./BouncyButton";
+import AppleTouchable from "./AppleTouchable";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -68,13 +69,13 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0 }) {
         <Image source={{ uri: coverImage }} style={styles.image} resizeMode="cover" />
 
         {/* Favorite Heart Button */}
-        <TouchableOpacity style={styles.favBtn} onPress={handleFavPress} activeOpacity={0.8}>
+        <AppleTouchable style={styles.favBtn} onPress={handleFavPress} scaleTo={0.88} hapticType="medium">
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={16}
             color={isFav ? C.herat : C.ink}
           />
-        </TouchableOpacity>
+        </AppleTouchable>
 
         {/* Top Rated Badge Pill — Only shown for ratings >= 4.5 */}
         {isTopRated ? (
