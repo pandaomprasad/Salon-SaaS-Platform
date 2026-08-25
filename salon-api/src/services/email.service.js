@@ -637,17 +637,23 @@ const sendEmailVerificationLink = async ({ to, userName, token }) => {
 };
 
 /**
- * Send Welcome Email for Google & Apple Sign-In
+ * Send Welcome Email for Google Sign-In & Email Verification completion
  */
 const sendWelcomeOAuthEmail = async ({ to, userName, provider = "Google" }) => {
   if (!to) return;
 
+  const isGoogle = provider.toLowerCase() === "google";
   const subject = `Welcome to ST CUT, ${userName || "Valued Member"}! 🎉`;
+  const badgeText = isGoogle ? "✓ VERIFIED WITH GOOGLE" : "✓ ACCOUNT ACTIVATED";
+  const bodyText = isGoogle
+    ? "Your account has been successfully signed up using <strong>Google Sign-In</strong>."
+    : "Your email address has been successfully verified and your ST CUT account is now fully active!";
+
   const html = wrapTemplate("Welcome to ST CUT", `
-    <div class="badge badge-confirmed">✓ VERIFIED WITH ${provider.toUpperCase()}</div>
+    <div class="badge badge-confirmed">${badgeText}</div>
     <h2 style="margin-top:0; color:#ffffff;">Welcome to ST CUT, ${userName || "Valued Member"}!</h2>
     <p style="color:#cbd5e1; font-size:14.5px; line-height:1.6;">
-      Your account has been successfully signed up using <strong>${provider} Sign-In</strong>.
+      ${bodyText}
     </p>
 
     <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border: 1px solid #6366f1; border-radius: 16px; padding: 20px; text-align: center; margin: 24px 0; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);">
@@ -656,19 +662,19 @@ const sendWelcomeOAuthEmail = async ({ to, userName, provider = "Google" }) => {
     </div>
 
     <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6;">
-      Since your account is verified through ${provider}, your email address is automatically verified and you have full access to instant appointment bookings.
+      You can now browse top-rated salons, view specialist schedules, and book instant appointments anytime.
     </p>
   `);
 
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log(`✉️ [OAUTH WELCOME EMAIL DISPATCH] To: ${to} (${provider})`);
+  console.log(`✉️ [WELCOME EMAIL DISPATCH] To: ${to} (Provider: ${provider})`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   await dispatchEmail({
     from: EMAIL_FROM,
     to,
     subject,
-    text: `Welcome to ST CUT, ${userName || "Valued Member"}! Your account is active and verified via ${provider}.`,
+    text: `Welcome to ST CUT, ${userName || "Valued Member"}! Your account is active.`,
     html,
   });
 };

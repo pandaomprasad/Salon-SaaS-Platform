@@ -548,6 +548,13 @@ const googleLogin = async (req, res, next) => {
       if (picture && !user.avatar) user.avatar = picture;
     }
 
+    // Always send Welcome Email on Google Sign-In/Register
+    sendWelcomeOAuthEmail({
+      to: user.email,
+      userName: user.name,
+      provider: "Google",
+    }).catch((err) => console.error("Error sending Google welcome email:", err));
+
     const payload = {
       _id: user._id,
       salonId: user.salonId,
@@ -866,6 +873,13 @@ const verifyEmail = async (req, res, next) => {
     user.isEmailVerified = true;
     await user.save();
 
+    // Send Welcome Email upon successful email verification
+    sendWelcomeOAuthEmail({
+      to: user.email,
+      userName: user.name,
+      provider: "Email",
+    }).catch((err) => console.error("Error sending post-verification welcome email:", err));
+
     res.status(200).json({
       success: true,
       message: "Email verified successfully.",
@@ -892,8 +906,18 @@ const verifyEmailLanding = async (req, res) => {
       const payload = jwt.verify(token, verificationSecret);
       const user = await User.findById(payload.userId);
       if (user && user.email.toLowerCase() === payload.email.toLowerCase()) {
+        const wasVerified = user.isEmailVerified;
         user.isEmailVerified = true;
         await user.save();
+
+        if (!wasVerified) {
+          sendWelcomeOAuthEmail({
+            to: user.email,
+            userName: user.name,
+            provider: "Email",
+          }).catch((err) => console.error("Error sending post-verification welcome email:", err));
+        }
+
         success = true;
         title = "Email Confirmed!";
         message = "Your ST CUT account is active. Tap the button below to return to the app.";
