@@ -2,10 +2,10 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-// Dynamically determine the host machine IP address when running via Expo Go / Metro
+// Dynamically determine API base URL
 const getBaseUrl = () => {
-  // 1. In local dev mode (__DEV__), dynamically extract Expo host machine IP
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
+  // If explicitly requested to use local dev server
+  if (process.env.EXPO_PUBLIC_USE_LOCAL_API === "true" && typeof __DEV__ !== "undefined" && __DEV__) {
     try {
       const hostUri =
         Constants.expoConfig?.hostUri ||
@@ -18,27 +18,15 @@ const getBaseUrl = () => {
           return `http://${ip}:6969/api/v1`;
         }
       }
-    } catch (e) {
-      console.log("Could not extract hostUri from Constants", e);
-    }
+    } catch (e) {}
 
     if (process.env.EXPO_PUBLIC_DEV_API_URL) {
       return process.env.EXPO_PUBLIC_DEV_API_URL;
     }
-
-    if (Platform.OS === "android") {
-      return "http://10.0.2.2:6969/api/v1";
-    }
-
-    return "http://localhost:6969/api/v1";
   }
 
-  // 2. Production API URL
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-
-  return "https://optimistic-ambition-production-32e7.up.railway.app/api/v1";
+  // Default: Live Railway API Backend URL
+  return process.env.EXPO_PUBLIC_API_URL || "https://optimistic-ambition-production-32e7.up.railway.app/api/v1";
 };
 
 export const API_BASE_URL = getBaseUrl();
