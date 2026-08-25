@@ -19,6 +19,7 @@ import SalonCard from "../components/SalonCard";
 import LocationPickerModal from "../components/LocationPickerModal";
 import InteractiveMapModal from "../components/InteractiveMapModal";
 import AddReviewModal from "../components/AddReviewModal";
+import AppleTouchable from "../components/AppleTouchable";
 import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { useAuth } from "../context/AuthContext";
@@ -285,10 +286,10 @@ function HomeScreen({ navigate, onScroll }) {
           </View>
 
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => setMapModalVisible(true)} style={styles.buttonSecondary}>
+            <AppleTouchable onPress={() => setMapModalVisible(true)} style={styles.buttonSecondary} scaleTo={0.94}>
               <Ionicons name="map-outline" size={13} color={C.ink} />
               <Text style={styles.buttonSecondaryText}>Map</Text>
-            </TouchableOpacity>
+            </AppleTouchable>
           </View>
         </View>
 
@@ -329,16 +330,17 @@ function HomeScreen({ navigate, onScroll }) {
             <SalonVerticalList salons={paginatedSalons} onSalonPress={handleSalonPress} styles={styles} />
 
             {topRatedSalons.length > paginatedSalons.length ? (
-              <TouchableOpacity
+              <AppleTouchable
                 style={styles.loadMoreBtn}
                 onPress={() => setPage((p) => p + 1)}
-                activeOpacity={0.85}
+                scaleTo={0.96}
+                hapticType="medium"
               >
                 <Text style={styles.loadMoreText}>
                   Load More Salons ({topRatedSalons.length - paginatedSalons.length} remaining)
                 </Text>
                 <Ionicons name="chevron-down" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
+              </AppleTouchable>
             ) : topRatedSalons.length > PAGE_SIZE ? (
               <View style={styles.endOfListBlock}>
                 <Text style={styles.endOfListText}>Showing all {topRatedSalons.length} top-rated salons</Text>
