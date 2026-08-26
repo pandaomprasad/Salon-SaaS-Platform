@@ -12,7 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { C, S } from "../theme";
 import { useTheme } from "../context/ThemeContext";
-import AppleTouchable from "./AppleTouchable";
+import SpringTouchable from "./SpringTouchable";
 
 export default function ErrorCardModal({
   visible,
@@ -59,14 +59,14 @@ export default function ErrorCardModal({
               <Text style={styles.message}>{message}</Text>
 
               {/* Action Button */}
-              <AppleTouchable
+              <SpringTouchable
                 style={styles.actionBtn}
                 onPress={onClose}
                 scaleTo={0.96}
                 hapticType="light"
               >
                 <Text style={styles.actionBtnText}>{buttonText}</Text>
-              </AppleTouchable>
+              </SpringTouchable>
             </View>
           </TouchableWithoutFeedback>
         </View>

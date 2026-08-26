@@ -22,7 +22,7 @@ import GoogleSignInModal from "../components/GoogleSignInModal";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
 import AppleSignInButton from "../components/AppleSignInButton";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import AppleTouchable from "../components/AppleTouchable";
+import SpringTouchable from "../components/SpringTouchable";
 
 export default function LoginScreen({ navigate, goBack, routeParams }) {
   const { theme, isDark } = useTheme();
@@ -82,9 +82,9 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
         {/* Top Back Navigation Arrow */}
         <View style={styles.topNav}>
           {goBack ? (
-            <AppleTouchable style={styles.backBtn} onPress={goBack} scaleTo={0.9}>
+            <SpringTouchable style={styles.backBtn} onPress={goBack} scaleTo={0.9}>
               <Ionicons name="arrow-back" size={22} color={styles.titleText.color} />
-            </AppleTouchable>
+            </SpringTouchable>
           ) : <View style={{ width: 36 }} />}
         </View>
 
@@ -154,7 +154,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
           </TouchableOpacity>
 
           {/* Primary Action Button: Sign in */}
-          <AppleTouchable
+          <SpringTouchable
             style={styles.signInBtn}
             onPress={handleLogin}
             disabled={loading}
@@ -166,7 +166,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             ) : (
               <Text style={styles.signInBtnText}>Sign in</Text>
             )}
-          </AppleTouchable>
+          </SpringTouchable>
 
           {/* Or Continue with Divider */}
           <View style={styles.dividerRow}>
@@ -180,19 +180,17 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             disabled={loading}
           />
 
-          {/* Optional Apple Sign-In on iOS / Apple devices */}
-          {Platform.OS === "ios" && (
-            <AppleSignInButton
-              onSuccess={() => {
-                if (routeParams?.redirectTo && navigate) {
-                  navigate(routeParams.redirectTo, routeParams.redirectData);
-                } else if (navigate) {
-                  navigate("Profile");
-                }
-              }}
-              onError={(err) => setError(err)}
-            />
-          )}
+          {/* Full-width Continue with Apple Button */}
+          <AppleSignInButton
+            onSuccess={() => {
+              if (routeParams?.redirectTo && navigate) {
+                navigate(routeParams.redirectTo, routeParams.redirectData);
+              } else if (navigate) {
+                navigate("Profile");
+              }
+            }}
+            onError={(err) => setError(err)}
+          />
 
           {/* Footer Links: Forgot Password & Sign Up */}
           <View style={styles.footerBlock}>

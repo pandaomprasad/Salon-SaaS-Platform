@@ -21,10 +21,8 @@ import VerifiedBadge from "../components/VerifiedBadge";
 import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import { BlurView } from 'expo-blur';
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import CategoryAccordionList from "../components/CategoryAccordionList";
+import AddReviewModal from "../components/AddReviewModal";
 import ServiceCard from "../components/ServiceCard";
 import ErrorCardModal from "../components/ErrorCardModal";
 import ReviewsSection from "../components/ReviewsSection";
@@ -97,6 +95,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const { user } = useAuth();
   const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   const totalPrice = useMemo(() => {
     return selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -430,34 +429,6 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
         <View style={styles.hairline} />
 
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>Amenities</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.amenitiesScroll}>
-            {AMENITIES.slice(0, 4).map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.amenityItem}
-                onPress={() => setShowAmenitiesModal(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.amenityIconCircle}>
-                  <Ionicons name={item.icon} size={17} color={C.ink} />
-                </View>
-                <Text style={styles.amenityLabel} numberOfLines={1}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.amenityItem}
-              onPress={() => setShowAmenitiesModal(true)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.amenityIconCircle, styles.moreAmenityCircle]}>
-                <Text style={styles.moreAmenityText}>+{AMENITIES.length - 4}</Text>
-              </View>
-              <Text style={styles.amenityLabel}>More</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
 
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionLabel}>About</Text>
@@ -466,13 +437,13 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               "This is a perfect place to experience luxury salon services & spa treatments. Comes with private rooms, master stylists, and premium organic products."}
           </Text>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
+          {/* <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
             {GALLERY_THUMBNAILS.map((imgUrl, i) => (
               <View key={i} style={styles.galleryThumbWrap}>
                 <Image source={{ uri: imgUrl }} style={styles.galleryThumb} resizeMode="cover" />
               </View>
             ))}
-          </ScrollView>
+          </ScrollView> */}
         </View>
 
         {/* Select Branch */}
@@ -504,42 +475,9 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           </View>
         ) : null}
 
-        {/* Services Menu */}
+        {/* Services Menu Accordion per reference design */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionLabel}>Services menu</Text>
-
-          {categories.length > 1 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.catTabRow}
-              contentContainerStyle={{ alignItems: "center" }}
-            >
-              {categories.map((cat) => {
-                const isSelected = selectedCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.catTabPill,
-                      isSelected ? { backgroundColor: theme.primary } : { backgroundColor: "transparent" },
-                    ]}
-                    onPress={() => setSelectedCategory(cat)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.catTabText,
-                        { color: isSelected ? "#FFFFFF" : theme.muted, fontWeight: isSelected ? "700" : "600" },
-                      ]}
-                    >
-                      {cat === "all" ? "All services" : cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          ) : null}
 
           {loading ? (
             <View style={{ gap: S.xs }}>
@@ -547,18 +485,44 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               <ServiceCardSkeleton />
               <ServiceCardSkeleton />
             </View>
-          ) : filteredServices.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No services listed in this category.</Text>
-            </View>
           ) : (
-            <ServiceList
-              services={filteredServices}
+            <CategoryAccordionList
+              services={services}
               selectedServices={selectedServices}
-              onSelect={handleSelectService}
+              onSelectService={handleSelectService}
             />
           )}
         </View>
+
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionLabel}>Amenities</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.amenitiesScroll}>
+            {AMENITIES.slice(0, 4).map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.amenityItem}
+                onPress={() => setShowAmenitiesModal(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.amenityIconCircle}>
+                  <Ionicons name={item.icon} size={17} color={C.ink} />
+                </View>
+                <Text style={styles.amenityLabel} numberOfLines={1}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.amenityItem}
+              onPress={() => setShowAmenitiesModal(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.amenityIconCircle, styles.moreAmenityCircle]}>
+                <Text style={styles.moreAmenityText}>+{AMENITIES.length - 4}</Text>
+              </View>
+              <Text style={styles.amenityLabel}>More</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
 
         {/* Reviews Section */}
         <View style={{ paddingHorizontal: S.md }}>
@@ -566,9 +530,26 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             reviews={reviewsList}
             overallRating={reviewAvg}
             totalReviews={reviewsList.length}
+            onOpenAddReview={() => setShowReviewModal(true)}
           />
         </View>
       </ScrollView>
+
+      <AddReviewModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={async ({ rating, comment, aspects }) => {
+          if (reviewsList.length > 0) {
+            const firstAppt = reviewsList[0];
+            const apptId = firstAppt._id || firstAppt.id;
+            try {
+              await appointmentService.rateAppointment(apptId, rating, comment);
+            } catch (e) {}
+          }
+          setShowReviewModal(false);
+        }}
+        salonName={salonData?.name}
+      />
 
       <Modal
         visible={showAmenitiesModal}

@@ -1,12 +1,15 @@
 // src/components/AppleSignInButton.jsx
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Platform, TouchableOpacity, Text, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Platform, Text, ActivityIndicator } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { Ionicons } from "@expo/vector-icons";
-import { C, FS, FW, R } from "../theme";
+import { C, R } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import SpringTouchable from "./SpringTouchable";
 
 export default function AppleSignInButton({ onSuccess, onError }) {
+  const { isDark } = useTheme();
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
   const { loginWithApple } = useAuth();
@@ -17,11 +20,12 @@ export default function AppleSignInButton({ onSuccess, onError }) {
       .catch(() => setIsAvailable(false));
   }, []);
 
-  if (!isAvailable && Platform.OS !== "ios") {
-    return null;
-  }
-
   const handleAppleSignIn = async () => {
+    if (Platform.OS !== "ios" || !isAvailable) {
+      onError?.("Apple Sign-In is only available on iOS devices.");
+      return;
+    }
+
     try {
       setLoading(true);
       const credential = await AppleAuthentication.signInAsync({
@@ -59,32 +63,62 @@ export default function AppleSignInButton({ onSuccess, onError }) {
   };
 
   return (
-    <TouchableOpacity
-      style={styles.appleBtn}
+    <SpringTouchable
+      style={[
+        styles.appleBtn,
+        isDark ? styles.appleBtnDark : styles.appleBtnLight,
+      ]}
       onPress={handleAppleSignIn}
       disabled={loading}
-      activeOpacity={0.85}
+      scaleTo={0.96}
+      hapticType="medium"
     >
       {loading ? (
-        <ActivityIndicator color={C.bg} />
+        <ActivityIndicator color={isDark ? "#121212" : "#FFFFFF"} size="small" />
       ) : (
         <View style={styles.appleBtnContent}>
-          <Ionicons name="logo-apple" size={18} color={C.bg} style={{ marginRight: 10 }} />
-          <Text style={styles.appleBtnText}>Continue with Apple</Text>
+          <Ionicons
+            name="logo-apple"
+            size={22}
+            color={isDark ? "#121212" : "#FFFFFF"}
+            style={{ marginRight: 10 }}
+          />
+          <Text style={[styles.appleBtnText, { color: isDark ? "#121212" : "#FFFFFF" }]}>
+            Continue with Apple
+          </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </SpringTouchable>
   );
 }
 
 const styles = StyleSheet.create({
   appleBtn: {
-    backgroundColor: C.ink,
+    height: 54,
     borderRadius: R.md,
-    height: 46,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+  },
+  appleBtnLight: {
+    backgroundColor: "#121212",
+    borderColor: "#121212",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  appleBtnDark: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   appleBtnContent: {
     flexDirection: "row",
@@ -92,8 +126,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   appleBtnText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.bg,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
 });

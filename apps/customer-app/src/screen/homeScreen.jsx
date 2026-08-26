@@ -16,6 +16,9 @@ import Ios26HomeHero from "../components/Ios26HomeHero";
 import TopPromoBanner from "../components/TopPromoBanner";
 import QuickRebookWidget from "../components/QuickRebookWidget";
 import SalonCard from "../components/SalonCard";
+import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
+import PermissionPromptModal from "../components/PermissionPromptModal";
 import LocationPickerModal from "../components/LocationPickerModal";
 import InteractiveMapModal from "../components/InteractiveMapModal";
 import AddReviewModal from "../components/AddReviewModal";
@@ -74,6 +77,8 @@ function HomeScreen({ navigate, onScroll }) {
   const [page, setPage] = useState(1);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [permissionModalType, setPermissionModalType] = useState(null); // "location" | "notification" | null
+  const [permissionLoading, setPermissionLoading] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState(null);
   const [reviewModalAppt, setReviewModalAppt] = useState(null);
   const promptedReviewIdsRef = React.useRef(new Set());
@@ -105,32 +110,102 @@ function HomeScreen({ navigate, onScroll }) {
 
   useEffect(() => {
     let active = true;
-    const initLocation = async () => {
+    const initLocationAndPermissions = async () => {
       try {
         const savedCity = await storage.getItem("@user_selected_city");
         if (savedCity && savedCity.trim()) {
           if (active) setSelectedCity(savedCity);
-          return;
-        }
+        } else {
+          // Check Location permission / GPS status
+          try {
+            const locPerm = await Location.getForegroundPermissionsAsync();
+            if (!locPerm.granted && locPerm.canAskAgain) {
+              if (active) setPermissionModalType("location");
+              return;
+            }
+          } catch (e) {}
 
-        // Automatically fetch customer's real GPS / IP location on app launch
-        console.log("📍 [HOME] Auto-detecting customer location on app open...");
-        const geoResult = await getCurrentLocation();
-        if (geoResult && geoResult.city) {
-          const detectedCity = cleanCityName(geoResult.city);
-          if (detectedCity && active) {
-            console.log(`📍 [HOME] Location auto-detected: "${detectedCity}"`);
-            setSelectedCity(detectedCity);
-            await storage.setItem("@user_selected_city", detectedCity);
+          // Automatically fetch customer's real GPS / IP location on app launch
+          console.log("📍 [HOME] Auto-detecting customer location on app open...");
+          const geoResult = await getCurrentLocation();
+          if (geoResult && geoResult.city) {
+            const detectedCity = cleanCityName(geoResult.city);
+            if (detectedCity && active) {
+              console.log(`📍 [HOME] Location auto-detected: "${detectedCity}"`);
+              setSelectedCity(detectedCity);
+              await storage.setItem("@user_selected_city", detectedCity);
+            }
           }
         }
+
+        // Next check Notification permission
+        try {
+          const notifPerm = await Notifications.getPermissionsAsync();
+          if (!notifPerm.granted && notifPerm.canAskAgain) {
+            if (active) setPermissionModalType("notification");
+          }
+        } catch (e) {}
       } catch (err) {
         console.warn("📍 [HOME] Auto-location detection fallback:", err.message);
       }
     };
-    initLocation();
+    initLocationAndPermissions();
     return () => { active = false; };
   }, []);
+
+  const handleEnablePermission = async () => {
+    setPermissionLoading(true);
+    if (permissionModalType === "location") {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const geoResult = await getCurrentLocation();
+          if (geoResult && geoResult.city) {
+            const detectedCity = cleanCityName(geoResult.city);
+            setSelectedCity(detectedCity);
+            await storage.setItem("@user_selected_city", detectedCity);
+          }
+        }
+      } catch (e) {
+        console.warn("Location permission error:", e);
+      }
+
+      // Automatically move to Notification permission check if needed
+      try {
+        const notifPerm = await Notifications.getPermissionsAsync();
+        if (!notifPerm.granted && notifPerm.canAskAgain) {
+          setPermissionLoading(false);
+          setPermissionModalType("notification");
+          return;
+        }
+      } catch (e) {}
+
+      setPermissionModalType(null);
+    } else if (permissionModalType === "notification") {
+      try {
+        await Notifications.requestPermissionsAsync();
+      } catch (e) {
+        console.warn("Notification permission error:", e);
+      }
+      setPermissionModalType(null);
+    }
+    setPermissionLoading(false);
+  };
+
+  const handleSkipPermission = async () => {
+    if (permissionModalType === "location") {
+      try {
+        const notifPerm = await Notifications.getPermissionsAsync();
+        if (!notifPerm.granted && notifPerm.canAskAgain) {
+          setPermissionModalType("notification");
+          return;
+        }
+      } catch (e) {}
+      setPermissionModalType(null);
+    } else {
+      setPermissionModalType(null);
+    }
+  };
 
   const salonsRef = React.useRef(salons);
   salonsRef.current = salons;
@@ -353,6 +428,13 @@ function HomeScreen({ navigate, onScroll }) {
         <View style={{ height: S.section }} />
       </ScrollView>
 
+      <PermissionPromptModal
+        visible={!!permissionModalType}
+        type={permissionModalType || "location"}
+        onEnable={handleEnablePermission}
+        onSkip={handleSkipPermission}
+        loading={permissionLoading}
+      />
       <LocationPickerModal visible={locationModalVisible} selectedCity={selectedCity} onSelectCity={handleCitySelect} onClose={handleLocationClose} />
       <InteractiveMapModal visible={mapModalVisible} onClose={() => setMapModalVisible(false)} salons={salons} onSelectSalon={handleSalonPress} />
       <AddReviewModal

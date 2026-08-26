@@ -19,7 +19,8 @@ import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
 import GoogleSignInModal from "../components/GoogleSignInModal";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import AppleTouchable from "../components/AppleTouchable";
+import AppleSignInButton from "../components/AppleSignInButton";
+import SpringTouchable from "../components/SpringTouchable";
 
 export default function RegisterScreen({ navigate, goBack, routeParams }) {
   const { theme, isDark } = useTheme();
@@ -75,9 +76,9 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
       {/* Top Back Navigation Arrow */}
       <View style={styles.topNav}>
         {goBack ? (
-          <AppleTouchable style={styles.backBtn} onPress={goBack} scaleTo={0.9}>
+          <SpringTouchable style={styles.backBtn} onPress={goBack} scaleTo={0.9}>
             <Ionicons name="arrow-back" size={22} color={styles.titleText.color} />
-          </AppleTouchable>
+          </SpringTouchable>
         ) : <View style={{ width: 36 }} />}
       </View>
 
@@ -160,7 +161,7 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
         </View>
 
         {/* Primary Action Button: Sign Up */}
-        <AppleTouchable
+        <SpringTouchable
           style={styles.signUpBtn}
           onPress={handleRegister}
           disabled={loading}
@@ -172,7 +173,7 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
           ) : (
             <Text style={styles.signUpBtnText}>Create Account</Text>
           )}
-        </AppleTouchable>
+        </SpringTouchable>
 
         {/* Divider */}
         <View style={styles.dividerRow}>
@@ -183,6 +184,18 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
         <GoogleSignInButton
           onPress={handleGoogleLogin}
           disabled={loading}
+        />
+
+        {/* Full-width Continue with Apple Button */}
+        <AppleSignInButton
+          onSuccess={() => {
+            if (routeParams?.redirectTo && navigate) {
+              navigate(routeParams.redirectTo, routeParams.redirectData);
+            } else if (navigate) {
+              navigate("Profile");
+            }
+          }}
+          onError={(err) => setError(err)}
         />
 
         {/* Footer Link */}

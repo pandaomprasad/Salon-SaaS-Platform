@@ -3,13 +3,14 @@ import React from "react";
 import { View, StyleSheet, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import AppleTouchable from "./AppleTouchable";
+import SpringTouchable from "./SpringTouchable";
+import { R } from "../theme";
 
 export default function GoogleSignInButton({ onPress, loading = false, disabled = false }) {
   const { isDark } = useTheme();
 
   return (
-    <AppleTouchable
+    <SpringTouchable
       style={[
         styles.googleBtn,
         isDark ? styles.googleBtnDark : styles.googleBtnLight,
@@ -30,17 +31,17 @@ export default function GoogleSignInButton({ onPress, loading = false, disabled 
           </Text>
         </View>
       )}
-    </AppleTouchable>
+    </SpringTouchable>
   );
 }
 
 const styles = StyleSheet.create({
   googleBtn: {
     height: 54,
-    borderRadius: 27,
+    borderRadius: R.md,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: 6,
     paddingHorizontal: 20,
     borderWidth: 1.5,
   },
