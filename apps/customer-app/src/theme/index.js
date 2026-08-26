@@ -12,6 +12,12 @@ import { Platform } from "react-native";
  */
 
 export const C = {
+  // Brand Purple & Indigo Accents (Global Reference Color)
+  purple: "#6C5CE7",
+  purpleDark: "#5A4AD1",
+  purpleLight: "#8075E5",
+  purpleTint: "rgba(108, 92, 231, 0.12)",
+
   // Primary Gold & Amber Accents
   main: "#C48B36",
   gold: "#C48B36",

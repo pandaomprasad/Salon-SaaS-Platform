@@ -253,7 +253,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
 }
 
 function getStyles(theme, isDark) {
-  const accentColor = "#6C5CE7"; // Elegant Purple / Indigo Accent from design
+  const accentColor = C.purple || "#6C5CE7";
 
   return StyleSheet.create({
     container: {

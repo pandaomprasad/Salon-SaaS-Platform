@@ -9,37 +9,49 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, FS, FW, R, S } from "../theme";
+import { C } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AppleTouchable from "./AppleTouchable";
 
 export default function ForgotPasswordModal({ visible, onClose }) {
+  const { theme, isDark } = useTheme();
+  const styles = getStyles(theme, isDark);
   const { forgotPassword, resetPassword } = useAuth();
-  const [step, setStep] = useState(1); // 1: Send OTP, 2: Reset Password
+
+  // Flow Sub-Steps:
+  // 1: Forgot Password Form ("Send link")
+  // 2: "Code has been sent" Popup Modal
+  // 3: Reset Password Form ("Change password")
+  // 4: "Password Reset Successful" Popup Modal
+  const [subStep, setSubStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
-  const handleSendOtp = async () => {
+  const handleSendLink = async () => {
     if (!email) {
       setError("Please enter your registered email address.");
       return;
     }
     setError("");
-    setSuccessMsg("");
     setLoading(true);
 
     const res = await forgotPassword(email.trim().toLowerCase());
     setLoading(false);
 
     if (res.success) {
-      setSuccessMsg("Verification code sent! Please check your email inbox.");
-      setStep(2);
+      // Move to "Code has been sent" popup screen
+      setSubStep(2);
     } else {
       setError(res.error || "Failed to send verification code.");
     }
@@ -47,7 +59,11 @@ export default function ForgotPasswordModal({ visible, onClose }) {
 
   const handleResetPassword = async () => {
     if (!otp || !newPassword) {
-      setError("Please enter both the 6-digit code and your new password.");
+      setError("Please enter both the verification code and your new password.");
+      return;
+    }
+    if (confirmPassword && newPassword !== confirmPassword) {
+      setError("Passwords do not match. Please verify.");
       return;
     }
     if (newPassword.length < 8) {
@@ -55,77 +71,70 @@ export default function ForgotPasswordModal({ visible, onClose }) {
       return;
     }
     setError("");
-    setSuccessMsg("");
     setLoading(true);
 
     const res = await resetPassword(email.trim().toLowerCase(), otp.trim(), newPassword);
     setLoading(false);
 
     if (res.success) {
-      setSuccessMsg("Password reset successfully! You can now sign in.");
-      setTimeout(() => {
-        handleClose();
-      }, 1800);
+      // Move to "Password Reset Successful" popup screen
+      setSubStep(4);
     } else {
       setError(res.error || "Failed to reset password.");
     }
   };
 
   const handleClose = () => {
-    setStep(1);
+    setSubStep(1);
     setEmail("");
     setOtp("");
     setNewPassword("");
+    setConfirmPassword("");
     setError("");
-    setSuccessMsg("");
     onClose?.();
   };
 
   const insets = useSafeAreaInsets();
-  const bottomPadding = Math.max(insets.bottom, S.lg);
+  const bottomPadding = Math.max(insets.bottom, 24);
 
   if (!visible) return null;
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.backdrop}>
-        <View style={[styles.card, { paddingBottom: bottomPadding }]}>
-          <View style={styles.topAccentBar} />
-
-          <View style={styles.header}>
-            <View style={styles.brand}>
-              <View style={styles.logo}>
-                <Ionicons name="key-outline" size={20} color={C.bg} />
-              </View>
-              <View style={styles.headerText}>
-                <Text style={styles.title}>
-                  {step === 1 ? "Forgot Password" : "Reset Password"}
-                </Text>
-                <Text style={styles.subtitle}>
-                  {step === 1
-                    ? "Enter your email to receive a 6-digit code"
-                    : "Enter your 6-digit code & new password"}
-                </Text>
-              </View>
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.sheetCard}>
+          {/* Top Bar with Back Arrow / Close */}
+          {subStep === 1 || subStep === 3 ? (
+            <View style={styles.topNav}>
+              <AppleTouchable
+                style={styles.backBtn}
+                onPress={subStep === 3 ? () => setSubStep(1) : handleClose}
+                scaleTo={0.9}
+              >
+                <Ionicons name="arrow-back" size={20} color={styles.titleText.color} />
+              </AppleTouchable>
             </View>
+          ) : null}
 
-            <TouchableOpacity onPress={handleClose} style={styles.closeBtn} disabled={loading}>
-              <Ionicons name="close" size={20} color={C.ink} />
-            </TouchableOpacity>
-          </View>
+          {/* Sub-Step 1: Forgot Password Input Form */}
+          {subStep === 1 && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.titleText}>Forgot password</Text>
+              <Text style={styles.subtitleText}>
+                Please enter your email address to reset your password instruction
+              </Text>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {successMsg ? <Text style={styles.success}>{successMsg}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {step === 1 ? (
-            <View style={styles.form}>
-              <Text style={styles.label}>REGISTERED EMAIL</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={16} color={C.muted} style={styles.inputIcon} />
+              <View style={styles.inputPill}>
+                <Ionicons name="mail-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="customer@example.com"
-                  placeholderTextColor={C.dustTaupe}
+                  placeholder="Email"
+                  placeholderTextColor={styles.placeholderColor.color}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={email}
@@ -133,27 +142,62 @@ export default function ForgotPasswordModal({ visible, onClose }) {
                 />
               </View>
 
-              <TouchableOpacity
-                style={[styles.submitBtn, loading && styles.disabled]}
-                onPress={handleSendOtp}
+              <AppleTouchable
+                style={styles.purpleBtn}
+                onPress={handleSendLink}
                 disabled={loading}
+                scaleTo={0.96}
+                hapticType="medium"
               >
                 {loading ? (
-                  <ActivityIndicator color={C.bg} />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Send Verification Code</Text>
+                  <Text style={styles.purpleBtnText}>Send link</Text>
                 )}
-              </TouchableOpacity>
+              </AppleTouchable>
             </View>
-          ) : (
-            <View style={styles.form}>
-              <Text style={styles.label}>6-DIGIT VERIFICATION CODE</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={16} color={C.muted} style={styles.inputIcon} />
+          )}
+
+          {/* Sub-Step 2: Code Has Been Sent Popup Modal */}
+          {subStep === 2 && (
+            <View style={styles.popupContainer}>
+              <View style={styles.iconCircleMail}>
+                <Ionicons name="mail-outline" size={42} color={isDark ? "#FFFFFF" : "#1A1A24"} />
+              </View>
+
+              <Text style={styles.popupTitle}>Code has been sent</Text>
+              <Text style={styles.popupSubtitle}>
+                You'll shortly receive an email with a code to setup a new password.
+              </Text>
+
+              <AppleTouchable
+                style={styles.purpleBtnDone}
+                onPress={() => setSubStep(3)}
+                scaleTo={0.96}
+                hapticType="medium"
+              >
+                <Text style={styles.purpleBtnText}>Done</Text>
+              </AppleTouchable>
+            </View>
+          )}
+
+          {/* Sub-Step 3: Reset Password Form */}
+          {subStep === 3 && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.titleText}>Reset Password</Text>
+              <Text style={styles.subtitleText}>
+                Please enter your 6-digit code and a new password
+              </Text>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+              {/* 6-Digit Verification Code */}
+              <View style={styles.inputPill}>
+                <Ionicons name="key-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="123456"
-                  placeholderTextColor={C.dustTaupe}
+                  placeholder="6-digit verification code"
+                  placeholderTextColor={styles.placeholderColor.color}
                   keyboardType="number-pad"
                   maxLength={6}
                   value={otp}
@@ -161,166 +205,246 @@ export default function ForgotPasswordModal({ visible, onClose }) {
                 />
               </View>
 
-              <Text style={styles.label}>NEW PASSWORD</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="key-outline" size={16} color={C.muted} style={styles.inputIcon} />
+              {/* New Password */}
+              <View style={styles.inputPill}>
+                <Ionicons name="lock-closed-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
                 <TextInput
-                  style={styles.input}
-                  placeholder="At least 8 characters"
-                  placeholderTextColor={C.dustTaupe}
-                  secureTextEntry
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Enter a new password"
+                  placeholderTextColor={styles.placeholderColor.color}
+                  secureTextEntry={!showPassword}
                   value={newPassword}
                   onChangeText={setNewPassword}
                 />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={styles.placeholderColor.color}
+                  />
+                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={[styles.submitBtn, loading && styles.disabled]}
+              {/* Confirm Password */}
+              <View style={styles.inputPill}>
+                <Ionicons name="lock-closed-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm your new password"
+                  placeholderTextColor={styles.placeholderColor.color}
+                  secureTextEntry={!showPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+              </View>
+
+              <AppleTouchable
+                style={styles.purpleBtn}
                 onPress={handleResetPassword}
                 disabled={loading}
+                scaleTo={0.96}
+                hapticType="medium"
               >
                 {loading ? (
-                  <ActivityIndicator color={C.bg} />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Confirm Reset Password</Text>
+                  <Text style={styles.purpleBtnText}>Change password</Text>
                 )}
-              </TouchableOpacity>
+              </AppleTouchable>
+            </View>
+          )}
 
-              <TouchableOpacity onPress={() => setStep(1)} style={styles.resendBtn}>
-                <Text style={styles.resendText}>Didn't receive a code? Try again</Text>
-              </TouchableOpacity>
+          {/* Sub-Step 4: Password Reset Successful Popup Modal */}
+          {subStep === 4 && (
+            <View style={styles.popupContainer}>
+              <View style={styles.iconCircleSuccess}>
+                <Ionicons name="checkmark" size={36} color="#22C55E" />
+              </View>
+
+              <Text style={styles.popupTitle}>Password Reset</Text>
+              <Text style={styles.popupSubtitle}>
+                Your password has been reset successfully
+              </Text>
+
+              <AppleTouchable
+                style={styles.purpleBtnDone}
+                onPress={handleClose}
+                scaleTo={0.96}
+                hapticType="success"
+              >
+                <Text style={styles.purpleBtnText}>Sign in</Text>
+              </AppleTouchable>
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justify: "flex-end",
-  },
-  card: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: R.xl,
-    borderTopRightRadius: R.xl,
-    padding: S.lg,
-    paddingBottom: Platform.OS === "ios" ? 40 : S.lg,
-    gap: S.md,
-  },
-  topAccentBar: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: C.main,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  brand: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: C.ink,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    fontSize: FS.titleSm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  subtitle: {
-    fontSize: FS.caption,
-    color: C.body,
-    marginTop: 1,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: C.bone,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  form: {
-    gap: 12,
-    marginTop: 4,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: FW.bold,
-    color: C.muted,
-    letterSpacing: 0.5,
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.lifted,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: R.md,
-    paddingHorizontal: 12,
-    height: 48,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: FS.bodySm,
-    color: C.ink,
-  },
-  submitBtn: {
-    backgroundColor: C.ink,
-    borderRadius: R.md,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  submitBtnText: {
-    color: C.bg,
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-  },
-  error: {
-    color: C.errorText,
-    backgroundColor: C.errorBg,
-    padding: 10,
-    borderRadius: R.md,
-    fontSize: FS.bodySm,
-  },
-  success: {
-    color: "#065F46",
-    backgroundColor: "#D1FAE5",
-    padding: 10,
-    borderRadius: R.md,
-    fontSize: FS.bodySm,
-  },
-  resendBtn: {
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  resendText: {
-    fontSize: 12,
-    color: C.main,
-    fontWeight: FW.medium,
-  },
-});
+function getStyles(theme, isDark) {
+  const accentColor = C.purple || "#6C5CE7";
+
+  return StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.65)",
+      justifyContent: "flex-end",
+    },
+    sheetCard: {
+      backgroundColor: isDark ? "#121214" : "#FFFFFF",
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      paddingBottom: Platform.OS === "ios" ? 44 : 28,
+      minHeight: 420,
+    },
+    topNav: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    backBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: isDark ? "#1C1C1E" : "#F0F1F5",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepContainer: {
+      paddingBottom: 10,
+    },
+    titleText: {
+      fontSize: 30,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      letterSpacing: -0.5,
+      marginBottom: 8,
+    },
+    subtitleText: {
+      fontSize: 15,
+      fontWeight: "400",
+      color: isDark ? "#94A3B8" : "#9498A4",
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    placeholderColor: {
+      color: isDark ? "#64748B" : "#B0B4C0",
+    },
+    errorText: {
+      color: "#EF4444",
+      backgroundColor: "rgba(239, 68, 68, 0.1)",
+      padding: 12,
+      borderRadius: 14,
+      fontSize: 14,
+      fontWeight: "500",
+      marginBottom: 16,
+    },
+    inputPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F5F8",
+      borderRadius: 20,
+      paddingHorizontal: 18,
+      height: 56,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+    },
+    inputIcon: {
+      marginRight: 14,
+    },
+    input: {
+      flex: 1,
+      height: "100%",
+      fontSize: 15,
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      fontWeight: "500",
+    },
+    eyeBtn: {
+      padding: 6,
+    },
+    purpleBtn: {
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: accentColor,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 8,
+      shadowColor: accentColor,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    purpleBtnText: {
+      color: "#FFFFFF",
+      fontSize: 17,
+      fontWeight: "700",
+      letterSpacing: -0.2,
+    },
+    // Popup Modal Screens (Image 1 Right & Image 2 Right)
+    popupContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 32,
+      paddingHorizontal: 12,
+    },
+    iconCircleMail: {
+      width: 72,
+      height: 72,
+      borderRadius: 24,
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F5F8",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+    },
+    iconCircleSuccess: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: "rgba(34, 197, 94, 0.12)",
+      borderWidth: 2,
+      borderColor: "#22C55E",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+    },
+    popupTitle: {
+      fontSize: 26,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      letterSpacing: -0.4,
+      marginBottom: 10,
+      textAlign: "center",
+    },
+    popupSubtitle: {
+      fontSize: 15,
+      fontWeight: "400",
+      color: isDark ? "#94A3B8" : "#9498A4",
+      lineHeight: 22,
+      textAlign: "center",
+      maxWidth: 280,
+      marginBottom: 32,
+    },
+    purpleBtnDone: {
+      width: 160,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: accentColor,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: accentColor,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+  });
+}
