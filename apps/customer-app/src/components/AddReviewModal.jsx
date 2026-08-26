@@ -1,7 +1,6 @@
 // src/components/AddReviewModal.jsx
 import React, { useState } from "react";
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -13,21 +12,30 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R, TYPO } from "../theme";
+import { C } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 
 import AppleBottomSheet from "./AppleBottomSheet";
-import AppleTouchable from "./AppleTouchable";
+import SpringTouchable from "./SpringTouchable";
 import { triggerHaptic } from "../theme/appleMotion";
 
 const REVIEW_TERMS = [
   { id: "service", label: "Service", icon: "cut-outline" },
   { id: "cleanliness", label: "Cleanliness", icon: "sparkles-outline" },
-  { id: "ambience", label: "Ambience", icon: "leaf-outline" },
-  { id: "punctuality", label: "Punctuality", icon: "time-outline" },
+  { id: "ambience", label: "Ambience & Vibe", icon: "leaf-outline" },
+  { id: "punctuality", label: "Punctuality & Staff", icon: "time-outline" },
 ];
 
-export default function AddReviewModal({ visible, onClose, onSubmit, appointment, salonName: propSalonName }) {
-  const styles = getStyles();
+export default function AddReviewModal({
+  visible,
+  onClose,
+  onSubmit,
+  appointment,
+  salonName: propSalonName,
+}) {
+  const { theme, isDark } = useTheme();
+  const styles = getStyles(theme, isDark);
+
   const [aspects, setAspects] = useState({
     service: 5,
     cleanliness: 5,
@@ -87,14 +95,19 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
   const overallScore = calculateOverallRating();
 
   return (
-    <AppleBottomSheet visible={visible} onClose={onClose} height="80%">
+    <AppleBottomSheet visible={visible} onClose={onClose} height="82%">
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.sheetInner}>
+          {/* Header Bar */}
           <View style={styles.header}>
             <Text style={styles.title}>RATE YOUR EXPERIENCE</Text>
-            <AppleTouchable onPress={onClose} style={styles.closeBtn} scaleTo={0.9}>
-              <Ionicons name="close" size={18} color={C.ink} />
-            </AppleTouchable>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color={isDark ? "#94A3B8" : "#64748B"} />
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.subtitle}>
@@ -102,208 +115,217 @@ export default function AddReviewModal({ visible, onClose, onSubmit, appointment
             <Text style={styles.salonBold}>{salonName}</Text>?
           </Text>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
-              {/* Aspect Ratings Section */}
-              <View style={styles.aspectsContainer}>
-                {REVIEW_TERMS.map((item) => {
-                  const currentScore = aspects[item.id];
-                  return (
-                    <View key={item.id} style={styles.aspectRow}>
-                      <View style={styles.aspectLabelBox}>
-                        <Ionicons name={item.icon} size={16} color={C.main} style={{ marginRight: 6 }} />
-                        <Text style={styles.aspectLabel}>{item.label}</Text>
-                      </View>
-
-                      <View style={styles.starRow}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <TouchableOpacity
-                            key={star}
-                            onPress={() => handleStarPress(item.id, star)}
-                            activeOpacity={0.7}
-                            style={styles.starBtn}
-                          >
-                            <Ionicons
-                              name={star <= currentScore ? "star" : "star-outline"}
-                              size={20}
-                              color={star <= currentScore ? C.main : C.dustTaupe}
-                            />
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
+            {/* Aspect Ratings Container */}
+            <View style={styles.aspectsContainer}>
+              {REVIEW_TERMS.map((item) => {
+                const currentScore = aspects[item.id];
+                return (
+                  <View key={item.id} style={styles.aspectRow}>
+                    <View style={styles.aspectLabelBox}>
+                      <Ionicons
+                        name={item.icon}
+                        size={16}
+                        color={C.purple || "#6C5CE7"}
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text style={styles.aspectLabel}>{item.label}</Text>
                     </View>
-                  );
-                })}
-              </View>
 
-              {/* Overall Summary Indicator */}
-              <View style={styles.overallBadge}>
-                <Text style={styles.overallText}>
-                  Overall Score: <Text style={styles.overallScoreBold}>{overallScore} / 5</Text>
-                  {"  "}
-                  {overallScore === 5
-                    ? "🌟 Exceptional"
-                    : overallScore === 4
-                    ? "😊 Very Good"
-                    : overallScore === 3
-                    ? "😐 Average"
-                    : "👎 Needs Improvement"}
-                </Text>
-              </View>
+                    <View style={styles.starRow}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <TouchableOpacity
+                          key={star}
+                          onPress={() => handleStarPress(item.id, star)}
+                          activeOpacity={0.7}
+                          style={styles.starBtn}
+                          hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
+                        >
+                          <Ionicons
+                            name={star <= currentScore ? "star" : "star-outline"}
+                            size={20}
+                            color={star <= currentScore ? "#FFC107" : isDark ? "#3A3A3D" : "#D1D5DB"}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
 
-              {/* Comment Input */}
-              <TextInput
-                style={styles.textInput}
-                placeholder="Share more feedback about cleanliness, ambience, service..."
-                placeholderTextColor={C.dustTaupe}
-                multiline
-                numberOfLines={3}
-                value={comment}
-                onChangeText={setComment}
-                textAlignVertical="top"
-              />
+            {/* Overall Summary Pill Badge */}
+            <View style={styles.overallBadge}>
+              <Text style={styles.overallText}>
+                Overall Score: <Text style={styles.overallScoreBold}>{overallScore} / 5</Text>
+                {"  "}
+                {overallScore === 5
+                  ? "🌟 Exceptional"
+                  : overallScore === 4
+                  ? "😊 Very Good"
+                  : overallScore === 3
+                  ? "😐 Average"
+                  : "👎 Needs Improvement"}
+              </Text>
+            </View>
 
-              {/* Submit Button */}
-              <AppleTouchable
-                style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-                onPress={handleSubmit}
-                disabled={submitting}
-                scaleTo={0.96}
-                hapticType="success"
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.submitBtnText}>Submit Review</Text>
-                )}
-              </AppleTouchable>
-            </ScrollView>
+            {/* Comment Input */}
+            <TextInput
+              style={styles.textInput}
+              placeholder="Share more feedback about cleanliness, ambience, service..."
+              placeholderTextColor={isDark ? "#64748B" : "#A0A4B0"}
+              multiline
+              numberOfLines={4}
+              value={comment}
+              onChangeText={setComment}
+              textAlignVertical="top"
+            />
+
+            {/* Primary Action Button: Submit Review in Theme Purple */}
+            <SpringTouchable
+              style={[styles.submitBtn, submitting && styles.disabledBtn]}
+              onPress={handleSubmit}
+              disabled={submitting}
+              scaleTo={0.96}
+              hapticType="success"
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Submit Review</Text>
+              )}
+            </SpringTouchable>
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
     </AppleBottomSheet>
   );
 }
 
-function getStyles() {
+function getStyles(theme, isDark) {
+  const accentColor = C.purple || "#6C5CE7";
+
   return StyleSheet.create({
-  sheetInner: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    flex: 1,
-  },
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: S.lg,
-    borderWidth: 1,
-    borderColor: C.border,
-    maxHeight: "85%",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: S.xs,
-  },
-  title: {
-    ...TYPO.eyebrow,
-    color: C.main,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: R.md,
-    backgroundColor: C.lifted,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  subtitle: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    marginBottom: S.md,
-    lineHeight: 20,
-  },
-  salonBold: {
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  scrollBody: {
-    flexGrow: 0,
-  },
-  aspectsContainer: {
-    backgroundColor: C.bg,
-    borderRadius: R.md,
-    padding: S.sm,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: S.sm,
-    gap: S.xs,
-  },
-  aspectRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 4,
-  },
-  aspectLabelBox: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  aspectLabel: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-    color: C.ink,
-  },
-  starRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  starBtn: {
-    padding: 2,
-  },
-  overallBadge: {
-    backgroundColor: C.mainLight,
-    paddingVertical: 8,
-    paddingHorizontal: S.sm,
-    borderRadius: R.sm,
-    marginBottom: S.sm,
-    alignItems: "center",
-  },
-  overallText: {
-    fontSize: FS.caption,
-    color: C.ink,
-    fontWeight: FW.medium,
-  },
-  overallScoreBold: {
-    fontWeight: FW.bold,
-    color: C.main,
-  },
-  textInput: {
-    backgroundColor: C.surface,
-    borderRadius: R.md,
-    padding: S.sm,
-    fontSize: FS.bodySm,
-    color: C.ink,
-    borderWidth: 1,
-    borderColor: C.border,
-    height: 80,
-    marginBottom: S.md,
-  },
-  submitBtn: {
-    backgroundColor: C.main,
-    paddingVertical: 12,
-    borderRadius: R.md,
-    alignItems: "center",
-  },
-  disabledBtn: {
-    opacity: 0.5,
-  },
-  submitBtnText: {
-    color: C.bg,
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
+    sheetInner: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      flex: 1,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: "800",
+      letterSpacing: 1.2,
+      color: accentColor,
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: isDark ? "#2A2A2C" : "#F0F1F5",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    subtitle: {
+      fontSize: 14,
+      color: isDark ? "#94A3B8" : "#71717A",
+      marginBottom: 18,
+      lineHeight: 20,
+    },
+    salonBold: {
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+    },
+    scrollBody: {
+      flexGrow: 0,
+    },
+    aspectsContainer: {
+      backgroundColor: isDark ? "#1C1C1E" : "#F6F7FA",
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+      marginBottom: 16,
+      gap: 12,
+    },
+    aspectRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 2,
+    },
+    aspectLabelBox: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    aspectLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+    },
+    starRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    starBtn: {
+      padding: 2,
+    },
+    overallBadge: {
+      backgroundColor: isDark ? "rgba(108, 92, 231, 0.15)" : "#F0EEFF",
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      marginBottom: 16,
+      alignItems: "center",
+    },
+    overallText: {
+      fontSize: 13,
+      color: isDark ? "#E2E8F0" : "#4A4A5A",
+      fontWeight: "600",
+    },
+    overallScoreBold: {
+      fontWeight: "800",
+      color: accentColor,
+    },
+    textInput: {
+      backgroundColor: isDark ? "#1C1C1E" : "#F6F7FA",
+      borderRadius: 20,
+      padding: 16,
+      fontSize: 14,
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+      height: 100,
+      marginBottom: 20,
+      lineHeight: 20,
+    },
+    submitBtn: {
+      height: 52,
+      backgroundColor: accentColor,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: accentColor,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 6,
+      marginBottom: 24,
+    },
+    disabledBtn: {
+      opacity: 0.5,
+    },
+    submitBtnText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+      letterSpacing: -0.2,
+    },
   });
 }

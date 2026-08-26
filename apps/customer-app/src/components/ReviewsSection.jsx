@@ -13,6 +13,14 @@ import { C } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import SpringTouchable from "./SpringTouchable";
 
+const RATING_LABELS = {
+  1: "Poor 😞",
+  2: "Fair 😐",
+  3: "Good 🙂",
+  4: "Very Good 😊",
+  5: "Excellent! 🌟",
+};
+
 export default function ReviewsSection({
   reviews = [],
   overallRating = "4.8",
@@ -23,7 +31,7 @@ export default function ReviewsSection({
   const { theme, isDark } = useTheme();
   const styles = getStyles(theme, isDark);
 
-  const [userRating, setUserRating] = useState(5);
+  const [userRating, setUserRating] = useState(0); // Starts with 0 filled stars initially
   const [commentText, setCommentText] = useState("");
   const [attachedPhotos, setAttachedPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,13 +59,14 @@ export default function ReviewsSection({
     try {
       if (onSubmitReview) {
         await onSubmitReview({
-          rating: userRating,
+          rating: userRating || 5,
           comment: commentText,
           photos: attachedPhotos,
         });
       }
       setCommentText("");
       setAttachedPhotos([]);
+      setUserRating(0);
     } catch (e) {
       console.warn("Submit review failed:", e);
     } finally {
@@ -69,83 +78,25 @@ export default function ReviewsSection({
 
   return (
     <View style={styles.container}>
-      {/* 1. Write Your Review Header & Star Picker */}
+      {/* 1. Write Your Review Header & Card */}
       <View style={styles.writeReviewBlock}>
         <View style={styles.writeHeaderRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.writeTitle}>Write your review</Text>
-            {onOpenAddReview ? (
-              <TouchableOpacity
-                onPress={onOpenAddReview}
-                activeOpacity={0.7}
-                style={{ marginTop: 2 }}
-              >
-                <Text style={styles.rateAspectsLinkText}>
-                  ✦ Rate specific aspects (Service, Cleanliness...)
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-
-          {/* Interactive Star Rating Selector */}
-          <View style={styles.overallStarRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
-                key={star}
-                onPress={() => setUserRating(star)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
-              >
-                <Ionicons
-                  name={star <= userRating ? "star" : "star-outline"}
-                  size={18}
-                  color={star <= userRating ? "#FFC107" : isDark ? "#4A4A4D" : "#D1D5DB"}
-                  style={{ marginLeft: 2 }}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.writeTitle}>Write your review</Text>
         </View>
 
-        {/* Clean Input Card matching reference screenshot exactly */}
+        {/* Seamless Unified Input Card */}
         <View style={styles.inputCard}>
-          <View style={styles.inputTopRow}>
-            <TouchableOpacity
-              style={styles.imagePickBtn}
-              onPress={handleAddPhoto}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="image-outline" size={20} color={isDark ? "#94A3B8" : "#4A4A5A"} />
-            </TouchableOpacity>
-
-            <TextInput
-              style={styles.textInput}
-              placeholder="Leave your experience..."
-              placeholderTextColor={isDark ? "#64748B" : "#A0A4B0"}
-              value={commentText}
-              onChangeText={setCommentText}
-              multiline={true}
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-
-            <SpringTouchable
-              style={[
-                styles.sendBtn,
-                !commentText.trim() && styles.sendBtnDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={!commentText.trim() || isSubmitting}
-              scaleTo={0.9}
-            >
-              <Ionicons
-                name="send"
-                size={16}
-                color="#FFFFFF"
-                style={{ marginLeft: 2 }}
-              />
-            </SpringTouchable>
-          </View>
+          {/* Main Comment Text Area */}
+          <TextInput
+            style={styles.textInput}
+            placeholder="Leave your experience..."
+            placeholderTextColor={isDark ? "#64748B" : "#A0A4B0"}
+            value={commentText}
+            onChangeText={setCommentText}
+            multiline={true}
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
 
           {/* Attached Photo Thumbnails */}
           {attachedPhotos.length > 0 && (
@@ -164,6 +115,67 @@ export default function ReviewsSection({
               ))}
             </View>
           )}
+
+          {/* Bottom Action Bar inside Card: Photo Icon, 5 Stars Bar, Send Button */}
+          <View style={styles.inputBottomRow}>
+            <TouchableOpacity
+              style={styles.imagePickBtn}
+              onPress={handleAddPhoto}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="image-outline" size={20} color={isDark ? "#94A3B8" : "#4A4A5A"} />
+            </TouchableOpacity>
+
+            {/* Interactive 5-Star Rating Selector + Dynamic Label (e.g. 1 star = "Poor") */}
+            <View style={styles.overallStarRow}>
+              <View style={styles.starsIconStrip}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => setUserRating(star)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
+                  >
+                    <Ionicons
+                      name={userRating > 0 && star <= userRating ? "star" : "star-outline"}
+                      size={20}
+                      color={userRating > 0 && star <= userRating ? "#FFC107" : isDark ? "#4A4A4D" : "#D1D5DB"}
+                      style={{ marginHorizontal: 1 }}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Dynamic Rating Label text display */}
+              {userRating > 0 ? (
+                <Text
+                  style={[
+                    styles.ratingTextLabel,
+                    userRating === 1 && styles.ratingTextPoor,
+                  ]}
+                >
+                  {RATING_LABELS[userRating]}
+                </Text>
+              ) : null}
+            </View>
+
+            <SpringTouchable
+              style={[
+                styles.sendBtn,
+                !commentText.trim() && styles.sendBtnDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={!commentText.trim() || isSubmitting}
+              scaleTo={0.9}
+            >
+              <Ionicons
+                name="send"
+                size={16}
+                color="#FFFFFF"
+                style={{ marginLeft: 2 }}
+              />
+            </SpringTouchable>
+          </View>
         </View>
       </View>
 
@@ -334,51 +346,63 @@ function getStyles(theme, isDark) {
       color: accentColor,
     },
     overallStarRow: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    starsIconStrip: {
       flexDirection: "row",
       alignItems: "center",
+    },
+    ratingTextLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: accentColor,
+      marginTop: 2,
+    },
+    ratingTextPoor: {
+      color: "#EF4444",
     },
 
     // Input Card Container
     inputCard: {
       backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 28,
-      padding: 20,
-      minHeight: 110,
+      borderRadius: 24,
+      padding: 16,
       borderWidth: 1,
       borderColor: isDark ? "#2A2A2C" : "#EBECEF",
       shadowColor: accentColor,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.2 : 0.08,
-      shadowRadius: 18,
-      elevation: 5,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.2 : 0.06,
+      shadowRadius: 14,
+      elevation: 4,
     },
-    inputTopRow: {
+    textInput: {
+      fontSize: 15,
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      minHeight: 72,
+      paddingTop: 4,
+      paddingBottom: 8,
+      lineHeight: 22,
+    },
+    inputBottomRow: {
       flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 12,
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 8,
     },
     imagePickBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
+      width: 38,
+      height: 38,
+      borderRadius: 12,
       backgroundColor: isDark ? "#2A2A2C" : "#F4F5F8",
       alignItems: "center",
       justifyContent: "center",
-      marginTop: 2,
-    },
-    textInput: {
-      flex: 1,
-      fontSize: 15,
-      color: isDark ? "#FFFFFF" : "#1A1A24",
-      minHeight: 70,
-      paddingTop: 6,
-      paddingBottom: 6,
-      lineHeight: 22,
     },
     sendBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: accentColor,
       alignItems: "center",
       justifyContent: "center",
