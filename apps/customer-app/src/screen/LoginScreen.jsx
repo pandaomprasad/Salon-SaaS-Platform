@@ -10,28 +10,32 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "react-native";
 import { C, S, FS, FW, R, TYPO } from "../theme";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
-import BouncyButton from "../components/BouncyButton";
 import GoogleSignInModal from "../components/GoogleSignInModal";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
 import AppleSignInButton from "../components/AppleSignInButton";
+import AppleTouchable from "../components/AppleTouchable";
 
 export default function LoginScreen({ navigate, goBack, routeParams }) {
-  const styles = getStyles();
+  const { theme, isDark } = useTheme();
+  const styles = getStyles(theme, isDark);
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === "android";
-  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 12;
+  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 8;
   const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 16 : Math.max(insets.bottom, 20) + 16;
-  const { login, loginWithGoogle } = useAuth();
+
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
@@ -74,28 +78,23 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Top Navigation Row */}
+        {/* Top Back Navigation Arrow */}
         <View style={styles.topNav}>
           {goBack ? (
-            <TouchableOpacity style={styles.backCircleBtn} onPress={goBack} activeOpacity={0.8}>
-              <Ionicons name="arrow-back" size={18} color={C.ink} />
-            </TouchableOpacity>
+            <AppleTouchable style={styles.backBtn} onPress={goBack} scaleTo={0.9}>
+              <Ionicons name="arrow-back" size={22} color={styles.titleText.color} />
+            </AppleTouchable>
           ) : <View style={{ width: 36 }} />}
         </View>
 
-        {/* Brand Header */}
-        <View style={styles.brandHeader}>
-          <View style={styles.badgeTag}>
-            <Text style={styles.badgeTagText}>MEMBER ACCESS</Text>
-          </View>
-          <Text style={styles.brandTitle}>Welcome Back</Text>
-          <Text style={styles.brandSub}>
-            Sign in to access your appointments & luxury studio privileges.
-          </Text>
+        {/* Welcome Header */}
+        <View style={styles.headerBlock}>
+          <Text style={styles.titleText}>Welcome!</Text>
+          <Text style={styles.subtitleText}>Sign in to continue</Text>
         </View>
 
-        {/* Form Card per cursor/DESIGN.md */}
-        <View style={styles.formCard}>
+        {/* Form Container */}
+        <View style={styles.formContainer}>
           <ErrorCardModal
             visible={!!error}
             title="Sign In Error"
@@ -103,119 +102,126 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             onClose={() => setError("")}
           />
 
-          {/* Apple Sign-In Button (Renders on iOS / Apple-supported devices) */}
-          <AppleSignInButton
-            onSuccess={() => {
-              if (routeParams?.redirectTo && navigate) {
-                navigate(routeParams.redirectTo, routeParams.redirectData);
-              } else if (navigate) {
-                navigate("Profile");
-              }
-            }}
-            onError={(err) => setError(err)}
-          />
+          {/* Email Input */}
+          <View style={styles.inputPill}>
+            <Ionicons name="mail-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor={styles.placeholderColor.color}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
 
-          {/* Google Sign-In Button */}
+          {/* Password Input */}
+          <View style={styles.inputPill}>
+            <Ionicons name="lock-closed-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Password"
+              placeholderTextColor={styles.placeholderColor.color}
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(!showPassword)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color={styles.placeholderColor.color}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Remember Me Checkbox */}
           <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={handleGoogleLogin}
-            disabled={googleLoading || loading}
-            activeOpacity={0.85}
+            style={styles.rememberRow}
+            onPress={() => setRememberMe(!rememberMe)}
+            activeOpacity={0.8}
           >
-            {googleLoading ? (
-              <ActivityIndicator color={C.ink} />
-            ) : (
-              <View style={styles.googleBtnContent}>
-                <Ionicons name="logo-google" size={18} color={C.ink} style={{ marginRight: 10 }} />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
-              </View>
-            )}
+            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            </View>
+            <Text style={styles.rememberText}>Remember me</Text>
           </TouchableOpacity>
 
+          {/* Primary Action Button: Sign in */}
+          <AppleTouchable
+            style={styles.signInBtn}
+            onPress={handleLogin}
+            disabled={loading}
+            scaleTo={0.96}
+            hapticType="medium"
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.signInBtnText}>Sign in</Text>
+            )}
+          </AppleTouchable>
+
+          {/* Or Continue with Divider */}
           <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR SIGN IN WITH EMAIL</Text>
-            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>Or Continue with</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMAIL ADDRESS</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={16} color={C.muted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="customer@example.com"
-                placeholderTextColor={C.dustTaupe}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
+          {/* Social Media Login Cards (Facebook, Google, Twitter) */}
+          <View style={styles.socialRow}>
+            {/* Facebook Button */}
+            <AppleTouchable style={styles.socialCard} onPress={() => setError("Facebook login available soon.")} scaleTo={0.92}>
+              <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+            </AppleTouchable>
+
+            {/* Google Button */}
+            <AppleTouchable style={styles.socialCard} onPress={handleGoogleLogin} scaleTo={0.92} hapticType="medium">
+              <Ionicons name="logo-google" size={24} color="#EA4335" />
+            </AppleTouchable>
+
+            {/* Twitter / X Button */}
+            <AppleTouchable style={styles.socialCard} onPress={() => setError("Twitter login available soon.")} scaleTo={0.92}>
+              <Ionicons name="logo-twitter" size={24} color="#1DA1F2" />
+            </AppleTouchable>
           </View>
 
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>PASSWORD</Text>
-              <TouchableOpacity
-                onPress={() => setShowForgotModal(true)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.forgotText}>Forgot Password?</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={16} color={C.muted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="••••••••"
-                placeholderTextColor={C.dustTaupe}
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
+          {/* Optional Apple Sign-In on iOS */}
+          {Platform.OS === "ios" && (
+            <View style={{ marginTop: 12 }}>
+              <AppleSignInButton
+                onSuccess={() => {
+                  if (routeParams?.redirectTo && navigate) {
+                    navigate(routeParams.redirectTo, routeParams.redirectData);
+                  } else if (navigate) {
+                    navigate("Profile");
+                  }
+                }}
+                onError={(err) => setError(err)}
               />
-              <TouchableOpacity
-                style={styles.eyeBtn}
-                onPress={() => setShowPassword(!showPassword)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={18}
-                  color={C.muted}
-                />
-              </TouchableOpacity>
             </View>
+          )}
 
+          {/* Footer Links: Forgot Password & Sign Up */}
+          <View style={styles.footerBlock}>
             <TouchableOpacity
-              style={styles.forgotPassTouch}
+              style={styles.forgotBtn}
               onPress={() => setShowForgotModal(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.forgotPassText}>Forgot Password?</Text>
+              <Text style={styles.forgotText}>Forgot your password?</Text>
             </TouchableOpacity>
-          </View>
 
-          {/* button-primary: flat #BD4444 */}
-          <BouncyButton
-            disabled={loading}
-            onPress={handleLogin}
-          >
-            <View style={styles.submitBtnGradient}>
-              {loading ? (
-                <ActivityIndicator color={C.bg} />
-              ) : (
-                <Text style={styles.submitBtnText}>Sign In</Text>
-              )}
+            <View style={styles.signUpRow}>
+              <Text style={styles.noAccountText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigate && navigate("Register", routeParams)}>
+                <Text style={styles.signUpText}>Sign up</Text>
+              </TouchableOpacity>
             </View>
-          </BouncyButton>
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => navigate && navigate("Register", routeParams)}>
-              <Text style={styles.footerLink}> Create Account</Text>
-            </TouchableOpacity>
           </View>
 
           <GoogleSignInModal
@@ -240,188 +246,175 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
   );
 }
 
-function getStyles() {
+function getStyles(theme, isDark) {
+  const accentColor = "#6C5CE7"; // Elegant Purple / Indigo Accent from design
+
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg, // Flat white canvas
-  },
-  scrollContent: {
-    paddingHorizontal: S.md,
-    paddingTop: Platform.OS === "android" ? 44 : 52,
-    paddingBottom: 40,
-  },
-  topNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: S.md,
-  },
-  backCircleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: R.md,
-    backgroundColor: C.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  brandHeader: {
-    marginBottom: S.lg,
-  },
-  badgeTag: {
-    backgroundColor: C.grep, // Mint timeline pill per cursor/DESIGN.md
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: R.pill,
-    marginBottom: S.xs,
-  },
-  badgeTagText: {
-    color: C.ink,
-    fontSize: 10,
-    fontWeight: FW.semiBold,
-    letterSpacing: 0.88,
-  },
-  brandTitle: {
-    fontSize: FS.hero,
-    fontWeight: "400", // Display 400
-    color: C.ink,
-    letterSpacing: -0.72,
-  },
-  brandSub: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    marginTop: S.xxs,
-    lineHeight: 20,
-  },
-  // feature-card per cursor/DESIGN.md: 12px radius, white surface, hairline border
-  formCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg, // 12px card radius
-    padding: S.md,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  inputGroup: {
-    marginBottom: S.sm + 2,
-  },
-  label: {
-    ...TYPO.eyebrow,
-    marginBottom: S.xxs,
-  },
-  // text-input per cursor/DESIGN.md: 8px radius, height 44px
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.surface,
-    borderRadius: R.md, // 8px radius
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: S.sm,
-    height: 44,
-  },
-  inputIcon: {
-    marginRight: S.xs,
-  },
-  input: {
-    flex: 1,
-    height: "100%",
-    fontSize: FS.bodySm,
-    color: C.ink,
-    fontWeight: FW.regular,
-  },
-  eyeBtn: {
-    padding: S.xxs,
-  },
-  labelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: S.xxs,
-  },
-  forgotText: {
-    fontSize: 12,
-    color: C.main || "#BD4444",
-    fontWeight: FW.semiBold,
-  },
-  forgotPassTouch: {
-    alignSelf: "flex-end",
-    marginTop: 8,
-    marginBottom: 4,
-    paddingVertical: 4,
-  },
-  forgotPassText: {
-    fontSize: 13,
-    color: "#B45309",
-    fontWeight: FW.bold,
-  },
-  // button-primary per cursor/DESIGN.md: 8px radius
-  submitBtnGradient: {
-    borderRadius: R.md,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: S.sm,
-    paddingHorizontal: S.md,
-    backgroundColor: C.main,
-  },
-  submitBtnText: {
-    color: C.bg,
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-  },
-  footerRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: S.md,
-  },
-  footerText: {
-    color: C.muted,
-    fontSize: FS.bodySm,
-  },
-  footerLink: {
-    color: C.main,
-    fontWeight: FW.medium,
-    fontSize: FS.bodySm,
-  },
-  googleBtn: {
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: R.md,
-    height: 46,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: S.sm,
-  },
-  googleBtnContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  googleBtnText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: S.md,
-    marginTop: S.xs,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: C.border,
-  },
-  dividerText: {
-    fontSize: 10,
-    fontWeight: FW.semiBold,
-    color: C.muted,
-    marginHorizontal: S.xs,
-    letterSpacing: 0.6,
-  },
+    container: {
+      flex: 1,
+      backgroundColor: isDark ? "#0D0D0D" : "#FAFAFA",
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+      flexGrow: 1,
+    },
+    topNav: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 24,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: isDark ? "#1C1C1E" : "#F0F1F5",
+    },
+    headerBlock: {
+      marginBottom: 32,
+    },
+    titleText: {
+      fontSize: 34,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      letterSpacing: -0.6,
+      marginBottom: 6,
+    },
+    subtitleText: {
+      fontSize: 16,
+      fontWeight: "400",
+      color: isDark ? "#94A3B8" : "#9498A4",
+    },
+    placeholderColor: {
+      color: isDark ? "#64748B" : "#B0B4C0",
+    },
+    formContainer: {
+      flex: 1,
+    },
+    inputPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F5F8",
+      borderRadius: 20,
+      paddingHorizontal: 18,
+      height: 56,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+    },
+    inputIcon: {
+      marginRight: 14,
+    },
+    input: {
+      flex: 1,
+      height: "100%",
+      fontSize: 15,
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      fontWeight: "500",
+    },
+    eyeBtn: {
+      padding: 6,
+    },
+    rememberRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 24,
+      marginTop: 2,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      backgroundColor: isDark ? "#2A2A2C" : "#E0E2E9",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
+    },
+    checkboxChecked: {
+      backgroundColor: accentColor,
+    },
+    rememberText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#A5B4FC" : accentColor,
+    },
+    signInBtn: {
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: accentColor,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: accentColor,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 6,
+      marginBottom: 32,
+    },
+    signInBtnText: {
+      color: "#FFFFFF",
+      fontSize: 17,
+      fontWeight: "700",
+      letterSpacing: -0.2,
+    },
+    dividerRow: {
+      alignItems: "center",
+      marginBottom: 24,
+    },
+    dividerText: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: isDark ? "#64748B" : "#A0A4B0",
+    },
+    socialRow: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 16,
+      marginBottom: 36,
+    },
+    socialCard: {
+      width: 58,
+      height: 58,
+      borderRadius: 18,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    footerBlock: {
+      alignItems: "center",
+      marginTop: "auto",
+      paddingBottom: 16,
+    },
+    forgotBtn: {
+      paddingVertical: 8,
+      marginBottom: 12,
+    },
+    forgotText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: isDark ? "#94A3B8" : "#9498A4",
+    },
+    signUpRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    noAccountText: {
+      fontSize: 14,
+      color: isDark ? "#94A3B8" : "#9498A4",
+    },
+    signUpText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: isDark ? "#A5B4FC" : accentColor,
+    },
   });
 }
