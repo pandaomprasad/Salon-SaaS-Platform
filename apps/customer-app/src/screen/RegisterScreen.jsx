@@ -17,6 +17,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import ErrorCardModal from "../components/ErrorCardModal";
 import GoogleSignInModal from "../components/GoogleSignInModal";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import AppleTouchable from "../components/AppleTouchable";
 
 export default function RegisterScreen({ navigate, goBack, routeParams }) {
@@ -176,6 +177,12 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
         <View style={styles.dividerRow}>
           <Text style={styles.dividerText}>Or Continue with</Text>
         </View>
+
+        {/* Full-width Continue with Google Button */}
+        <GoogleSignInButton
+          onPress={handleGoogleLogin}
+          disabled={loading}
+        />
 
         {/* Social Buttons */}
         <View style={styles.socialRow}>

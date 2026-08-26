@@ -21,6 +21,7 @@ import ErrorCardModal from "../components/ErrorCardModal";
 import GoogleSignInModal from "../components/GoogleSignInModal";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
 import AppleSignInButton from "../components/AppleSignInButton";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import AppleTouchable from "../components/AppleTouchable";
 
 export default function LoginScreen({ navigate, goBack, routeParams }) {
@@ -172,6 +173,27 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             <Text style={styles.dividerText}>Or Continue with</Text>
           </View>
 
+          {/* Full-width Continue with Google Button */}
+          <GoogleSignInButton
+            onPress={handleGoogleLogin}
+            loading={googleLoading}
+            disabled={loading}
+          />
+
+          {/* Optional Apple Sign-In on iOS / Apple devices */}
+          {Platform.OS === "ios" && (
+            <AppleSignInButton
+              onSuccess={() => {
+                if (routeParams?.redirectTo && navigate) {
+                  navigate(routeParams.redirectTo, routeParams.redirectData);
+                } else if (navigate) {
+                  navigate("Profile");
+                }
+              }}
+              onError={(err) => setError(err)}
+            />
+          )}
+
           {/* Social Media Login Cards (Facebook, Google, Twitter) */}
           <View style={styles.socialRow}>
             {/* Facebook Button */}
@@ -179,7 +201,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
               <Ionicons name="logo-facebook" size={24} color="#1877F2" />
             </AppleTouchable>
 
-            {/* Google Button */}
+            {/* Google Quick Button */}
             <AppleTouchable style={styles.socialCard} onPress={handleGoogleLogin} scaleTo={0.92} hapticType="medium">
               <Ionicons name="logo-google" size={24} color="#EA4335" />
             </AppleTouchable>
@@ -189,22 +211,6 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
               <Ionicons name="logo-twitter" size={24} color="#1DA1F2" />
             </AppleTouchable>
           </View>
-
-          {/* Optional Apple Sign-In on iOS */}
-          {Platform.OS === "ios" && (
-            <View style={{ marginTop: 12 }}>
-              <AppleSignInButton
-                onSuccess={() => {
-                  if (routeParams?.redirectTo && navigate) {
-                    navigate(routeParams.redirectTo, routeParams.redirectData);
-                  } else if (navigate) {
-                    navigate("Profile");
-                  }
-                }}
-                onError={(err) => setError(err)}
-              />
-            </View>
-          )}
 
           {/* Footer Links: Forgot Password & Sign Up */}
           <View style={styles.footerBlock}>
