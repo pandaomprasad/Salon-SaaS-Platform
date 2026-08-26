@@ -150,6 +150,7 @@ function getStyles(theme, isDark) {
     },
     actionBtn: {
       width: "100%",
+      alignSelf: "stretch",
       height: 52,
       backgroundColor: primaryAccent,
       borderRadius: 26,

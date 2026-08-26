@@ -40,12 +40,28 @@ export default function AppleTouchable({
     }).start();
   };
 
+  // Extract width/flex layout properties so Pressable container expands correctly
+  const flatStyle = StyleSheet.flatten(style) || {};
+  const containerLayout = {
+    width: flatStyle.width,
+    flex: flatStyle.flex,
+    alignSelf: flatStyle.alignSelf || (flatStyle.width === "100%" ? "stretch" : undefined),
+    margin: flatStyle.margin,
+    marginTop: flatStyle.marginTop,
+    marginBottom: flatStyle.marginBottom,
+    marginLeft: flatStyle.marginLeft,
+    marginRight: flatStyle.marginRight,
+    marginVertical: flatStyle.marginVertical,
+    marginHorizontal: flatStyle.marginHorizontal,
+  };
+
   return (
     <Pressable
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      style={containerLayout}
       {...props}
     >
       <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
