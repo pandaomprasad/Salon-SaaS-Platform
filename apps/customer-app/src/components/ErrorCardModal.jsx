@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S } from "../theme";
+import { useTheme } from "../context/ThemeContext";
+import AppleTouchable from "./AppleTouchable";
 
 export default function ErrorCardModal({
   visible,
@@ -19,7 +21,8 @@ export default function ErrorCardModal({
   onClose,
   buttonText = "Got It",
 }) {
-  const styles = getStyles();
+  const { theme, isDark } = useTheme();
+  const styles = getStyles(theme, isDark);
   if (!visible || !message) return null;
 
   return (
@@ -41,13 +44,13 @@ export default function ErrorCardModal({
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={20} color={C.muted} />
+                <Ionicons name="close" size={18} color={styles.closeIconColor.color} />
               </TouchableOpacity>
 
-              {/* Icon Badge */}
+              {/* Redesigned Alert Logo / Icon Badge */}
               <View style={styles.iconWrapper}>
                 <View style={styles.iconCircle}>
-                  <Ionicons name="warning-sharp" size={32} color={C.error} />
+                  <Ionicons name="alert-circle-outline" size={34} color="#EF4444" />
                 </View>
               </View>
 
@@ -56,13 +59,14 @@ export default function ErrorCardModal({
               <Text style={styles.message}>{message}</Text>
 
               {/* Action Button */}
-              <TouchableOpacity
+              <AppleTouchable
                 style={styles.actionBtn}
                 onPress={onClose}
-                activeOpacity={0.88}
+                scaleTo={0.96}
+                hapticType="light"
               >
                 <Text style={styles.actionBtnText}>{buttonText}</Text>
-              </TouchableOpacity>
+              </AppleTouchable>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -71,81 +75,97 @@ export default function ErrorCardModal({
   );
 }
 
-function getStyles() {
+function getStyles(theme, isDark) {
+  const primaryAccent = C.purple || "#6C5CE7";
+
   return StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(13, 11, 24, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: S.lg,
-  },
-  cardContainer: {
-    width: "100%",
-    maxWidth: 380,
-    backgroundColor: C.surface,
-    borderRadius: 24,
-    padding: S.xl,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(189, 68, 68, 0.2)",
-    position: "relative",
-  },
-  closeBtn: {
-    position: "absolute",
-    top: S.md,
-    right: S.md,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: C.bone,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  iconWrapper: {
-    marginBottom: S.md,
-    marginTop: S.xs,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: C.errorBg,
-    borderWidth: 1.5,
-    borderColor: C.error,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: C.text,
-    textAlign: "center",
-    marginBottom: S.xs,
-    letterSpacing: -0.3,
-  },
-  message: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: C.textMuted,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: S.xl,
-    paddingHorizontal: S.sm,
-  },
-  actionBtn: {
-    width: "100%",
-    backgroundColor: C.dark,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-  actionBtnText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: C.main,
-    letterSpacing: 0.3,
-  },
+    overlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.65)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 24,
+    },
+    cardContainer: {
+      width: "100%",
+      maxWidth: 340,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderRadius: 28,
+      padding: 24,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+      elevation: 12,
+      position: "relative",
+    },
+    closeBtn: {
+      position: "absolute",
+      top: 16,
+      right: 16,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: isDark ? "#2A2A2C" : "#F0F1F5",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 10,
+    },
+    closeIconColor: {
+      color: isDark ? "#94A3B8" : "#64748B",
+    },
+    iconWrapper: {
+      marginBottom: 16,
+      marginTop: 8,
+    },
+    iconCircle: {
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      backgroundColor: "rgba(239, 68, 68, 0.1)",
+      borderWidth: 1.5,
+      borderColor: "rgba(239, 68, 68, 0.25)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      textAlign: "center",
+      marginBottom: 8,
+      letterSpacing: -0.4,
+    },
+    message: {
+      fontSize: 14,
+      fontWeight: "400",
+      color: isDark ? "#94A3B8" : "#71717A",
+      textAlign: "center",
+      lineHeight: 20,
+      marginBottom: 24,
+      paddingHorizontal: 8,
+    },
+    actionBtn: {
+      width: "100%",
+      height: 52,
+      backgroundColor: primaryAccent,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: primaryAccent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    actionBtnText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#FFFFFF",
+      letterSpacing: -0.2,
+    },
   });
 }

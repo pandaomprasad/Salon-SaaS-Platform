@@ -185,21 +185,6 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
           disabled={loading}
         />
 
-        {/* Social Buttons */}
-        <View style={styles.socialRow}>
-          <AppleTouchable style={styles.socialCard} onPress={() => setError("Facebook login available soon.")} scaleTo={0.92}>
-            <Ionicons name="logo-facebook" size={24} color="#1877F2" />
-          </AppleTouchable>
-
-          <AppleTouchable style={styles.socialCard} onPress={handleGoogleLogin} scaleTo={0.92} hapticType="medium">
-            <Ionicons name="logo-google" size={24} color="#EA4335" />
-          </AppleTouchable>
-
-          <AppleTouchable style={styles.socialCard} onPress={() => setError("Twitter login available soon.")} scaleTo={0.92}>
-            <Ionicons name="logo-twitter" size={24} color="#1DA1F2" />
-          </AppleTouchable>
-        </View>
-
         {/* Footer Link */}
         <View style={styles.footerBlock}>
           <View style={styles.signInRow}>

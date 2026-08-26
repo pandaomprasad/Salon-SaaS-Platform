@@ -384,7 +384,7 @@ function getStyles(theme, isDark) {
     },
     forgotBtn: {
       paddingVertical: 8,
-      marginBottom: 12,
+      marginBottom: 0,
     },
     forgotText: {
       fontSize: 14,
