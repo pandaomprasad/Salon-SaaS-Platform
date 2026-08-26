@@ -23,6 +23,7 @@ import { useTheme } from "../context/ThemeContext";
 import { BlurView } from 'expo-blur';
 import CategoryAccordionList from "../components/CategoryAccordionList";
 import AddReviewModal from "../components/AddReviewModal";
+import SpringTouchable from "../components/SpringTouchable";
 import ServiceCard from "../components/ServiceCard";
 import ErrorCardModal from "../components/ErrorCardModal";
 import ReviewsSection from "../components/ReviewsSection";
@@ -79,6 +80,7 @@ const ServiceList = memo(({ services, selectedServices = [], onSelect }) => {
 
 function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const { theme, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(isDark), [isDark]);
   const insets = useSafeAreaInsets();
   const { startSharedTransition, lastBounds } = useSharedElement();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -334,8 +336,6 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     }
   }, [selectedServices, services, selectedBranch, navigate, salonData, user]);
 
-  const styles = getStyles();
-
   return (
     <View style={styles.container}>
       <ErrorCardModal
@@ -351,7 +351,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         scrollEventThrottle={16}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: selectedServices.length > 0 ? 140 : Math.max(insets.bottom, 36) + 36 },
+          { paddingBottom: 160 },
         ]}
       >
         <View style={styles.heroCardContainer}>
@@ -632,19 +632,26 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
           <View style={styles.bookRow}>
             <View style={styles.totalBlock}>
-              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalLabel} numberOfLines={1}>
+                {selectedServices.length === 1
+                  ? selectedServices[0]?.name || "Service"
+                  : selectedServices.length > 1
+                  ? `${selectedServices.length} services`
+                  : "Total"}
+              </Text>
               <Text style={styles.totalAmount}>
                 {selectedServices.length > 0 ? paiseToINR(totalPrice) : "₹0.00"}
               </Text>
             </View>
 
-            <TouchableOpacity
+            <SpringTouchable
               onPress={handleBookNow}
-              activeOpacity={0.88}
-              style={[styles.animatedBookBtn, { backgroundColor: theme.primary }]}
+              style={styles.animatedBookBtn}
+              scaleTo={0.95}
+              hapticType="medium"
             >
               <Text style={styles.animatedBookBtnText}>Book now</Text>
-            </TouchableOpacity>
+            </SpringTouchable>
           </View>
         </BlurView>
       </Animated.View>
@@ -661,7 +668,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
 export default memo(SalonDetailScreen);
 
-function getStyles() {
+function getStyles(isDark) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -980,19 +987,23 @@ function getStyles() {
       bottom: 0,
       left: 0,
       right: 0,
+      zIndex: 999,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 12,
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 10,
     },
-    // Inner BlurView is clipped for rounded corners — no shadow here
+    // Inner container matching BookingScreen bottom bar design
     floatingBottomBar: {
-      paddingHorizontal: S.md,
-      paddingTop: 14,
-      paddingBottom: Platform.OS === "ios" ? 28 : 36,
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: Platform.OS === "ios" ? 28 : 20,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? "#2A2A2C" : "#F0F1F5",
       overflow: "hidden",
     },
     floatingBottomBarTint: {
@@ -1005,12 +1016,14 @@ function getStyles() {
       zIndex: 1, // sit above the tint layer
     },
     totalBlock: {
+      flex: 1,
+      marginRight: 12,
       justifyContent: "center",
     },
     totalLabel: {
-      fontSize: 12,
-      color: C.muted,
-      fontWeight: FW.regular,
+      fontSize: 12.5,
+      color: isDark ? "#94A3B8" : "#64748B",
+      fontWeight: "600",
       marginBottom: 2,
     },
     totalAmount: {
@@ -1020,12 +1033,18 @@ function getStyles() {
       letterSpacing: -0.3,
     },
     animatedBookBtn: {
-      height: 56,
-      width: Platform.OS === "ios" ? '70%' : '60%',
-      borderRadius: 18,
+      height: 52,
+      paddingHorizontal: 28,
+      borderRadius: 26,
+      backgroundColor: C.purple || "#6C5CE7",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      shadowColor: C.purple || "#6C5CE7",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 6,
     },
     animatedBookBtnText: {
       color: "#FFFFFF",

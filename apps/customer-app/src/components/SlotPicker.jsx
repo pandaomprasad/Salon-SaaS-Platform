@@ -38,9 +38,9 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
     const d = new Date();
     d.setDate(d.getDate() + i);
     const isoStr = toLocalDateStr(d);
-    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }); // e.g. "Thu", "Tue", "Mon"
     const dayNum = d.getDate();
-    const monthName = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+    const monthName = d.toLocaleDateString("en-US", { month: "short" });
     return { isoStr, dayName, dayNum, monthName, isToday: i === 0 };
   });
 
@@ -48,8 +48,7 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
     <View style={styles.container}>
       {/* Date Picker Section */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeading}>SELECT DATE</Text>
-        <Text style={styles.sectionHint}>NEXT 7 DAYS</Text>
+        <Text style={styles.sectionHeading}>Select Date</Text>
       </View>
 
       <ScrollView
@@ -57,8 +56,6 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
         showsHorizontalScrollIndicator={false}
         style={styles.dateList}
         contentContainerStyle={styles.dateListContent}
-        decelerationRate="fast"
-        snapToInterval={70}
       >
         {dates.map((d) => {
           const isSelected = selectedDate === d.isoStr;
@@ -67,20 +64,18 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
               key={d.isoStr}
               style={[styles.dateCard, isSelected && styles.dateCardSelected]}
               onPress={() => onSelectDate(d.isoStr)}
-              scaleTo={0.92}
+              scaleTo={0.94}
               hapticType="selection"
             >
               <Text
                 style={[
                   styles.dateWeek,
                   isSelected && styles.dateWeekSelected,
-                  d.isToday && (isSelected ? styles.todayDateWeekSelected : styles.todayDateWeek),
                 ]}
               >
-                {d.isToday ? "TODAY" : d.dayName}
+                {d.dayName}
               </Text>
               <Text style={[styles.dateNum, isSelected && styles.dateNumSelected]}>{d.dayNum}</Text>
-              <Text style={[styles.dateMonth, isSelected && styles.dateMonthSelected]}>{d.monthName}</Text>
             </AppleTouchable>
           );
         })}
@@ -138,6 +133,7 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
               >
                 <View style={styles.slotChipBody}>
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.slotStart,
                       isBooked && styles.slotStartBooked,
@@ -147,7 +143,10 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
                     {slot.startTime || slot.time}
                   </Text>
                   {!isBooked && slot.endTime && (
-                    <Text style={[styles.slotEnd, isSelected && styles.slotEndSelected]}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.slotEnd, isSelected && styles.slotEndSelected]}
+                    >
                       {slot.endTime}
                     </Text>
                   )}
@@ -179,7 +178,20 @@ function getStyles() {
       marginBottom: S.xs,
     },
     sectionHeading: {
-      ...TYPO.eyebrow,
+      fontSize: 16,
+      fontWeight: "800",
+      color: "#1A1A24",
+      letterSpacing: -0.3,
+    },
+    monthSelectorBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    monthSelectorText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: C.purple || "#6C5CE7",
     },
     sectionHint: {
       fontSize: 9,
@@ -199,79 +211,52 @@ function getStyles() {
       letterSpacing: 0.7,
       color: C.ink,
     },
+
+    // --- Date picker row: cards spread evenly across the full width
+    // (space-between), no border in the resting state, only the
+    // selected card gets a tall rounded outline. Matches the reference.
     dateList: {
       flexDirection: "row",
+      flexGrow: 0,
     },
     dateListContent: {
-      paddingVertical: S.xxs,
+      paddingVertical: 6,
       paddingHorizontal: 2,
-      gap: 7
+      justifyContent: "space-between",
+      flexGrow: 1,
     },
     dateCard: {
-      width: 64,
+      width: 44,
       height: 60,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.border,
+      borderRadius: 20,
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      borderColor: "transparent",
       alignItems: "center",
       justifyContent: "center",
+      gap: 3,
     },
     dateCardSelected: {
-      backgroundColor: C.ink,
-      borderColor: C.ink,
-    },
-    todayPill: {
-      position: "absolute",
-      top: 5,
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.borderDark,
-      borderRadius: R.pill,
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-    },
-    todayPillSelected: {
-      backgroundColor: C.ink,
-      borderColor: C.main,
-    },
-    todayPillText: {
-      fontSize: 6.5,
-      fontWeight: "700",
-      letterSpacing: 0.8,
-      color: C.muted,
-    },
-    todayPillTextSelected: {
-      color: C.main,
+      backgroundColor: "transparent",
+      borderColor: C.purple || "#6C5CE7",
     },
     dateWeek: {
-      fontSize: 9,
-      color: C.muted,
+      fontSize: 12,
+      color: "#8E8E93",
       fontWeight: "600",
-      letterSpacing: 0.9,
     },
     dateWeekSelected: {
-      color: C.bg,
-    },
-    todayDateWeek: {
-      color: C.main,
-      fontWeight: "700",
-    },
-    todayDateWeekSelected: {
-      color: C.bg,
+      color: C.purple || "#6C5CE7",
       fontWeight: "700",
     },
     dateNum: {
-      fontSize: 20,
-      fontWeight: "500",
-      color: C.ink,
-      marginTop: 2,
-      letterSpacing: -0.4,
-      fontVariant: ["tabular-nums"],
+      fontSize: 17,
+      fontWeight: "700",
+      color: "#1C1C1E",
     },
     dateNumSelected: {
-      color: C.bg,
-      fontWeight: "600",
+      color: C.purple || "#6C5CE7",
+      fontWeight: "800",
     },
     dateMonth: {
       fontSize: 8,
@@ -283,6 +268,7 @@ function getStyles() {
     dateMonthSelected: {
       color: C.bg,
     },
+
     emptyContainer: {
       padding: S.lg,
       backgroundColor: C.surface,
@@ -300,64 +286,55 @@ function getStyles() {
     slotGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      justifyContent: "space-between",
-      rowGap: 8,
+      gap: 10,
+      marginTop: 4,
     },
     slotChip: {
-      width: "23.5%",
-      minHeight: 52,
-      borderRadius: R.lg,
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.border,
+      width: "31%",
+      height: 54,
+      borderRadius: 16,
+      backgroundColor: "#F6F7FA",
+      borderWidth: 1.5,
+      borderColor: "#EBECEF",
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 6,
+      paddingHorizontal: 4,
     },
     slotChipSelected: {
-      backgroundColor: C.ink,
-      borderColor: C.ink,
+      backgroundColor: "#F4F2FF",
+      borderColor: C.purple || "#6C5CE7",
     },
     slotChipBooked: {
-      backgroundColor: C.lifted,
-      borderColor: C.borderLight,
-      opacity: 0.6,
-    },
-    slotCheck: {
-      position: "absolute",
-      top: 4,
-      right: 4,
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: C.main,
-      alignItems: "center",
-      justifyContent: "center",
+      backgroundColor: "#F4F5F8",
+      borderColor: "#E2E8F0",
+      opacity: 0.5,
     },
     slotChipBody: {
       alignItems: "center",
+      justifyContent: "center",
     },
     slotStart: {
       fontSize: 14,
-      fontWeight: "600",
-      color: C.ink,
+      fontWeight: "700",
+      color: "#1A1A24",
       letterSpacing: -0.2,
-      fontVariant: ["tabular-nums"],
     },
     slotStartSelected: {
-      color: C.bg,
+      color: C.purple || "#6C5CE7",
     },
     slotStartBooked: {
-      color: C.muted,
+      color: "#8A8A9E",
       textDecorationLine: "line-through",
     },
     slotEnd: {
-      fontSize: 10,
-      color: C.muted,
+      fontSize: 11,
+      color: "#8A8A9E",
       marginTop: 1,
+      fontWeight: "500",
     },
     slotEndSelected: {
-      color: C.bg,
+      color: C.purple || "#6C5CE7",
+      fontWeight: "600",
     },
     slotBookedRow: {
       flexDirection: "row",

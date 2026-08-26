@@ -40,7 +40,7 @@ export default function SpringTouchable({
     }).start();
   };
 
-  // Extract width/flex layout properties so Pressable container expands correctly
+  // Extract layout properties for Pressable container
   const flatStyle = StyleSheet.flatten(style) || {};
   const containerLayout = {
     width: flatStyle.width,
@@ -55,6 +55,20 @@ export default function SpringTouchable({
     marginHorizontal: flatStyle.marginHorizontal,
   };
 
+  // Inner animated view fills 100% of Pressable container width
+  const innerStyle = {
+    ...flatStyle,
+    width: flatStyle.width !== undefined ? "100%" : undefined,
+    flex: flatStyle.flex !== undefined ? 1 : undefined,
+    margin: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    marginVertical: 0,
+    marginHorizontal: 0,
+  };
+
   return (
     <Pressable
       onPress={onPress}
@@ -64,7 +78,7 @@ export default function SpringTouchable({
       style={containerLayout}
       {...props}
     >
-      <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View style={[innerStyle, { transform: [{ scale: scaleAnim }] }]}>
         {children}
       </Animated.View>
     </Pressable>

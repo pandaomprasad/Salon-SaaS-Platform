@@ -10,6 +10,7 @@ import {
   Platform,
   Animated,
   StatusBar,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,10 +23,13 @@ import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { paiseToINR, toLocalDateStr } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import VerifyEmailModal from "../components/VerifyEmailModal";
+import SpringTouchable from "../components/SpringTouchable";
 
 export default function BookingScreen({ salon, branch, service, selectedServices, goBack, navigate }) {
   const { isAuthenticated, user } = useAuth();
+  const { isDark } = useTheme();
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === "android";
@@ -210,7 +214,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
     }
   };
 
-  const styles = getStyles();
+  const styles = getStyles(isDark);
 
   if (bookingSuccess) {
     return (
@@ -299,34 +303,64 @@ export default function BookingScreen({ salon, branch, service, selectedServices
 
       <View style={[styles.header, { paddingTop: topInset }]}>
         <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={20} color={C.ink} />
+          <Ionicons name="chevron-back" size={22} color="#1A1A24" />
         </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {salon?.name || "Siargao Luxury Resort"}
-          </Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {branch?.address?.city || branch?.name || "Siargao Island, Philippines"}
-          </Text>
-        </View>
+        <Text style={styles.headerTitle}>Book Appointment</Text>
 
         <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 80 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 120 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Salon Info Header Card matching reference screenshot */}
+        <View style={styles.salonInfoCard}>
+          <Image
+            source={{
+              uri:
+                salon?.coverImage ||
+                salon?.image ||
+                branch?.coverImage ||
+                "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=300&auto=format&fit=crop",
+            }}
+            style={styles.salonCardImage}
+          />
+
+          <View style={styles.salonCardContent}>
+            <Text style={styles.salonCardTitle} numberOfLines={1}>
+              {salon?.name || branch?.name || "Bella Rinova Salon"}
+            </Text>
+
+            <Text style={styles.salonCardAddress} numberOfLines={1}>
+              {branch?.address?.formattedAddress ||
+                branch?.address?.street ||
+                branch?.address?.city ||
+                salon?.address ||
+                "8502 Preston Rd. Inglewood"}
+            </Text>
+
+            <View style={styles.salonCardMetaRow}>
+              <View style={styles.salonRatingBox}>
+                {[1, 2, 3, 4].map((star) => (
+                  <Ionicons key={star} name="star" size={13} color="#FFC107" />
+                ))}
+                <Ionicons name="star-half" size={13} color="#FFC107" />
+              </View>
+
+              <View style={styles.salonDistanceBox}>
+                <Ionicons name="location-sharp" size={12} color="#8A8A9E" />
+                <Text style={styles.salonDistanceText}>2.5 km</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Selected Services Section */}
         {allServices.length > 0 && (
           <View style={styles.servicesSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeading}>SELECTED SERVICES</Text>
-              <Text style={styles.sectionHint}>
-                {allServices.length} {allServices.length === 1 ? "SERVICE" : "SERVICES"} ({totalDurationMinutes} MINS)
-              </Text>
-            </View>
+            <Text style={styles.sectionHeadingTitle}>Services</Text>
 
             <View style={styles.servicesCard}>
               {allServices.map((svc, idx) => (
@@ -337,16 +371,24 @@ export default function BookingScreen({ salon, branch, service, selectedServices
                     idx < allServices.length - 1 && styles.serviceItemDivider,
                   ]}
                 >
-                  <View style={styles.serviceIconCircle}>
-                    <Ionicons name="cut-outline" size={16} color={C.main} />
-                  </View>
+                  <Image
+                    source={{
+                      uri:
+                        svc.image ||
+                        svc.photoUrl ||
+                        (idx % 2 === 0
+                          ? "https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=150&auto=format&fit=crop"
+                          : "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=150&auto=format&fit=crop"),
+                    }}
+                    style={styles.serviceItemThumb}
+                  />
 
                   <View style={styles.serviceItemInfo}>
                     <Text style={styles.serviceItemName} numberOfLines={1}>
                       {svc.name}
                     </Text>
                     <Text style={styles.serviceItemSub}>
-                      {svc.category || "Service"} • {svc.durationMinutes || svc.duration || 30} mins
+                      {svc.durationMinutes || svc.duration || 30} mins
                     </Text>
                   </View>
 
@@ -355,6 +397,12 @@ export default function BookingScreen({ salon, branch, service, selectedServices
                   </Text>
                 </View>
               ))}
+            </View>
+
+            {/* Total Row under Services */}
+            <View style={styles.servicesTotalRow}>
+              <Text style={styles.servicesTotalLabel}>Total</Text>
+              <Text style={styles.servicesTotalPrice}>{paiseToINR(rawTotalPrice)}</Text>
             </View>
           </View>
         )}
@@ -445,27 +493,26 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       </ScrollView>
 
       <View style={[styles.floatingBottomContainer, { bottom: bottomInset }]}>
-        <View style={styles.floatingBar}>
-          <View style={styles.floatingPriceBlock}>
-            <Text style={styles.floatingPriceLabel}>Total:</Text>
-            <Text style={styles.floatingPriceAmount}>{paiseToINR(rawTotalPrice)}</Text>
-          </View>
+        <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backTextBtn}>
+          <Text style={styles.backTextBtnText}>Back</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.bookBtnTouchable, (!selectedSlot || submitting) && styles.bookNowBtnDisabled]}
-            onPress={handleConfirmBooking}
-            disabled={!selectedSlot || submitting}
-            activeOpacity={0.85}
-          >
-            <View style={styles.bookMainBtn}>
-              {submitting ? (
-                <ActivityIndicator color={C.bg} size="small" />
-              ) : (
-                <Text style={styles.bookMainBtnText}>Confirm booking</Text>
-              )}
+        <SpringTouchable
+          style={[styles.continueBtn, (!selectedSlot || submitting) && styles.continueBtnDisabled]}
+          onPress={handleConfirmBooking}
+          disabled={!selectedSlot || submitting}
+          scaleTo={0.95}
+          hapticType="medium"
+        >
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={styles.continueBtnText}>Continue</Text>
+              <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
             </View>
-          </TouchableOpacity>
-        </View>
+          )}
+        </SpringTouchable>
       </View>
 
       <VerifyEmailModal
@@ -478,7 +525,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
   );
 }
 
-function getStyles() {
+function getStyles(isDark) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -509,9 +556,10 @@ function getStyles() {
       paddingHorizontal: S.xs,
     },
     headerTitle: {
-      fontSize: FS.body,
-      fontWeight: FW.semiBold,
-      color: C.ink,
+      fontSize: 20,
+      fontWeight: "800",
+      color: "#1A1A24",
+      letterSpacing: -0.3,
     },
     headerSub: {
       fontSize: FS.caption,
@@ -520,69 +568,136 @@ function getStyles() {
     contentContainer: {
       paddingHorizontal: S.md,
       paddingTop: S.md,
-      paddingBottom: 110,
+      paddingBottom: 160,
     },
-    servicesSection: {
-      marginBottom: S.sm + 2,
+    salonInfoCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#FFFFFF",
+      borderRadius: 20,
+      padding: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: "#EBECEF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.04,
+      shadowRadius: 10,
+      elevation: 2,
     },
-    sectionHeader: {
+    salonCardImage: {
+      width: 76,
+      height: 76,
+      borderRadius: 16,
+      backgroundColor: "#E2E8F0",
+      marginRight: 14,
+    },
+    salonCardContent: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    salonCardTitle: {
+      fontSize: 17,
+      fontWeight: "800",
+      color: "#1A1A24",
+      letterSpacing: -0.3,
+    },
+    salonCardAddress: {
+      fontSize: 12,
+      color: "#8A8A9E",
+      marginTop: 4,
+      marginBottom: 6,
+    },
+    salonCardMetaRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: S.xs,
     },
-    sectionHeading: {
-      ...TYPO.eyebrow,
+    salonRatingBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
     },
-    sectionHint: {
-      fontSize: 9,
+    salonDistanceBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+    },
+    salonDistanceText: {
+      fontSize: 12,
       fontWeight: "600",
-      letterSpacing: 0.9,
-      color: C.dustTaupe,
+      color: "#8A8A9E",
+    },
+    servicesSection: {
+      marginBottom: 20,
+    },
+    sectionHeadingTitle: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: "#1A1A24",
+      letterSpacing: -0.3,
+      marginBottom: 12,
     },
     servicesCard: {
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
-      borderWidth: 1,
-      borderColor: C.border,
-      paddingHorizontal: S.md,
-      paddingVertical: S.xs / 2,
+      // backgroundColor: "#ffffffff",
+      borderRadius: 20,
+      borderWidth: 0,
+      borderColor: "#EBECEF",
+      paddingHorizontal: 0,
+      paddingVertical: 0,
     },
     serviceItemRow: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: S.sm,
-      gap: S.sm,
+      paddingVertical: 12,
     },
     serviceItemDivider: {
       borderBottomWidth: 1,
-      borderBottomColor: C.borderLight,
+      borderBottomColor: "#F4F5F8",
     },
-    serviceIconCircle: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: C.thinking,
-      alignItems: "center",
-      justifyContent: "center",
+    serviceItemThumb: {
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      backgroundColor: "#E2E8F0",
+      marginRight: 12,
     },
     serviceItemInfo: {
       flex: 1,
     },
     serviceItemName: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.bold,
-      color: C.ink,
-      marginBottom: 2,
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#1A1A24",
     },
     serviceItemSub: {
-      fontSize: 11,
-      color: C.muted,
+      fontSize: 12,
+      color: "#8A8A9E",
+      marginTop: 2,
     },
     serviceItemPrice: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.bold,
-      color: C.ink,
+      fontSize: 15,
+      fontWeight: "700",
+      color: C.purple || "#6C5CE7",
+    },
+    servicesTotalRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 12,
+      marginTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: "#EBECEF",
+    },
+    servicesTotalLabel: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: "#1A1A24",
+    },
+    servicesTotalPrice: {
+      fontSize: 17,
+      fontWeight: "800",
+      color: C.purple || "#6C5CE7",
     },
     calendarCard: {
       backgroundColor: C.surface,
@@ -661,14 +776,14 @@ function getStyles() {
       fontWeight: FW.bold,
     },
     guestsCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       backgroundColor: C.surface,
       borderRadius: R.md,
       paddingHorizontal: S.md,
       paddingVertical: S.sm,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: S.md,
+      marginBottom: S.sm,
       borderWidth: 1,
       borderColor: C.border,
     },
@@ -679,31 +794,30 @@ function getStyles() {
     },
     guestsLabel: {
       fontSize: FS.bodySm,
-      fontWeight: FW.semiBold,
+      fontWeight: FW.medium,
       color: C.ink,
     },
     stepperContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: C.surface,
-      borderRadius: R.pill,
-      padding: 2,
-      borderWidth: 1,
-      borderColor: C.border,
-      gap: 1,
+      gap: 6,
     },
     stepperBtn: {
       width: 28,
       height: 28,
       borderRadius: 14,
+      backgroundColor: C.heart,
       alignItems: "center",
       justifyContent: "center",
+      borderWidth: 1,
+      borderColor: C.border,
     },
     stepperBtnAdd: {
-      backgroundColor: C.ink,
+      backgroundColor: C.green,
+      borderColor: C.green,
     },
     stepperValueWrap: {
-      minWidth: 28,
+      minWidth: 24,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -727,7 +841,7 @@ function getStyles() {
     },
     notesHeading: {
       ...TYPO.eyebrow,
-      color: C.main,
+      color: "#1A1A24",
       marginBottom: S.xxs,
     },
     notesInput: {
@@ -743,10 +857,56 @@ function getStyles() {
     },
     floatingBottomContainer: {
       position: "absolute",
-      bottom: 20,
-      left: S.md,
-      right: S.md,
+      bottom: 0,
+      left: 0,
+      right: 0,
       zIndex: 999,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: Platform.OS === "ios" ? 20 : 20,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? "#2A2A2C" : "#F0F1F5",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 10,
+    },
+    backTextBtn: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+    },
+    backTextBtnText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: "#8A8A9E",
+    },
+    continueBtn: {
+      height: 52,
+      paddingHorizontal: 32,
+      borderRadius: 26,
+      backgroundColor: C.purple || "#6C5CE7",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: C.purple || "#6C5CE7",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    continueBtnDisabled: {
+      opacity: 0.5,
+    },
+    continueBtnText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
     },
     floatingBar: {
       flexDirection: "row",

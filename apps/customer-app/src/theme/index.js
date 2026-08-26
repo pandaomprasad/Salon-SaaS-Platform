@@ -81,9 +81,11 @@ export const C = {
   muted: "#8E8E8A",
   text: "#121212",
 
-  herat: "#ff0000ff",
+  heart: "#ff0000ff",
 
-  verified: "#2a7dff"
+  verified: "#2a7dff",
+
+  green: "#228B22"
 };
 
 /**
