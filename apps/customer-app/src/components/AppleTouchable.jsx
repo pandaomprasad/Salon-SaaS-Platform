@@ -24,8 +24,8 @@ export default function AppleTouchable({
     triggerHaptic(hapticType);
     Animated.spring(scaleAnim, {
       toValue: scaleTo,
-      tension: 300,
-      friction: 20,
+      tension: 180,
+      friction: 14,
       useNativeDriver: true,
     }).start();
   };
@@ -34,7 +34,9 @@ export default function AppleTouchable({
     if (disabled) return;
     Animated.spring(scaleAnim, {
       toValue: 1,
-      ...APPLE_SPRINGS.defaultUI,
+      tension: 200,
+      friction: 16,
+      useNativeDriver: true,
     }).start();
   };
 

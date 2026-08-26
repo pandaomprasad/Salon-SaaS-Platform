@@ -194,24 +194,6 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             />
           )}
 
-          {/* Social Media Login Cards (Facebook, Google, Twitter) */}
-          <View style={styles.socialRow}>
-            {/* Facebook Button */}
-            <AppleTouchable style={styles.socialCard} onPress={() => setError("Facebook login available soon.")} scaleTo={0.92}>
-              <Ionicons name="logo-facebook" size={24} color="#1877F2" />
-            </AppleTouchable>
-
-            {/* Google Quick Button */}
-            <AppleTouchable style={styles.socialCard} onPress={handleGoogleLogin} scaleTo={0.92} hapticType="medium">
-              <Ionicons name="logo-google" size={24} color="#EA4335" />
-            </AppleTouchable>
-
-            {/* Twitter / X Button */}
-            <AppleTouchable style={styles.socialCard} onPress={() => setError("Twitter login available soon.")} scaleTo={0.92}>
-              <Ionicons name="logo-twitter" size={24} color="#1DA1F2" />
-            </AppleTouchable>
-          </View>
-
           {/* Footer Links: Forgot Password & Sign Up */}
           <View style={styles.footerBlock}>
             <TouchableOpacity
@@ -398,7 +380,7 @@ function getStyles(theme, isDark) {
     footerBlock: {
       alignItems: "center",
       marginTop: "auto",
-      paddingBottom: 16,
+      paddingBottom: 0,
     },
     forgotBtn: {
       paddingVertical: 8,

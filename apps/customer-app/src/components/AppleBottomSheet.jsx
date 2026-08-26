@@ -124,7 +124,9 @@ export default function AppleBottomSheet({
         {/* Glass Scrim Backdrop */}
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
-            <BlurView intensity={Platform.OS === "ios" ? 30 : 50} style={StyleSheet.absoluteFill} tint="dark" />
+            {Platform.OS === "ios" ? (
+              <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+            ) : null}
             <View style={styles.scrimDim} />
           </Animated.View>
         </TouchableWithoutFeedback>

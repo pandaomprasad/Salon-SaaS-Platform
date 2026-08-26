@@ -11,25 +11,25 @@ import * as Haptics from "expo-haptics";
 export const APPLE_SPRINGS = {
   // Default UI (menus, tab switches, toggles): Critically damped (1.0), zero bounce
   defaultUI: {
-    tension: 200,
-    friction: 26,
+    tension: 170,
+    friction: 20,
     useNativeDriver: true,
   },
-  // Sheet / Modal Open-Close: Damping ~0.8, slight physical bounce
+  // Sheet / Modal Open-Close: Smooth fluid physical spring
   sheetModal: {
-    tension: 240,
-    friction: 20,
+    tension: 160,
+    friction: 18,
     useNativeDriver: true,
   },
   // Card repositioning / Rebook capsule
   cardReposition: {
-    tension: 190,
-    friction: 25,
+    tension: 160,
+    friction: 20,
     useNativeDriver: true,
   },
   // Flick / Drag release momentum
   momentumFlick: {
-    tension: 260,
+    tension: 200,
     friction: 18,
     useNativeDriver: true,
   },
