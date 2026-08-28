@@ -209,11 +209,19 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   }, [goBack, startSharedTransition, lastBounds, coverImage, salonData]);
 
   useEffect(() => {
+    const salonId = salon?._id || salon?.id;
+    if (!salonId) return;
+
+    const cachedSalonRes = browseService.getCachedSalonById(salonId);
+    if (cachedSalonRes) {
+      const fullSalon = cachedSalonRes.data?.salon || cachedSalonRes.data;
+      if (fullSalon) setSalonData(fullSalon);
+    }
+
     if (!salon?.branches || salon.branches.length === 0) {
       const fetchSalon = async () => {
-        setFetchingSalon(true);
+        if (!cachedSalonRes) setFetchingSalon(true);
         try {
-          const salonId = salon._id || salon.id;
           const res = await browseService.getSalonById(salonId);
           const fullSalon = res.data?.salon || res.data;
           if (fullSalon) {
@@ -240,17 +248,27 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   useEffect(() => {
     if (!selectedBranch) return;
     let cancelled = false;
-    const fetchBranchServices = async () => {
+    const branchId = selectedBranch._id || selectedBranch.id || selectedBranch;
+
+    // Check client-side memory cache first for instant render (no loading state on re-open!)
+    const cachedRes = browseService.getCachedBranchServices(branchId);
+    if (cachedRes) {
+      const cachedList = cachedRes.data?.services || (Array.isArray(cachedRes.data) ? cachedRes.data : []);
+      setServices(cachedList);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    const fetchBranchServices = async () => {
       try {
-        const branchId = selectedBranch._id || selectedBranch.id || selectedBranch;
         const res = await browseService.getBranchServices(branchId);
         if (cancelled) return;
         const serviceList = res.data?.services || (Array.isArray(res.data) ? res.data : []);
         setServices(serviceList);
       } catch (err) {
         console.log("Error loading services:", err.message);
-        if (!cancelled) {
+        if (!cancelled && !cachedRes) {
           setServices([]);
         }
       } finally {
@@ -284,6 +302,22 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
       cancelled = true;
     };
   }, [salonId, selectedBranch]);
+
+  const lowestServicePrice = useMemo(() => {
+    const servicePrices = services
+      .map((s) => s.price)
+      .filter((p) => typeof p === "number" && p > 0)
+      .map((p) => (p >= 1000 ? p / 100 : p));
+
+    const candidatePrices = [
+      ...servicePrices,
+      salonData?.minServicePrice ? (salonData.minServicePrice >= 1000 ? salonData.minServicePrice / 100 : salonData.minServicePrice) : null,
+      salonData?.startingPrice ? (salonData.startingPrice >= 1000 ? salonData.startingPrice / 100 : salonData.startingPrice) : null,
+    ].filter((p) => typeof p === "number" && p > 0);
+
+    if (!candidatePrices.length) return 499;
+    return Math.round(Math.min(...candidatePrices));
+  }, [services, salonData]);
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -362,7 +396,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
           <View style={styles.priceOverlayPill}>
             <Text style={styles.priceOverlayIcon}>✦</Text>
-            <Text style={styles.priceOverlayAmount}>₹499</Text>
+            <Text style={styles.priceOverlayAmount}>₹{lowestServicePrice}</Text>
           </View>
 
           <TouchableOpacity style={styles.circleBackBtn} onPress={handleBack} activeOpacity={0.8}>

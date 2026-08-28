@@ -220,7 +220,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
       Animated.spring(buttonScale, {
         toValue: 0.94,
         speed: 50,
-        bounciness: 4,
+        bounciness: 0,
         useNativeDriver: true,
       }),
     ]).start();
@@ -230,7 +230,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
     Animated.spring(buttonScale, {
       toValue: 1,
       speed: 18,
-      bounciness: 10,
+      bounciness: 0,
       useNativeDriver: true,
     }).start();
   }, []);

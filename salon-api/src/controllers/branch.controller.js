@@ -5,6 +5,7 @@ const Slot = require("../models/slot.model");
 const User = require("../models/user.model");
 const Appointment = require("../models/appointment.model");
 const AppError = require("../utils/AppError");
+const { delCachePattern } = require("../services/cache.service");
 
 // ================================
 // POST /api/v1/salons/:salonId/branches
@@ -143,6 +144,9 @@ const updateBranch = async (req, res, next) => {
     });
 
     await branch.save();
+
+    await delCachePattern(`branch:services:${branchId}:*`);
+    await delCachePattern(`branch:detail:${branchId}*`);
 
     res.status(200).json({
       success: true,

@@ -3,6 +3,7 @@ const Branch = require("../models/branch.model");
 const User = require("../models/user.model");
 const AppError = require("../utils/AppError");
 const { formatPrice } = require("../utils/priceHelper");
+const { delCachePattern } = require("../services/cache.service");
 
 // ================================
 // POST /api/v1/branches/:branchId/services
@@ -44,6 +45,9 @@ const createService = async (req, res, next) => {
       branchId,
       salonId,
     });
+
+    await delCachePattern(`branch:services:${branchId}:*`);
+    await delCachePattern(`branch:detail:${branchId}*`);
 
     res.status(201).json({
       success: true,
@@ -142,6 +146,9 @@ const updateService = async (req, res, next) => {
 
     await service.save();
 
+    await delCachePattern(`branch:services:${branchId}:*`);
+    await delCachePattern(`branch:detail:${branchId}*`);
+
     res.status(200).json({
       success: true,
       message: "Service updated successfully",
@@ -176,6 +183,9 @@ const deleteService = async (req, res, next) => {
 
     service.isActive = false;
     await service.save();
+
+    await delCachePattern(`branch:services:${branchId}:*`);
+    await delCachePattern(`branch:detail:${branchId}*`);
 
     res.status(200).json({
       success: true,

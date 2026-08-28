@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
@@ -23,7 +24,26 @@ import RescheduleModal from "../components/RescheduleModal";
 import CancelBookingModal from "../components/CancelBookingModal";
 import AddReviewModal from "../components/AddReviewModal";
 
-const TABS = ["Active", "Completed", "Cancelled"];
+const TABS = ["Upcoming", "Pass"];
+
+function formatHeaderDateTime(dateStr, timeStr) {
+  if (!dateStr) return "Upcoming Visit";
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    const day = d.getDate();
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const month = months[d.getMonth()] || "";
+    const year = d.getFullYear();
+    const formattedTime = timeStr ? timeStr.slice(0, 5) : "";
+    return `${day} ${month} ${year}${formattedTime ? `, ${formattedTime}` : ""}`;
+  } catch (e) {
+    return dateStr;
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return "Date unavailable";
@@ -68,7 +88,7 @@ function formatTimeRange(start, end) {
 export default function BookingsScreen({ navigate, onScroll }) {
   const { isAuthenticated, user } = useAuth();
   const { theme, isDark } = useTheme();
-  const [activeTab, setActiveTab] = useState("Active");
+  const [activeTab, setActiveTab] = useState("Upcoming");
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,11 +98,16 @@ export default function BookingsScreen({ navigate, onScroll }) {
   const [cancelApptModal, setCancelApptModal] = useState(null);
   const [reviewModalAppt, setReviewModalAppt] = useState(null);
   const [statusToast, setStatusToast] = useState(null);
+  const [reminders, setReminders] = useState({ default: true });
 
   const promptedReviewIdsRef = React.useRef(new Set());
   const selectedApptRef = React.useRef(selectedAppt);
   selectedApptRef.current = selectedAppt;
   const styles = getStyles(theme, isDark);
+
+  const toggleReminder = (id) => {
+    setReminders((prev) => ({ ...prev, [id]: prev[id] === undefined ? true : !prev[id] }));
+  };
 
   const handleAddReviewSubmit = async ({ rating, comment }) => {
     if (!reviewModalAppt) return;
@@ -281,9 +306,8 @@ export default function BookingsScreen({ navigate, onScroll }) {
 
   const filteredAppointments = appointments.filter((app) => {
     const status = app.status?.toUpperCase() || "";
-    if (activeTab === "Active") return status === "PENDING" || status === "CONFIRMED" || status === "IN_PROGRESS";
-    if (activeTab === "Completed") return status === "COMPLETED";
-    if (activeTab === "Cancelled") return status === "CANCELLED" || status === "NO_SHOW";
+    if (activeTab === "Upcoming") return status === "PENDING" || status === "CONFIRMED" || status === "IN_PROGRESS";
+    if (activeTab === "Pass") return status === "COMPLETED" || status === "CANCELLED" || status === "NO_SHOW";
     return true;
   });
 
@@ -363,27 +387,31 @@ export default function BookingsScreen({ navigate, onScroll }) {
       ) : null}
 
       <View style={styles.header}>
-        <Text style={styles.title}>My Appointments</Text>
-        <Text style={styles.subtitle}>Track, reschedule or manage your salon visits</Text>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.title}>Your Appointments</Text>
+          <View style={styles.headerIconGroup}>
+            <TouchableOpacity style={styles.headerSquareBtn} activeOpacity={0.7}>
+              <Ionicons name="map-outline" size={17} color={isDark ? "#FFFFFF" : "#18181B"} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerSquareBtn} activeOpacity={0.7}>
+              <Ionicons name="swap-horizontal-outline" size={17} color={isDark ? "#FFFFFF" : "#18181B"} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        <View style={styles.tabRow}>
+        <View style={styles.segmentedTabContainer}>
           {TABS.map((tab) => {
             const isSelected = activeTab === tab;
             return (
               <TouchableOpacity
                 key={tab}
+                style={[styles.segmentedTabBtn, isSelected && styles.segmentedTabBtnActive]}
                 onPress={() => setActiveTab(tab)}
-                activeOpacity={0.85}
+                activeOpacity={0.88}
               >
-                {isSelected ? (
-                  <View style={styles.tabSelectedGradient}>
-                    <Text style={styles.tabTextSelected}>{tab}</Text>
-                  </View>
-                ) : (
-                  <View style={styles.tabUnselected}>
-                    <Text style={styles.tabTextUnselected}>{tab}</Text>
-                  </View>
-                )}
+                <Text style={[styles.segmentedTabText, isSelected && styles.segmentedTabTextActive]}>
+                  {tab}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -396,13 +424,13 @@ export default function BookingsScreen({ navigate, onScroll }) {
         onScroll={onScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAppointments(false)} tintColor={C.main} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAppointments(false)} tintColor="#635BFF" />
         }
       >
         {loading && !refreshing ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="small" color={C.main} />
-            <Text style={styles.loadingText}>Loading visits…</Text>
+            <ActivityIndicator size="small" color="#635BFF" />
+            <Text style={styles.loadingText}>Loading appointments…</Text>
           </View>
         ) : filteredAppointments.length === 0 ? (
           <View style={styles.centerBox}>
@@ -411,148 +439,112 @@ export default function BookingsScreen({ navigate, onScroll }) {
           </View>
         ) : (
           filteredAppointments.map((appt) => {
+            const apptId = appt._id || appt.id;
             const salonName =
               appt.salon?.name ||
               (typeof appt.salonId === "object" ? appt.salonId?.name : null) ||
               (typeof appt.branchId === "object" ? appt.branchId?.name : null) ||
-              "Salon Partner";
+              "Bella Rinova";
+
+            const addressText =
+              appt.branch?.address?.city ||
+              (typeof appt.branchId === "object" ? appt.branchId?.address?.street || appt.branchId?.name : null) ||
+              appt.salon?.address ||
+              "6391 Elgin St. Celina, Delaware";
 
             const serviceName =
               appt.service?.name ||
               (typeof appt.serviceId === "object" ? appt.serviceId?.name : null) ||
-              "Service";
+              "Regular haircut, Classic shaving";
 
-            const staffName =
-              appt.staff?.name ||
-              (typeof appt.staffId === "object" ? appt.staffId?.name : null) ||
-              "Any available stylist";
+            const coverImage =
+              appt.salon?.coverImage ||
+              appt.salon?.logo ||
+              "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500&q=80";
+
+            const rawDate = appt.date || (typeof appt.slotId === "object" ? appt.slotId?.date : null);
+            const rawTime = appt.startTime || (typeof appt.slotId === "object" ? appt.slotId?.startTime : null);
+            const headerDateStr = formatHeaderDateTime(rawDate, rawTime);
 
             const status = (appt.status || "PENDING").toUpperCase();
-            const dateText = formatDate(appt.date || (typeof appt.slotId === "object" ? appt.slotId?.date : null));
-            const timeText = formatTimeRange(
-              appt.startTime || (typeof appt.slotId === "object" ? appt.slotId?.startTime : null),
-              appt.endTime || (typeof appt.slotId === "object" ? appt.slotId?.endTime : null)
-            );
-
             const isPending = status === "PENDING";
             const isConfirmed = status === "CONFIRMED";
             const isCompleted = status === "COMPLETED";
 
+            const isRemindOn = reminders[apptId] !== false;
+
             return (
               <TouchableOpacity
-                key={appt._id || appt.id}
+                key={apptId}
                 style={styles.card}
                 onPress={() => setSelectedAppt(appt)}
-                activeOpacity={0.88}
+                activeOpacity={0.92}
               >
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1, paddingRight: S.xs }}>
-                    <View style={styles.salonNameRow}>
-                      <Ionicons name="sparkles" size={11} color="#D49B45" style={{ marginRight: 4 }} />
-                      <Text style={styles.salonName} numberOfLines={1}>{salonName}</Text>
-                    </View>
-                    <Text style={styles.serviceName}>{serviceName}</Text>
-                    <View style={styles.staffRow}>
-                      <Ionicons name="person-circle-outline" size={13} color={theme.body} />
-                      <Text style={styles.staffText}>Stylist: {staffName}</Text>
-                    </View>
-                  </View>
+                {/* Date & Time Header */}
+                <Text style={styles.cardDateHeader}>{headerDateStr}</Text>
 
-                  <View style={[styles.statusBadge, getStatusStyle(status)]}>
-                    {isPending ? (
-                      <Ionicons name="time-outline" size={11} color="#D49B45" style={{ marginRight: 3 }} />
-                    ) : isConfirmed ? (
-                      <Ionicons name="checkmark-circle-outline" size={11} color="#10B981" style={{ marginRight: 3 }} />
-                    ) : isCompleted ? (
-                      <Ionicons name="sparkles-outline" size={11} color="#A855F7" style={{ marginRight: 3 }} />
-                    ) : (
-                      <Ionicons name="close-circle-outline" size={11} color="#EF4444" style={{ marginRight: 3 }} />
-                    )}
-                    <Text style={[styles.statusText, getStatusTextStyle(status)]}>
-                      {status}
+                {/* Card Body */}
+                <View style={styles.cardBodyRow}>
+                  <Image
+                    source={{ uri: coverImage }}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.cardContentBox}>
+                    <Text style={styles.salonTitleText} numberOfLines={1}>{salonName}</Text>
+                    <Text style={styles.addressText} numberOfLines={1}>{addressText}</Text>
+                    <Text style={styles.servicesLabelText} numberOfLines={2}>
+                      <Text style={{ fontWeight: "700" }}>Services: </Text>{serviceName}
                     </Text>
                   </View>
                 </View>
 
-                {/* Embedded Details Box */}
-                <View style={styles.cardDetailsBox}>
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaLine}>
-                      <Ionicons name="calendar-outline" size={13} color="#D49B45" />
-                      <Text style={styles.detailText}>{dateText}</Text>
-                    </View>
-                    <View style={styles.metaLine}>
-                      <Ionicons name="time-outline" size={13} color="#D49B45" />
-                      <Text style={styles.detailText}>{timeText}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.detailPrice}>{paiseToINR(appt.pricePaid ?? appt.totalAmount ?? appt.price ?? 0)}</Text>
-                </View>
-
-                {/* Actions for Active / Completed */}
-                {isPending || isConfirmed ? (
-                  <View style={styles.cardActionsRow}>
+                {/* Bottom Footer Actions */}
+                <View style={styles.cardFooterRow}>
+                  {isPending || isConfirmed ? (
                     <TouchableOpacity
-                      style={styles.passBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setSelectedAppt(appt);
-                      }}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="qr-code-outline" size={13} color="#000" />
-                      <Text style={styles.passBtnText}>View Pass &amp; QR</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.rescheduleBtn}
+                      style={styles.rescheduleOutlineBtn}
                       onPress={(e) => {
                         e.stopPropagation();
                         setRescheduleAppt(appt);
                       }}
-                      activeOpacity={0.85}
+                      activeOpacity={0.8}
                     >
-                      <Ionicons name="calendar-outline" size={13} color={theme.ink} />
-                      <Text style={styles.rescheduleBtnText}>Reschedule</Text>
+                      <Ionicons name="calendar-outline" size={13} color={isDark ? "#A0A09C" : "#555555"} style={{ marginRight: 4 }} />
+                      <Text style={styles.rescheduleOutlineBtnText}>Reschedule</Text>
                     </TouchableOpacity>
+                  ) : (
+                    <View style={styles.statusPillBadge}>
+                      <Text style={styles.statusPillBadgeText}>{status}</Text>
+                    </View>
+                  )}
 
+                  {isPending || isConfirmed ? (
                     <TouchableOpacity
-                      style={styles.cancelBtn}
+                      style={styles.cancelOutlineBtn}
                       onPress={(e) => {
                         e.stopPropagation();
                         setCancelApptModal(appt);
                       }}
-                      activeOpacity={0.85}
+                      activeOpacity={0.8}
                     >
-                      <Ionicons name="close-circle-outline" size={13} color="#EF4444" />
-                      <Text style={styles.cancelBtnText}>Cancel</Text>
+                      <Text style={styles.cancelOutlineBtnText}>Cancel</Text>
                     </TouchableOpacity>
-                  </View>
-                ) : isCompleted ? (
-                  <View style={styles.cardActions}>
-                    {appt.rating && appt.rating.score ? (
-                      <View style={styles.ratedChip}>
-                        <Ionicons name="star" size={12} color={C.main} />
-                        <Text style={styles.ratedChipText}>
-                          {appt.rating.score}/5 {appt.rating.review ? `· "${appt.rating.review}"` : ""}
-                        </Text>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.rateBtn}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setReviewModalAppt(appt);
-                        }}
-                        activeOpacity={0.85}
-                      >
-                        <Ionicons name="star" size={13} color={C.bg} />
-                        <Text style={styles.rateBtnText}>Rate Visit</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ) : null}
+                  ) : isCompleted ? (
+                    <TouchableOpacity
+                      style={styles.cancelOutlineBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setReviewModalAppt(appt);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.cancelOutlineBtnText}>
+                        {appt.rating?.score ? "Rated ✦" : "Review"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               </TouchableOpacity>
             );
           })
@@ -602,304 +594,257 @@ function getStyles(theme = {}, isDark = false) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: C.bg,
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
     },
     header: {
-      backgroundColor: C.bg,
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
       paddingTop: 54,
-      paddingHorizontal: S.lg,
-      paddingBottom: S.md,
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+    },
+    headerTopRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 20,
     },
     title: {
-      fontSize: 26,
-      fontWeight: "400",
-      color: C.ink,
-      letterSpacing: -0.5,
+      fontSize: 22,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      letterSpacing: -0.4,
     },
-    subtitle: {
-      fontSize: 13,
-      color: C.muted,
-      marginTop: 2,
-      marginBottom: S.lg,
-    },
-    tabRow: {
+    headerIconGroup: {
       flexDirection: "row",
+      alignItems: "center",
       gap: 8,
     },
-    tab: {
-      flex: 1,
-      paddingVertical: 10,
-      alignItems: "center",
-      borderRadius: 24,
-    },
-    tabSelectedGradient: {
-      paddingHorizontal: S.md,
-      paddingVertical: 6,
-      borderRadius: R.pill,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.ink,
-    },
-    tabUnselected: {
-      paddingHorizontal: S.md,
-      paddingVertical: 6,
-      borderRadius: R.pill,
-      backgroundColor: C.surface,
+    headerSquareBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: isDark ? "#2C2C2E" : "#EBECEF",
       alignItems: "center",
       justifyContent: "center",
     },
-    tabTextSelected: {
-      color: C.bg,
-      fontSize: 12,
+    segmentedTabContainer: {
+      flexDirection: "row",
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F4F6",
+      borderRadius: 18,
+      padding: 4,
+      width: "100%",
+    },
+    segmentedTabBtn: {
+      flex: 1,
+      paddingVertical: 11,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 14,
+    },
+    segmentedTabBtnActive: {
+      backgroundColor: isDark ? "#2C2C2E" : "#161622",
+    },
+    segmentedTabText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#A0A09C" : "#71717A",
+    },
+    segmentedTabTextActive: {
+      color: "#FFFFFF",
       fontWeight: "700",
     },
-    tabTextUnselected: {
-      color: C.muted,
-      fontSize: 12,
-      fontWeight: "700",
-    },
-    listContent: {
-      paddingHorizontal: S.lg,
-      paddingTop: S.xs,
-      paddingBottom: 40,
+    contentContainer: {
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 100,
     },
     centerBox: {
-      padding: S.xxl,
+      padding: 40,
       alignItems: "center",
     },
     loadingText: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-      color: C.ink,
+      fontSize: 14,
+      fontWeight: "500",
+      color: isDark ? "#A0A09C" : "#71717A",
+      marginTop: 8,
     },
-    contentContainer: {
-      paddingHorizontal: S.md,
-      paddingBottom: 84,
+    emptyTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      textAlign: "center",
     },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
+    emptySub: {
+      fontSize: 13,
+      color: isDark ? "#A0A09C" : "#71717A",
+      textAlign: "center",
+      marginTop: 4,
+      lineHeight: 18,
     },
     emptyContainer: {
       flex: 1,
-      backgroundColor: C.bg,
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
       alignItems: "center",
       justifyContent: "center",
-      padding: S.xl,
+      padding: 24,
     },
     emptyIcon: {
       fontSize: 40,
-      marginBottom: S.sm,
-    },
-    emptyTitle: {
-      fontSize: FS.title,
-      fontWeight: "400",
-      color: C.ink,
-      textAlign: "center",
-      letterSpacing: -0.32,
-    },
-    emptySub: {
-      fontSize: FS.bodySm,
-      color: C.body,
-      textAlign: "center",
-      marginTop: S.xs,
-      marginBottom: S.lg,
-      lineHeight: 20,
+      marginBottom: 12,
     },
     signInBtnGradient: {
-      paddingHorizontal: S.xl,
-      paddingVertical: 10,
-      borderRadius: R.md,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 14,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: C.main,
+      backgroundColor: "#635BFF",
     },
     signInBtnText: {
-      color: C.bg,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontWeight: "700",
     },
     card: {
-      backgroundColor: theme.isDark ? "#121824" : "#FFFFFF",
-      borderRadius: 20,
-      padding: S.md,
-      marginBottom: S.md,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderRadius: 24,
+      padding: 18,
+      marginBottom: 16,
       borderWidth: 1,
-      borderColor: theme.isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)",
+      borderColor: isDark ? "#2C2C2E" : "#F0F0F4",
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: theme.isDark ? 0.4 : 0.05,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.3 : 0.04,
       shadowRadius: 12,
-      elevation: 3,
+      elevation: 2,
     },
-    cardHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-    },
-    salonNameRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 2,
-    },
-    salonName: {
-      fontSize: 11,
-      fontWeight: "800",
-      color: "#D49B45",
-      letterSpacing: 1,
-      textTransform: "uppercase",
-    },
-    serviceName: {
-      fontSize: 16,
+    cardDateHeader: {
+      fontSize: 15,
       fontWeight: "700",
-      color: theme.ink,
-      marginTop: 2,
+      color: isDark ? "#FFFFFF" : "#18181B",
+      marginBottom: 14,
+      letterSpacing: -0.2,
     },
-    staffRow: {
+    cardBodyRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      marginTop: 4,
+      marginBottom: 16,
     },
-    staffText: {
-      fontSize: FS.xs + 1,
-      color: theme.body,
+    cardImage: {
+      width: 70,
+      height: 70,
+      borderRadius: 18,
+      backgroundColor: isDark ? "#2C2C2E" : "#F0F0F4",
     },
-    statusBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 20,
+    cardContentBox: {
+      flex: 1,
+      marginLeft: 14,
+      justifyContent: "center",
     },
-    statusText: {
-      fontSize: 10,
-      letterSpacing: 0.5,
+    salonTitleText: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      marginBottom: 3,
+      letterSpacing: -0.2,
     },
-    cardDetailsBox: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      backgroundColor: theme.isDark ? "#0A0E17" : "#F8FAFC",
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      marginVertical: S.sm + 2,
-      borderWidth: 1,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+    addressText: {
+      fontSize: 12,
+      fontWeight: "400",
+      color: isDark ? "#A0A09C" : "#8E8E93",
+      marginBottom: 6,
     },
-    metaRow: {
-      gap: 4,
-    },
-    metaLine: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
-    detailText: {
+    servicesLabelText: {
       fontSize: 12.5,
       fontWeight: "600",
-      color: theme.ink,
+      color: "#635BFF",
+      lineHeight: 17,
     },
-    detailPrice: {
-      fontSize: 18,
-      fontWeight: "800",
-      color: "#D49B45",
-    },
-    cardActions: {
-      marginTop: 2,
-      alignItems: "flex-end",
-    },
-    cardActionsRow: {
-      marginTop: 4,
+    cardFooterRow: {
       flexDirection: "row",
-      justifyContent: "flex-end",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 14,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? "#2A2A2D" : "#F4F4F6",
+    },
+    reminderToggleGroup: {
+      flexDirection: "row",
       alignItems: "center",
       gap: 8,
     },
-    passBtn: {
+    switchTrack: {
+      width: 44,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#3A3A3C" : "#E4E4E8",
+      padding: 2,
+      justifyContent: "center",
+    },
+    switchTrackActive: {
+      backgroundColor: "#635BFF",
+    },
+    switchThumb: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: "#FFFFFF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    switchThumbActive: {
+      alignSelf: "flex-end",
+    },
+    reminderText: {
+      fontSize: 12.5,
+      fontWeight: "600",
+      color: isDark ? "#D1D1D6" : "#48484A",
+    },
+    rescheduleOutlineBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 13,
-      paddingVertical: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
       borderRadius: 12,
-      backgroundColor: "#D49B45",
-      shadowColor: "#D49B45",
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.3,
-      shadowRadius: 6,
-      elevation: 2,
-    },
-    passBtnText: {
-      color: "#000000",
-      fontSize: 12,
-      fontWeight: "800",
-    },
-    rescheduleBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 13,
-      paddingVertical: 8,
-      borderRadius: 12,
-      backgroundColor: theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
       borderWidth: 1,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
+      borderColor: isDark ? "#3A3A3C" : "#E0E0E6",
+      backgroundColor: isDark ? "#2C2C2E" : "#F8F8FA",
     },
-    rescheduleBtnText: {
-      color: theme.ink,
-      fontSize: 12,
+    rescheduleOutlineBtnText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: isDark ? "#E5E5EA" : "#333333",
+    },
+    cancelOutlineBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 7,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? "#3A3A3C" : "#E0E0E6",
+      backgroundColor: isDark ? "#2C2C2E" : "#FFFFFF",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelOutlineBtnText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: isDark ? "#E5E5EA" : "#333333",
+    },
+    statusPillBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 10,
+      backgroundColor: isDark ? "#2C2C2E" : "#F4F4F6",
+    },
+    statusPillBadgeText: {
+      fontSize: 11,
       fontWeight: "700",
-    },
-    cancelBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 13,
-      paddingVertical: 8,
-      borderRadius: 12,
-      backgroundColor: "rgba(239, 68, 68, 0.08)",
-      borderWidth: 1,
-      borderColor: "rgba(239, 68, 68, 0.25)",
-    },
-    cancelBtnText: {
-      color: "#EF4444",
-      fontSize: 12,
-      fontWeight: "700",
-    },
-    rateBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: S.md,
-      paddingVertical: 6,
-      borderRadius: R.md,
-      backgroundColor: C.main,
-    },
-    rateBtnText: {
-      color: C.bg,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-    },
-    ratedChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: S.sm,
-      paddingVertical: 4,
-      borderRadius: R.pill,
-      backgroundColor: C.lifted,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    ratedChipText: {
-      color: C.ink,
-      fontSize: FS.bodySm - 1,
-      fontWeight: FW.medium,
+      color: isDark ? "#A0A09C" : "#71717A",
     },
     toastBanner: {
       position: "absolute",
@@ -907,28 +852,28 @@ function getStyles(theme = {}, isDark = false) {
       left: 16,
       right: 16,
       zIndex: 9999,
-      backgroundColor: C.ink,
-      borderRadius: R.md,
-      paddingHorizontal: S.md,
-      paddingVertical: S.sm,
+      backgroundColor: "#18181B",
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: C.main,
+      borderColor: "#635BFF",
     },
     toastTitle: {
-      color: C.main,
-      fontSize: FS.bodySm,
-      fontWeight: FW.semiBold,
+      color: "#635BFF",
+      fontSize: 13,
+      fontWeight: "700",
     },
     toastMessage: {
-      color: C.bg,
-      fontSize: FS.bodySm - 1,
+      color: "#FFFFFF",
+      fontSize: 12,
       marginTop: 2,
     },
     toastCloseBtn: {
       padding: 4,
-      marginLeft: S.xs,
+      marginLeft: 8,
     },
   });
 }

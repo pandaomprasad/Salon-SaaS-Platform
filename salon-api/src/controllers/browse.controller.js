@@ -7,7 +7,8 @@ const Appointment = require('../models/appointment.model')
 const User = require('../models/user.model')
 const AppError = require('../utils/AppError')
 const dayjs = require('dayjs')
-const { getCache, setCache } = require('../services/cache.service')
+const { getCache, setCache, delCache, delCachePattern } = require('../services/cache.service')
+const { isBranchOpen } = require('../utils/salonStatus')
 
 // ================================
 // GET /api/v1/browse/initial-load
@@ -101,17 +102,41 @@ const getInitialLoad = async (req, res, next) => {
     }, {})
 
     // Combine branches with their salons, services, and staff
-    const branchesBySalon = {}
-    branches.forEach((b) => {
-      const sid = b.salonId._id ? b.salonId._id.toString() : b.salonId.toString()
-      if (!branchesBySalon[sid]) branchesBySalon[sid] = []
-      branchesBySalon[sid].push(b)
+    // Calculate lowest service price for each branch and salon
+    const minPriceByBranch = {}
+    const minPriceBySalon = {}
+
+    services.forEach((s) => {
+      if (typeof s.price === 'number' && s.price > 0 && s.branchId) {
+        const bId = s.branchId.toString()
+        if (!minPriceByBranch[bId] || s.price < minPriceByBranch[bId]) {
+          minPriceByBranch[bId] = s.price
+        }
+      }
     })
 
-    const salonsWithDetails = salons.map((s) => ({
-      ...s,
-      branches: branchesBySalon[s._id.toString()] || []
-    }))
+    branches.forEach((b) => {
+      const bId = b._id.toString()
+      const sId = b.salonId ? (b.salonId._id || b.salonId).toString() : null
+      const bMin = minPriceByBranch[bId]
+      if (sId && bMin) {
+        if (!minPriceBySalon[sId] || bMin < minPriceBySalon[sId]) {
+          minPriceBySalon[sId] = bMin
+        }
+      }
+    })
+
+    const salonsWithDetails = salons.map((s) => {
+      const sid = s._id.toString()
+      const minPaise = minPriceBySalon[sid]
+      const startingPrice = minPaise ? Math.round(minPaise / 100) : null
+      return {
+        ...s,
+        branches: branchesBySalon[sid] || [],
+        minServicePrice: startingPrice,
+        startingPrice: startingPrice
+      }
+    })
 
     const responseData = {
       salons: salonsWithDetails,
@@ -160,35 +185,41 @@ const browseSalons = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
     let salonIdsInCity = null
-    if (cacheCity) {
-      const branchesInCity = await Branch.find({
-        citySlug: cacheCity,
-        isActive: true
-      })
-        .select('salonId')
-        .lean()
+    let catSalonIds = null
 
-      salonIdsInCity = branchesInCity.map((b) => b.salonId.toString())
+    const cityPromise = cacheCity
+      ? Branch.find({ citySlug: cacheCity, isActive: true }).select('salonId').lean()
+      : Promise.resolve(null)
+
+    const categoryPromise = (category && category.toLowerCase() !== 'all')
+      ? (async () => {
+          const sanitizedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const catServices = await Service.find({
+            category: { $regex: new RegExp(`^${sanitizedCategory}$`, 'i') },
+            isActive: true
+          }).select('branchId').lean()
+
+          const branchIds = catServices.map((s) => s.branchId.toString())
+          if (branchIds.length === 0) return []
+
+          const catBranches = await Branch.find({
+            _id: { $in: branchIds },
+            isActive: true
+          }).select('salonId').lean()
+
+          return [...new Set(catBranches.map((b) => b.salonId.toString()))]
+        })()
+      : Promise.resolve(null)
+
+    const [cityBranches, categorySalonIds] = await Promise.all([cityPromise, categoryPromise])
+
+    if (cityBranches) {
+      salonIdsInCity = cityBranches.map((b) => b.salonId.toString())
       filter._id = { $in: salonIdsInCity }
     }
 
-    if (category && category.toLowerCase() !== 'all') {
-      const sanitizedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const catServices = await Service.find({
-        category: { $regex: new RegExp(`^${sanitizedCategory}$`, 'i') },
-        isActive: true
-      })
-        .select('branchId')
-        .lean()
-
-      const catBranches = await Branch.find({
-        _id: { $in: catServices.map((s) => s.branchId.toString()) },
-        isActive: true
-      })
-        .select('salonId')
-        .lean()
-
-      let catSalonIds = [...new Set(catBranches.map((b) => b.salonId.toString()))]
+    if (categorySalonIds) {
+      catSalonIds = categorySalonIds
       if (salonIdsInCity) {
         catSalonIds = catSalonIds.filter((id) => salonIdsInCity.includes(id))
       }
@@ -230,6 +261,14 @@ const browseSalons = async (req, res, next) => {
         .lean()
     ])
 
+    const branchIds = branches.map((branch) => branch._id)
+    const lowestServicePrices = branchIds.length
+      ? await Service.aggregate([
+          { $match: { branchId: { $in: branchIds }, isActive: true } },
+          { $group: { _id: '$branchId', minPrice: { $min: '$price' } } }
+        ])
+      : []
+
     const branchCountMap = {}
     branchCounts.forEach((b) => {
       branchCountMap[b._id.toString()] = b.count
@@ -242,11 +281,27 @@ const browseSalons = async (req, res, next) => {
       branchesBySalon[sid].push(b)
     })
 
-    const salonsWithBranches = salons.map((s) => ({
-      ...s,
-      branchCount: branchCountMap[s._id.toString()] || 0,
-      branches: branchesBySalon[s._id.toString()] || []
-    }))
+    const branchToSalonMap = Object.fromEntries(branches.map((branch) => [branch._id.toString(), branch.salonId.toString()]))
+    const minPriceBySalon = {}
+    lowestServicePrices.forEach(({ _id, minPrice }) => {
+      const salonId = branchToSalonMap[_id.toString()]
+      if (salonId && (minPriceBySalon[salonId] === undefined || minPrice < minPriceBySalon[salonId])) {
+        minPriceBySalon[salonId] = minPrice
+      }
+    })
+
+    const salonsWithBranches = salons.map((s) => {
+      const sid = s._id.toString()
+      const minPaise = minPriceBySalon[sid]
+      const startingPrice = minPaise ? Math.round(minPaise / 100) : null
+      return {
+        ...s,
+        branchCount: branchCountMap[sid] || 0,
+        branches: branchesBySalon[sid] || [],
+        minServicePrice: startingPrice,
+        startingPrice: startingPrice
+      }
+    })
 
     const resultData = {
       salons: salonsWithBranches,
@@ -341,31 +396,26 @@ const browseBranches = async (req, res, next) => {
       filter.name = { $regex: new RegExp(sanitized, 'i') }
     }
 
-    if (category) {
-      const branchesWithCategory = await Service.find({
-        category,
-        isActive: true
-      })
-        .select('branchId')
-        .lean()
+    const categoryPromise = category
+      ? Service.find({ category, isActive: true }).select('branchId').lean()
+      : Promise.resolve([])
 
-      const branchIds = branchesWithCategory.map((s) => s.branchId.toString())
-      filter._id = { $in: branchIds }
+    const datePromise = date
+      ? Slot.find({ date, status: 'AVAILABLE' }).distinct('branchId')
+      : Promise.resolve([])
+
+    const [catServices, branchesWithSlots] = await Promise.all([categoryPromise, datePromise])
+
+    if (catServices.length > 0) {
+      const branchIds = catServices.map((s) => s.branchId.toString())
+      filter._id = filter._id ? { $in: filter._id.$in.filter((id) => branchIds.includes(id.toString())) } : { $in: branchIds }
     }
 
-    if (date) {
-      const branchesWithSlots = await Slot.find({
-        date,
-        status: 'AVAILABLE'
-      }).distinct('branchId')
-
-      if (filter._id) {
-        const existing = filter._id.$in.map((id) => id.toString())
-        const withSlots = branchesWithSlots.map((id) => id.toString())
-        filter._id = { $in: existing.filter((id) => withSlots.includes(id)) }
-      } else {
-        filter._id = { $in: branchesWithSlots }
-      }
+    if (branchesWithSlots.length > 0) {
+      const withSlots = branchesWithSlots.map((id) => id.toString())
+      filter._id = filter._id
+        ? { $in: filter._id.$in.filter((id) => withSlots.includes(id.toString())) }
+        : { $in: withSlots }
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit)
@@ -466,6 +516,8 @@ const getBranchPublic = async (req, res, next) => {
       return next(new AppError('Branch not found', 404))
     }
 
+    const isOpen = isBranchOpen(branch)
+
     const services = await Service.find({ branchId, isActive: true })
       .select('name description category price durationMinutes currency')
       .lean()
@@ -482,11 +534,17 @@ const getBranchPublic = async (req, res, next) => {
     const resultData = {
       branch: {
         ...branch,
+        isOpen,
         servicesByCategory
       }
     }
 
-    await setCache(cacheKey, resultData, 300)
+    // Load open salon's services into Redis
+    if (isOpen) {
+      await setCache(cacheKey, resultData, 600)
+    } else {
+      await delCache(cacheKey)
+    }
 
     res.status(200).json({
       success: true,
@@ -617,9 +675,26 @@ const getBranchServicesPublic = async (req, res, next) => {
     const { category } = req.query
     const cacheKey = `branch:services:${branchId}:${category || 'all'}`
 
-    const cached = await getCache(cacheKey)
-    if (cached) {
-      return res.status(200).json({ success: true, cached: true, data: cached })
+    // 1. Verify branch active status and operating hours
+    const branch = await Branch.findOne({ _id: branchId, isActive: true, deactivatedByAdmin: { $ne: true } })
+      .select('name workingHours isActive deactivatedByAdmin')
+      .lean()
+
+    if (!branch) {
+      return next(new AppError('Branch not found or inactive', 404))
+    }
+
+    const isOpen = isBranchOpen(branch)
+
+    // If salon is OPEN: return from Redis cache if available
+    if (isOpen) {
+      const cached = await getCache(cacheKey)
+      if (cached) {
+        return res.status(200).json({ success: true, cached: true, data: cached })
+      }
+    } else {
+      // Evict any existing Redis cache for closed salon
+      await delCache(cacheKey)
     }
 
     const filter = { branchId, isActive: true }
@@ -634,13 +709,16 @@ const getBranchServicesPublic = async (req, res, next) => {
       priceDisplay: `₹${(s.price / 100).toFixed(2)}`
     }))
 
-    const resultData = { services: servicesWithDisplay }
+    const resultData = { services: servicesWithDisplay, isOpen }
 
-    await setCache(cacheKey, resultData, 300)
+    // Load open salon's services into Redis
+    if (isOpen) {
+      await setCache(cacheKey, resultData, 600)
+    }
 
     res.status(200).json({
       success: true,
-      cached: false,
+      cached: isOpen,
       data: resultData
     })
   } catch (error) {

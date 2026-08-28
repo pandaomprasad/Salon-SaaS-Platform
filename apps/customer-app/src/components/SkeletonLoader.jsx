@@ -42,8 +42,24 @@ export function SkeletonBox({ width, height, borderRadius = R.md, style }) {
   );
 }
 
-export function SalonCardSkeleton() {
+export function SalonCardSkeleton({ variant = "default" }) {
   const styles = getStyles();
+  if (variant === "compact") {
+    return (
+      <View style={styles.compactCardSkeleton}>
+        <SkeletonBox width={58} height={58} borderRadius={12} />
+        <View style={styles.compactSkeletonInfo}>
+          <SkeletonBox width="48%" height={14} style={{ marginBottom: 7 }} />
+          <SkeletonBox width="82%" height={11} style={{ marginBottom: 9 }} />
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <SkeletonBox width={58} height={10} />
+            <SkeletonBox width={42} height={10} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.cardSkeleton}>
       <SkeletonBox height={160} borderRadius={R.lg} style={{ marginBottom: S.xs }} />
@@ -85,6 +101,18 @@ function getStyles() {
     marginBottom: S.sm,
     borderWidth: 1,
     borderColor: C.border,
+  },
+  compactCardSkeleton: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 76,
+    paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+  },
+  compactSkeletonInfo: {
+    flex: 1,
+    marginLeft: 11,
   },
   serviceSkeleton: {
     flexDirection: "row",

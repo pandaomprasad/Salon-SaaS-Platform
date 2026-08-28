@@ -184,6 +184,7 @@ const userSchema = new mongoose.Schema(
 // email already has unique:true above so no need to re-index it
 // we query staff/managers by their branch often
 userSchema.index({ branchId: 1 });
+userSchema.index({ branchId: 1, isActive: 1 });
 // we query all users under a salon often
 userSchema.index({ salonId: 1 });
 // sparse unique index allows multiple users with no phone number (e.g. Google OAuth)

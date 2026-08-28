@@ -1,6 +1,6 @@
 // src/components/SharedElementMorphOverlay.jsx
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Animated, Image, Dimensions } from "react-native";
+import { View, StyleSheet, Animated, Image, Dimensions, Easing } from "react-native";
 import { useSharedElement } from "../context/SharedElementContext";
 import { C } from "../theme";
 
@@ -22,11 +22,11 @@ export default function SharedElementMorphOverlay() {
       }
 
       anim.setValue(0);
-      Animated.spring(anim, {
+      Animated.timing(anim, {
         toValue: 1,
-        friction: 8,
-        tension: 140,
-        useNativeDriver: true, // 60-120 FPS GPU Acceleration
+        duration: 320,
+        easing: Easing.bezier(0.5, 0.5, 0.5, 0.5), // Smooth Apple-style fluid curve
+        useNativeDriver: true,
       }).start(() => {
         clearSharedElement();
       });
@@ -77,9 +77,10 @@ export default function SharedElementMorphOverlay() {
     outputRange: [startScaleY, endScaleY],
   });
 
+  // Silky smooth opacity crossfade into destination screen
   const opacity = anim.interpolate({
-    inputRange: [0, 0.75, 1],
-    outputRange: isReverse ? [1, 0.8, 0] : [1, 0.9, 0],
+    inputRange: [0, 0.82, 1],
+    outputRange: isReverse ? [1, 0.5, 0] : [1, 0.6, 0],
   });
 
   return (
@@ -108,17 +109,17 @@ export default function SharedElementMorphOverlay() {
 
 function getStyles() {
   return StyleSheet.create({
-  overlayContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 99999,
-  },
-  floatingMorphCard: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    borderRadius: 24,
-    overflow: "hidden",
-    backgroundColor: C.ink,
-  },
+    overlayContainer: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 99999,
+    },
+    floatingMorphCard: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      borderRadius: 20,
+      overflow: "hidden",
+      backgroundColor: C.surface,
+    },
   });
 }

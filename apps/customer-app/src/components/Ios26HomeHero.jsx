@@ -98,6 +98,8 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
 
       {/* Search Capsule Input */}
       <FloatingSearchCapsule
+        selectedCity={selectedCity}
+        onLocationClick={onLocationClick}
         onSelectSuggestion={(term) => onSearchSubmit && onSearchSubmit(term)}
         onSearchSubmit={(term) => onSearchSubmit && onSearchSubmit(term)}
         onFilterPress={onFilterPress}

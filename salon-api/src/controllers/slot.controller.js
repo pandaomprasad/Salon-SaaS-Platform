@@ -146,34 +146,18 @@ const getSlots = async (req, res, next) => {
     };
     if (staffId) apptFilter.staffId = staffId;
 
-    const activeAppointments = await Appointment.find(apptFilter).lean();
-
-    // Map slotIds and time ranges for active appointments
-    const bookedSlotIdMap = new Map(); // slotId -> apptId
-    const bookedStaffTimeMap = []; // { staffId, startTime, endTime, apptId }
-
-    activeAppointments.forEach((appt) => {
-      if (appt.slotId) {
-        bookedSlotIdMap.set(String(appt.slotId), String(appt._id));
-      }
-      if (appt.staffId && appt.startTime) {
-        bookedStaffTimeMap.push({
-          staffId: String(appt.staffId),
-          startTime: padTime(appt.startTime),
-          endTime: padTime(appt.endTime || appt.startTime),
-          apptId: String(appt._id),
-        });
-      }
-    });
-
     // 2. Fetch all slots matching base filter
     const baseFilter = { branchId, date };
     if (staffId) baseFilter.staffId = staffId;
 
-    let slots = await Slot.find(baseFilter)
-      .populate("staffId", "name")
-      .sort({ startTime: 1 })
-      .lean();
+    // Run both queries in parallel
+    const [activeAppointments, slots] = await Promise.all([
+      Appointment.find(apptFilter).lean(),
+      Slot.find(baseFilter)
+        .populate("staffId", "name")
+        .sort({ startTime: 1 })
+        .lean(),
+    ]);
 
     // 3. Sync slot statuses with active appointments
     const slotsToMarkBookedInDb = [];

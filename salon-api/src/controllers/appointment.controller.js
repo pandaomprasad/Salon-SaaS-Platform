@@ -1279,9 +1279,9 @@ const getMyAppointmentHistory = async (req, res, next) => {
         : { date: -1, startTime: -1 };
 
     // --------------------------------
-    // Step 3 — fetch appointments + count in parallel
+    // Step 3 — fetch appointments + count + stats in parallel
     // --------------------------------
-    const [appointments, total] = await Promise.all([
+    const [appointments, total, stats] = await Promise.all([
       Appointment.find(filter)
         .populate("staffId", "name")
         .populate("serviceId", "name price durationMinutes")
@@ -1292,38 +1292,34 @@ const getMyAppointmentHistory = async (req, res, next) => {
         .limit(parseInt(limit))
         .lean(),
       Appointment.countDocuments(filter),
-    ]);
-
-    // --------------------------------
-    // Step 4 — compute summary stats
-    // --------------------------------
-    const stats = await Appointment.aggregate([
-      { $match: { customerId: userId } },
-      {
-        $group: {
-          _id: null,
-          totalAppointments: { $sum: 1 },
-          completedCount: {
-            $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] },
-          },
-          cancelledCount: {
-            $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] },
-          },
-          upcomingCount: {
-            $sum: {
-              $cond: [{ $in: ["$status", ["PENDING", "CONFIRMED"]] }, 1, 0],
+      Appointment.aggregate([
+        { $match: { customerId: userId } },
+        {
+          $group: {
+            _id: null,
+            totalAppointments: { $sum: 1 },
+            completedCount: {
+              $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] },
             },
-          },
-          totalSpent: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "COMPLETED"] }, "$pricePaid", 0],
+            cancelledCount: {
+              $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] },
             },
-          },
-          averageRating: {
-            $avg: "$rating.score",
+            upcomingCount: {
+              $sum: {
+                $cond: [{ $in: ["$status", ["PENDING", "CONFIRMED"]] }, 1, 0],
+              },
+            },
+            totalSpent: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "COMPLETED"] }, "$pricePaid", 0],
+              },
+            },
+            averageRating: {
+              $avg: "$rating.score",
+            },
           },
         },
-      },
+      ]),
     ]);
 
     const summary = stats[0] || {

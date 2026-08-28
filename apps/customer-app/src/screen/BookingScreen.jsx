@@ -218,32 +218,43 @@ export default function BookingScreen({ salon, branch, service, selectedServices
 
   if (bookingSuccess) {
     return (
-      <View style={styles.successContainer}>
+      <View style={styles.successScreenWrapper}>
         <View style={styles.successCard}>
-          <View style={styles.successIconBox}>
-            <Ionicons name="checkmark-circle" size={54} color={C.success} />
+          <View style={styles.successCardBody}>
+            {/* Green Checkmark Circle Ring */}
+            <View style={styles.successCheckRing}>
+              <Ionicons name="checkmark" size={30} color="#5CD65C" />
+            </View>
+
+            {/* Heading */}
+            <Text style={styles.successTitle}>
+              Your appointment{"\n"}booking is successfully.
+            </Text>
+
+            {/* Subheading */}
+            <Text style={styles.successSub}>
+              You can view the appointment booking{"\n"}info in the “Appointment” section.
+            </Text>
           </View>
 
-          <Text style={styles.successTitle}>Booking Confirmed!</Text>
-          <Text style={styles.successSub}>
-            Your appointment for {service?.name || "Service"} at {salon?.name || "Salon"} has been scheduled.
-          </Text>
+          {/* Actions */}
+          <View style={styles.successCardFooter}>
+            <TouchableOpacity
+              style={styles.continueBookingBtn}
+              onPress={() => navigate && navigate("Home")}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.continueBookingText}>Continue Booking</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={() => navigate && navigate("Bookings")}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.primaryBtnText}>View My Appointments</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={() => navigate && navigate("Home")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.secondaryBtnText}>Back to Home</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.goToAppointmentBtn}
+              onPress={() => navigate && navigate("Bookings")}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.goToAppointmentText}>Go to appointment</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -958,65 +969,87 @@ function getStyles(isDark) {
       fontWeight: "600",
       letterSpacing: 0.2,
     },
-    successContainer: {
+    successScreenWrapper: {
       flex: 1,
-      backgroundColor: C.bg,
-      justifyContent: "center",
-      alignItems: "center",
-      padding: S.xl,
+      backgroundColor: isDark ? "#0A0A0C" : "#EDEDEF",
+      paddingHorizontal: 16,
+      paddingVertical: Platform.OS === "android" ? 36 : 48,
     },
     successCard: {
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
-      padding: S.xl,
+      flex: 1,
+      backgroundColor: isDark ? "#1C1C1E" : R.background,
+      borderRadius: 32,
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 36,
+      justifyContent: "space-between",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.4 : 0.05,
+      shadowRadius: 20,
+      elevation: 5,
+    },
+    successCardBody: {
       alignItems: "center",
       width: "100%",
-      borderWidth: 1,
-      borderColor: C.border,
+      marginTop: 20,
     },
-    successIconBox: {
-      marginBottom: S.md,
+    successCheckRing: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      borderWidth: 2,
+      borderColor: "#66CC66",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 28,
+      backgroundColor: "transparent",
     },
     successTitle: {
-      fontSize: FS.titleLg,
-      fontWeight: "400",
-      color: C.ink,
-      marginBottom: S.xs,
-      letterSpacing: -0.32,
+      fontSize: 21,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#111111",
+      textAlign: "center",
+      lineHeight: 28,
+      marginBottom: 16,
+      letterSpacing: -0.3,
     },
     successSub: {
-      fontSize: FS.bodySm,
-      color: C.body,
+      fontSize: 13.5,
+      fontWeight: "400",
+      color: isDark ? "#A0A09C" : "#666666",
       textAlign: "center",
       lineHeight: 20,
-      marginBottom: S.xl,
     },
-    primaryBtn: {
-      backgroundColor: C.main,
+    successCardFooter: {
       width: "100%",
-      paddingVertical: 12,
-      borderRadius: R.md,
       alignItems: "center",
-      marginBottom: S.xs,
+      marginBottom: 10,
     },
-    primaryBtnText: {
-      color: C.bg,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-    },
-    secondaryBtn: {
+    continueBookingBtn: {
+      backgroundColor: "#635BFF",
       width: "100%",
-      paddingVertical: 10,
+      height: 52,
+      borderRadius: 16,
       alignItems: "center",
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.border,
-      borderRadius: R.md,
+      justifyContent: "center",
+      marginBottom: 16,
     },
-    secondaryBtnText: {
-      color: C.ink,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+    continueBookingText: {
+      color: "#FFFFFF",
+      fontSize: 14.5,
+      fontWeight: "600",
+    },
+    goToAppointmentBtn: {
+      paddingVertical: 6,
+      paddingHorizontal: 16,
+    },
+    goToAppointmentText: {
+      color: "#635BFF",
+      fontSize: 13.5,
+      fontWeight: "500",
+      textAlign: "center",
     },
   });
 }

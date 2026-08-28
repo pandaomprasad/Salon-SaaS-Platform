@@ -226,6 +226,8 @@ appointmentSchema.index({ branchId: 1, status: 1 })
 
 // customer views their own appointment history
 appointmentSchema.index({ customerId: 1, date: -1 })
+// stats aggregation: filter by customerId only
+appointmentSchema.index({ customerId: 1 })
 
 // staff views their schedule
 appointmentSchema.index({ staffId: 1, date: 1 })

@@ -65,16 +65,16 @@ function EditorialHeader({
 }) {
   const sunOpacity = toggleAnim
     ? toggleAnim.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [1, 0, 0],
-      })
+      inputRange: [0, 0.5, 1],
+      outputRange: [1, 0, 0],
+    })
     : isDark ? 0 : 1;
 
   const moonOpacity = toggleAnim
     ? toggleAnim.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0, 0, 1],
-      })
+      inputRange: [0, 0.5, 1],
+      outputRange: [0, 0, 1],
+    })
     : isDark ? 1 : 0;
 
   return (
@@ -129,7 +129,7 @@ function EditorialHeader({
       </View>
 
       {/* Header Title Row */}
-      <View style={styles.headerTitleRow}>
+      {/* <View style={styles.headerTitleRow}>
         <View style={{ flex: 1, paddingRight: S.sm }}>
           <Text style={[styles.eyebrow, { color: theme.primary }]}>FIND YOUR NEXT APPOINTMENT</Text>
           <Text style={[styles.title, { color: theme.ink, fontFamily: FONT_FAMILY.serif }]}>
@@ -139,10 +139,10 @@ function EditorialHeader({
             Hair, skin &amp; spa — handpicked near you
           </Text>
         </View>
-      </View>
+      </View> */}
 
       {/* Search Input Bar with Integrated Gold Filter Button */}
-      <View style={{ marginBottom: S.md }}>
+      <View style={{ marginBottom: S.sm }}>
         <FloatingSearchCapsule
           value={search}
           onChangeText={onSearchChange}
@@ -153,7 +153,7 @@ function EditorialHeader({
       </View>
 
       {/* Category Filter Chips (Horizontal Scroll) */}
-      <ScrollView
+      {/* <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.categoryRow}
@@ -190,7 +190,7 @@ function EditorialHeader({
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </ScrollView> */}
     </View>
   );
 }
@@ -234,7 +234,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
             await storage.setItem("@user_selected_city", detectedCity);
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     loadSavedCity();
     return () => { active = false; };
@@ -274,7 +274,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
           const list = res?.data?.notifications || (Array.isArray(res?.data) ? res.data : []);
           const unread = list.some((n) => !n.isRead);
           if (active) setHasUnread(unread);
-        } catch (e) {}
+        } catch (e) { }
       }
     };
     checkUnread();
@@ -433,10 +433,10 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
         scrollEventThrottle={16}
       >
         {loading ? (
-          <View style={{ gap: S.sm }}>
-            <SalonCardSkeleton />
-            <SalonCardSkeleton />
-            <SalonCardSkeleton />
+          <View>
+            <SalonCardSkeleton variant="compact" />
+            <SalonCardSkeleton variant="compact" />
+            <SalonCardSkeleton variant="compact" />
           </View>
         ) : filteredSalons.length === 0 ? (
           <View style={[styles.centerContainer, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
@@ -446,7 +446,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
           </View>
         ) : (
           filteredSalons.map((salon, idx) => (
-            <SalonCard key={salon._id || salon.id} salon={salon} index={idx} onPress={handleSalonPress} />
+            <SalonCard key={salon._id || salon.id} salon={salon} index={idx} onPress={handleSalonPress} variant="compact" />
           ))
         )}
       </ScrollView>
@@ -571,7 +571,7 @@ function buildEditorialStyles(isDark) {
 
     listContainer: {
       paddingHorizontal: S.md,
-      paddingTop: S.xs,
+      paddingTop: 2,
       paddingBottom: 130,
     },
     centerContainer: {

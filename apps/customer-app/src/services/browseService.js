@@ -1,6 +1,9 @@
 // src/services/browseService.js
 import { apiClient } from "./apiClient";
 
+const SERVICES_MEMORY_CACHE = new Map();
+const SALON_MEMORY_CACHE = new Map();
+
 export const browseService = {
   getInitialLoad: async (params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -15,7 +18,15 @@ export const browseService = {
   },
 
   getSalonById: async (salonId) => {
-    return await apiClient.get(`/browse/salons/${salonId}`);
+    const res = await apiClient.get(`/browse/salons/${salonId}`);
+    if (res?.data) {
+      SALON_MEMORY_CACHE.set(salonId, res);
+    }
+    return res;
+  },
+
+  getCachedSalonById: (salonId) => {
+    return SALON_MEMORY_CACHE.get(salonId) || null;
   },
 
   getBranches: async (params = {}) => {
@@ -29,7 +40,15 @@ export const browseService = {
   },
 
   getBranchServices: async (branchId) => {
-    return await apiClient.get(`/browse/branches/${branchId}/services`);
+    const res = await apiClient.get(`/browse/branches/${branchId}/services`);
+    if (res?.data) {
+      SERVICES_MEMORY_CACHE.set(branchId, res);
+    }
+    return res;
+  },
+
+  getCachedBranchServices: (branchId) => {
+    return SERVICES_MEMORY_CACHE.get(branchId) || null;
   },
 
   getBranchSlots: async (branchId, date, staffId, serviceId) => {

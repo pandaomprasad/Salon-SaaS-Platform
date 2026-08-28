@@ -37,6 +37,7 @@ export default function ForgotPasswordModal({ visible, onClose }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const newPasswordRef = React.useRef(null);
 
   const handleSendLink = async () => {
     if (!email) {
@@ -191,24 +192,20 @@ export default function ForgotPasswordModal({ visible, onClose }) {
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              {/* 6-Digit Verification Code */}
-              <View style={styles.inputPill}>
-                <Ionicons name="key-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="6-digit verification code"
-                  placeholderTextColor={styles.placeholderColor.color}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  value={otp}
-                  onChangeText={setOtp}
-                />
-              </View>
+              {/* 6-Digit OTP Box Input */}
+              <OtpBoxInput
+                length={6}
+                value={otp}
+                onChangeOtp={setOtp}
+                onComplete={() => newPasswordRef.current?.focus()}
+                isDark={isDark}
+              />
 
               {/* New Password */}
               <View style={styles.inputPill}>
                 <Ionicons name="lock-closed-outline" size={20} color={styles.placeholderColor.color} style={styles.inputIcon} />
                 <TextInput
+                  ref={newPasswordRef}
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Enter a new password"
                   placeholderTextColor={styles.placeholderColor.color}
@@ -448,3 +445,111 @@ function getStyles(theme, isDark) {
     },
   });
 }
+
+function OtpBoxInput({ length = 6, value = "", onChangeOtp, onComplete, isDark }) {
+  const inputRefs = React.useRef([]);
+  const digits = Array.from({ length }, (_, i) => value[i] || "");
+
+  const handleChange = (text, index) => {
+    const cleaned = text.replace(/[^0-9]/g, "");
+    if (!cleaned) {
+      const nextOtp = value.substring(0, index) + value.substring(index + 1);
+      onChangeOtp(nextOtp);
+      return;
+    }
+
+    if (cleaned.length > 1) {
+      const pasted = cleaned.slice(0, length);
+      onChangeOtp(pasted);
+      if (pasted.length === length && onComplete) {
+        setTimeout(() => onComplete(), 50);
+      } else {
+        const targetIdx = Math.min(pasted.length - 1, length - 1);
+        if (inputRefs.current[targetIdx]) {
+          inputRefs.current[targetIdx].focus();
+        }
+      }
+      return;
+    }
+
+    const valArr = value.split("");
+    valArr[index] = cleaned;
+    const newOtp = valArr.join("").slice(0, length);
+    onChangeOtp(newOtp);
+
+    if (newOtp.length === length && onComplete) {
+      setTimeout(() => onComplete(), 50);
+    } else if (index < length - 1 && inputRefs.current[index + 1]) {
+      inputRefs.current[index + 1].focus();
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === "Backspace") {
+      if (!digits[index] && index > 0 && inputRefs.current[index - 1]) {
+        inputRefs.current[index - 1].focus();
+        const nextOtp = value.substring(0, index - 1) + value.substring(index);
+        onChangeOtp(nextOtp);
+      }
+    }
+  };
+
+  return (
+    <View style={otpStyles.container}>
+      {Array.from({ length }).map((_, i) => {
+        const isFilled = Boolean(digits[i]);
+        return (
+          <View
+            key={i}
+            style={[
+              otpStyles.box,
+              {
+                backgroundColor: isDark ? "#2C2C2E" : "#F5F6F8",
+                borderColor: isFilled ? "#5CD65C" : isDark ? "#3A3A3C" : "#E4E4E8",
+              },
+            ]}
+          >
+            <TextInput
+              ref={(ref) => (inputRefs.current[i] = ref)}
+              style={[
+                otpStyles.boxText,
+                { color: isDark ? "#FFFFFF" : "#18181B" },
+              ]}
+              keyboardType="number-pad"
+              maxLength={i === 0 ? length : 1}
+              selectTextOnFocus
+              value={digits[i]}
+              onChangeText={(text) => handleChange(text, i)}
+              onKeyPress={(e) => handleKeyPress(e, i)}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const otpStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: 14,
+    gap: 8,
+  },
+  box: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  boxText: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    width: "100%",
+    padding: 0,
+  },
+});
