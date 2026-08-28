@@ -30,21 +30,43 @@ const getInitialLoad = async (req, res, next) => {
       })
     }
 
-    // 1. Fetch Salons
+    // 1. Fetch Locations / Branches in city first if city parameter is provided
+    let targetSalonIds = null
+    const branchFilter = { isActive: true, deactivatedByAdmin: { $ne: true } }
+    if (cleanCity) {
+      branchFilter.citySlug = cleanCity
+      const cityBranches = await Branch.find({ citySlug: cleanCity, isActive: true }).select('salonId').lean()
+      targetSalonIds = cityBranches.map((b) => b.salonId)
+    }
+
+    if (cleanCity && (!targetSalonIds || targetSalonIds.length === 0)) {
+      const emptyData = {
+        salons: [],
+        branches: [],
+        services: [],
+        staff: [],
+        slotsBySpecialist: [],
+        fetchedAt: new Date().toISOString()
+      }
+      await setCache(cacheKey, emptyData, 300)
+      return res.status(200).json({
+        success: true,
+        cached: false,
+        data: emptyData
+      })
+    }
+
     const salonFilter = { isActive: true, deactivatedByAdmin: { $ne: true } }
+    if (targetSalonIds) {
+      salonFilter._id = { $in: targetSalonIds }
+    }
+
     const salons = await Salon.find(salonFilter)
       .populate('owner', 'name')
       .select('name description contactEmail contactPhone logo banner coverImage images')
       .lean()
 
     const salonIds = salons.map((s) => s._id)
-
-    // 2. Fetch Locations / Branches
-    const branchFilter = { salonId: { $in: salonIds }, isActive: true, deactivatedByAdmin: { $ne: true } }
-    if (cleanCity) {
-      // exact match on lowercase slug — can use the citySlug index
-      branchFilter.citySlug = cleanCity
-    }
 
     const branches = await Branch.find(branchFilter)
       .populate('salonId', 'name logo')
@@ -215,6 +237,13 @@ const browseSalons = async (req, res, next) => {
 
     if (cityBranches) {
       salonIdsInCity = cityBranches.map((b) => b.salonId.toString())
+      if (salonIdsInCity.length === 0) {
+        return res.status(200).json({
+          success: true,
+          cached: false,
+          data: { salons: [], total: 0, page: parseInt(page), totalPages: 0, hasMore: false }
+        })
+      }
       filter._id = { $in: salonIdsInCity }
     }
 

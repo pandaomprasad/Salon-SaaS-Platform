@@ -229,7 +229,7 @@ function HomeScreen({ navigate, onScroll }) {
   const loadData = useCallback(async (silent = false) => {
     const cleanCity = cleanCityName(selectedCity);
     const cachedList = GLOBAL_SALON_CACHE[cleanCity] || salonCacheRef.current[cleanCity] || [];
-    const hasCachedData = cachedList.length > 0 || salonsRef.current.length > 0;
+    const hasCachedData = cachedList.length > 0;
     try {
       setLoadError(null);
       if (!silent && !hasCachedData) setLoading(true);
@@ -237,7 +237,7 @@ function HomeScreen({ navigate, onScroll }) {
       const salonList = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
       salonCacheRef.current[cleanCity] = salonList;
       GLOBAL_SALON_CACHE[cleanCity] = salonList;
-      if (JSON.stringify(salonList) !== JSON.stringify(salonsRef.current)) setSalons(salonList);
+      setSalons(salonList);
       if (isAuthenticated) {
         try {
           const apptRes = await appointmentService.getAppointments();
