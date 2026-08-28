@@ -92,9 +92,31 @@ const markAllAsRead = async (req, res, next) => {
   }
 };
 
+// ================================
+// DELETE /api/v1/notifications/:notificationId
+// delete a single notification
+// ================================
+const deleteNotification = async (req, res, next) => {
+  try {
+    const { notificationId } = req.params;
+    const { userId } = req.user;
+
+    const notification = await Notification.findOneAndDelete({
+      _id: notificationId,
+      recipientId: userId,
+    });
+    if (!notification) return next(new AppError("Notification not found", 404));
+
+    res.status(200).json({ success: true, message: "Notification deleted" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyNotifications,
   getUnreadCount,
   markAsRead,
   markAllAsRead,
+  deleteNotification,
 };

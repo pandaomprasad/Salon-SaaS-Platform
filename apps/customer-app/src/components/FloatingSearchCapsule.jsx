@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
+import { C } from "../theme";
 
 const SAMPLE_SUGGESTIONS = [
   { id: "1", stage: "SALON", query: "Royal Cut Luxury Salon" },
@@ -144,12 +145,12 @@ export default function FloatingSearchCapsule({
               onPress={onFilterPress}
               activeOpacity={0.85}
             >
-              <Ionicons name="funnel" size={16} color="#CCFF00" />
+              <Ionicons name="funnel" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
 
           {/* Horizontal Scroll Category Pills */}
-          <ScrollView
+          {/* <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoryScrollContent}
@@ -165,7 +166,7 @@ export default function FloatingSearchCapsule({
                 <Text style={styles.categoryLabelText}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </ScrollView> */}
         </View>
       </View>
 
@@ -204,14 +205,16 @@ function getStyles(isDark) {
       marginVertical: 4,
     },
     cardContainer: {
-      backgroundColor: isDark ? "#121216" : "#16161B",
+      backgroundColor: isDark ? "#121216" : "#16161bea",
       borderRadius: 28,
       padding: 6,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.14,
+      shadowOpacity: 0.44,
       shadowRadius: 16,
-      elevation: 6,
+      elevation: 10,
+      borderWidth: 1,
+      borderColor: isDark ? "#3a3a3a6e" : C.blue,
     },
     darkHeaderBlock: {
       flexDirection: "row",
@@ -231,7 +234,7 @@ function getStyles(isDark) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: "#2C2C34",
+      backgroundColor: "#030303ff",
       alignItems: "center",
       justifyContent: "center",
     },

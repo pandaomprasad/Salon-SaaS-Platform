@@ -177,6 +177,56 @@ async function seedBrahmapur() {
       isActive: true,
     });
 
+    await Service.create({
+      branchId: branch1._id,
+      salonId: salon1._id,
+      name: "Bridal Beauty Makeup",
+      description: "Women want to feel attractive. We offer timeless beauty package to accentuate their natural beauty so they can feel beautiful in every day.",
+      category: "combo",
+      packageOfferTag: "Completed Package Offer till sep 18, 2026",
+      includedServices: [
+        "Hairstyling",
+        "Nail",
+        "Hair color",
+        "Body Glowing",
+        "Facial",
+        "Spa",
+        "Eyebrows",
+        "Make up",
+        "Retouch",
+        "Corner Lashes",
+      ],
+      imageUrl: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop",
+      price: 499900, // ₹4999
+      durationMinutes: 180,
+      eligibleStaff: [staff1_1._id, staff1_2._id],
+      isActive: true,
+    });
+
+    await Service.create({
+      branchId: branch1._id,
+      salonId: salon1._id,
+      name: "Royal Groom Wedding Deluxe",
+      description: "Complete executive grooming ritual including signature haircut, beard sculpting, de-tan glow facial, and head massage.",
+      category: "combo",
+      packageOfferTag: "Special Festive Combo • 25% Off",
+      includedServices: [
+        "Signature Haircut",
+        "Beard Sculpting",
+        "De-Tan Glow Facial",
+        "Deep Head Massage",
+        "Charcoal Face Mask",
+        "Hair Spa Detox",
+        "Manicure & Pedicure",
+        "Hot Towel Finish",
+      ],
+      imageUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=800&auto=format&fit=crop",
+      price: 299900, // ₹2999
+      durationMinutes: 120,
+      eligibleStaff: [staff1_1._id, staff1_2._id],
+      isActive: true,
+    });
+
     console.log(`✅ Salon 1 created: "${salon1.name}" with Branch in Brahmapur.`);
 
     // ── 3. Seed Salon 2: Urban Edge Unisex Salon ───────────────

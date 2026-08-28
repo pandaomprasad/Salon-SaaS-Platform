@@ -1,5 +1,5 @@
 // src/screen/NotificationCenterScreen.jsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,509 +12,409 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R, TYPO, SHADOWS } from "../theme";
+import { FONT_FAMILY } from "../theme";
 import { customerService } from "../services/customerService";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "../context/ThemeContext";
+import SwipeableNotificationItem from "../components/SwipeableNotificationItem";
 
 function formatTimestamp(dateStr) {
-  if (!dateStr) return "";
+  if (!dateStr) return "Just now";
   try {
     const d = new Date(dateStr);
     const now = new Date();
     const diffMs = now - d;
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   } catch (e) {
     return dateStr;
   }
 }
 
-function getDateGroup(dateStr) {
-  if (!dateStr) return "Earlier";
-  const d = new Date(dateStr);
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfYesterday = new Date(startOfToday);
-  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setDate(startOfWeek.getDate() - 7);
-
-  if (d >= startOfToday) return "Today";
-  if (d >= startOfYesterday) return "Yesterday";
-  if (d >= startOfWeek) return "This week";
-  return "Earlier";
-}
-
-function getNotificationMeta(type) {
-  const t = (type || "").toLowerCase();
-  if (t.includes("appointment.created") || t.includes("book"))
-    return { icon: "calendar-outline", color: C.main };
-  if (t.includes("completed"))
-    return { icon: "checkmark-circle-outline", color: "#2E9E5B" };
-  if (t.includes("cancelled") || t.includes("reject"))
-    return { icon: "close-circle-outline", color: "#C24545" };
-  if (t.includes("resched"))
-    return { icon: "time-outline", color: "#C9922E" };
-  if (t.includes("leave"))
-    return { icon: "briefcase-outline", color: C.muted };
-  return { icon: "notifications-outline", color: C.muted };
-}
-
-const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
+const DEFAULT_DEMO_NOTIFICATIONS = [
+  {
+    _id: "demo-1",
+    title: "Appointment Reminder",
+    body: "You have an appointment at The Galleria Hair Salon at 8:00am today",
+    highlightWord: "appointment",
+    createdAt: new Date().toISOString(),
+    isRead: false,
+  },
+  {
+    _id: "demo-2",
+    title: "Password Changed",
+    body: "Your password is successfully changed",
+    highlightWord: "password",
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    isRead: true,
+  },
+  {
+    _id: "demo-3",
+    title: "Profile Completion",
+    body: "Completed your profile to be better health consults.",
+    actionText: "Complete Profile",
+    createdAt: new Date(Date.now() - 3 * 86400 * 1000).toISOString(),
+    isRead: true,
+  },
 ];
 
 export default function NotificationCenterScreen({ navigate, onBack }) {
-  const styles = getStyles();
+  const { isDark } = useTheme();
+  const styles = getStyles(isDark);
+  const insets = useSafeAreaInsets();
+
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [activeFilter, setActiveFilter] = useState("all");
 
-  const fetchNotifications = async () => {
+  const unreadCount = useMemo(() => {
+    return notifications.filter((n) => !n.isRead).length;
+  }, [notifications]);
+
+  const fetchNotifications = useCallback(async () => {
     try {
       const res = await customerService.getNotifications();
       let list = [];
       if (res?.data?.notifications) list = res.data.notifications;
       else if (Array.isArray(res?.data)) list = res.data;
 
-      setNotifications(list);
-      setUnreadCount(list.filter((n) => !n.isRead).length);
+      if (list.length === 0) {
+        setNotifications(DEFAULT_DEMO_NOTIFICATIONS);
+      } else {
+        setNotifications(list);
+      }
     } catch (err) {
       console.warn("Failed to fetch notifications:", err.message);
+      setNotifications(DEFAULT_DEMO_NOTIFICATIONS);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [fetchNotifications]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchNotifications();
   };
 
-  const handleMarkRead = async (id) => {
-    try {
-      await customerService.markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => ((n._id || n.id) === id ? { ...n, isRead: true } : n))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch (e) {
-      console.warn("Failed to mark read", e);
-    }
-  };
-
   const handleMarkAllRead = async () => {
     try {
       await customerService.markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
     } catch (e) {
       console.warn("Failed to mark all read", e);
     }
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
-  const handleItemPress = (item) => {
+  const handleToggleRead = async (item) => {
+    const id = item._id || item.id;
     if (!item.isRead) {
-      handleMarkRead(item._id || item.id);
+      try {
+        await customerService.markNotificationRead(id);
+      } catch (e) {}
     }
-    if (navigate && (item.data?.appointmentId || item.type?.includes("appointment"))) {
+    setNotifications((prev) =>
+      prev.map((n) => ((n._id || n.id) === id ? { ...n, isRead: true } : n))
+    );
+    if (navigate && (item.type?.includes("appointment") || item.body?.toLowerCase().includes("appointment"))) {
       navigate("Bookings");
     }
   };
 
-  const visibleNotifications = useMemo(() => {
-    if (activeFilter === "unread") return notifications.filter((n) => !n.isRead);
-    return notifications;
-  }, [notifications, activeFilter]);
+  const handleDeleteNotification = useCallback(async (item) => {
+    const id = item._id || item.id;
+    setNotifications((prev) => prev.filter((n) => (n._id || n.id) !== id));
+    try {
+      await customerService.deleteNotification(id);
+    } catch (e) {
+      console.warn("Failed to delete notification:", e.message);
+    }
+  }, []);
 
-  const groupedSections = useMemo(() => {
-    const groups = {};
-    visibleNotifications.forEach((item) => {
-      const key = getDateGroup(item.createdAt);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(item);
-    });
-    const order = ["Today", "Yesterday", "This week", "Earlier"];
-    return order
-      .filter((key) => groups[key]?.length)
-      .map((key) => ({ title: key, data: groups[key] }));
-  }, [visibleNotifications]);
+  const handleClose = () => {
+    if (onBack) onBack();
+    else if (navigate) navigate("Home");
+  };
 
-  const insets = useSafeAreaInsets();
-  const isAndroid = Platform.OS === "android";
-  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 0);
-  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 20 : Math.max(insets.bottom, 20) + 20;
+  const topInset = Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 12);
+  const bottomInset = Math.max(insets.bottom, 24) + 20;
+
+  const renderRichBody = (item) => {
+    const text = item.body || item.title || "";
+    const actionStr = item.actionText || (text.toLowerCase().includes("complete profile") ? "Complete Profile" : null);
+
+    let baseText = text;
+    if (actionStr && baseText.includes(actionStr)) {
+      baseText = baseText.replace(actionStr, "").trim();
+    }
+
+    const words = baseText.split(" ");
+    const boldKeywords = ["appointment", "password", "profile", "booking", "confirmed", "rescheduled"];
+
+    return (
+      <Text style={styles.itemTextBody}>
+        {words.map((word, i) => {
+          const clean = word.replace(/[^a-zA-Z]/g, "").toLowerCase();
+          const isBold = boldKeywords.includes(clean) || (item.highlightWord && clean === item.highlightWord.toLowerCase());
+
+          return (
+            <Text key={i} style={isBold ? styles.boldWord : styles.normalWord}>
+              {word}{" "}
+            </Text>
+          );
+        })}
+        {actionStr ? (
+          <Text style={styles.actionTextLink} onPress={() => navigate && navigate("Profile")}>
+            {actionStr}
+          </Text>
+        ) : null}
+      </Text>
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topInset + 10 }]}>
-        <View style={styles.headerTopRow}>
+    <View style={[styles.container, { paddingTop: topInset }]}>
+      {/* Top Header Card Container */}
+      <View style={styles.headerCard}>
+        <View style={styles.titleRow}>
+          <Text style={styles.screenTitle}>Notifications</Text>
+          <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.75}>
+            <Ionicons name="close" size={22} color={isDark ? "#D1D1D6" : "#3A3A3C"} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Enhanced Sub-Header Actions Bar */}
+        <View style={styles.actionsBar}>
           <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack || (() => navigate && navigate("Home"))}
-            activeOpacity={0.8}
+            style={styles.markAllBtn}
+            onPress={handleMarkAllRead}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="arrow-back" size={20} color={C.ink} />
+            <Ionicons name="checkmark-done-sharp" size={15} color="#6C5CE7" style={{ marginRight: 4 }} />
+            <Text style={styles.markAllReadText}>Mark all as read</Text>
           </TouchableOpacity>
 
-          <View style={styles.headerTextGroup}>
-            <Text style={styles.eyebrow}>IN-APP ALERTS</Text>
-            <Text style={styles.title}>Notifications</Text>
-          </View>
-
           {unreadCount > 0 && (
-            <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{unreadCount}</Text>
+            <View style={styles.unreadPill}>
+              <Text style={styles.unreadPillText}>{unreadCount} unread</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.filterRow}>
-          <View style={styles.filterTabs}>
-            {FILTERS.map((f) => {
-              const isActive = activeFilter === f.key;
-              return (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[styles.filterTab, isActive && styles.filterTabActive]}
-                  onPress={() => setActiveFilter(f.key)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {unreadCount > 0 && (
-            <TouchableOpacity style={styles.markAllBtn} onPress={handleMarkAllRead} activeOpacity={0.8}>
-              <Ionicons name="checkmark-done-outline" size={14} color={C.main} />
-              <Text style={styles.markAllText}>Mark all read</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* Hairline Divider */}
+        <View style={styles.divider} />
       </View>
 
-      {/* Content Body */}
+      {/* Notification List Scroll */}
       {loading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={C.main} />
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator size="large" color="#6C5CE7" />
+        </View>
+      ) : notifications.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="notifications-off-outline" size={32} color={isDark ? "#6366F1" : "#4F46E5"} />
+          </View>
+          <Text style={styles.emptyTitle}>No Notifications</Text>
+          <Text style={styles.emptySubtitle}>You're all caught up! When you have new alerts, they will show up here.</Text>
         </View>
       ) : (
         <ScrollView
-          style={styles.scroll}
+          style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.main} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6C5CE7" />}
         >
-          {visibleNotifications.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons
-                  name={activeFilter === "unread" ? "checkmark-done-outline" : "notifications-off-outline"}
-                  size={30}
-                  color={C.dustTaupe}
-                />
-              </View>
-              <Text style={styles.emptyTitle}>
-                {activeFilter === "unread" ? "You're all caught up" : "No Notifications Yet"}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {activeFilter === "unread"
-                  ? "No unread alerts right now. Check back later."
-                  : "Booking updates and alerts will appear right here."}
-              </Text>
-            </View>
-          ) : (
-            groupedSections.map((section) => (
-              <View key={section.title} style={styles.section}>
-                <Text style={styles.sectionHeader}>{section.title}</Text>
+          {notifications.map((item, index) => {
+            const isLast = index === notifications.length - 1;
 
-                {section.data.map((item) => {
-                  const id = item._id || item.id;
-                  const isUnread = !item.isRead;
-                  const meta = getNotificationMeta(item.type);
-
-                  return (
-                    <TouchableOpacity
-                      key={id}
-                      style={[styles.itemCard, isUnread && styles.itemCardUnread]}
-                      onPress={() => handleItemPress(item)}
-                      activeOpacity={0.85}
-                    >
-                      <View style={[styles.iconBox, { backgroundColor: `${meta.color}14` }]}>
-                        <Ionicons name={meta.icon} size={19} color={meta.color} />
-                      </View>
-
-                      <View style={styles.itemMain}>
-                        <View style={styles.itemHeaderRow}>
-                          <Text
-                            style={[styles.itemTitle, isUnread && styles.itemTitleBold]}
-                            numberOfLines={1}
-                          >
-                            {item.title || "Notification"}
-                          </Text>
-                          <Text style={styles.timestamp}>{formatTimestamp(item.createdAt)}</Text>
-                        </View>
-
-                        {item.body && (
-                          <Text style={styles.itemBody} numberOfLines={2}>
-                            {item.body}
-                          </Text>
-                        )}
-                      </View>
-
-                      {isUnread && <View style={styles.unreadDot} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))
-          )}
+            return (
+              <SwipeableNotificationItem
+                key={item._id || item.id || index}
+                item={item}
+                isLast={isLast}
+                onPress={handleToggleRead}
+                onDelete={handleDeleteNotification}
+                renderRichBody={renderRichBody}
+                formatTimestamp={formatTimestamp}
+              />
+            );
+          })}
         </ScrollView>
       )}
     </View>
   );
 }
 
-function getStyles() {
+function getStyles(isDark) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: C.bg,
+      backgroundColor: isDark ? "#121216" : "#FFFFFF",
     },
-    header: {
-      paddingTop: 54,
-      paddingHorizontal: S.lg,
-      paddingBottom: S.sm,
-      backgroundColor: C.bg,
-      borderBottomWidth: 1,
-      borderColor: C.border,
+    headerCard: {
+      paddingHorizontal: 22,
+      paddingTop: 12,
+      backgroundColor: isDark ? "#121216" : "#FFFFFF",
     },
-    headerTopRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: S.md,
-    },
-    backBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.border,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: S.sm,
-    },
-    headerTextGroup: {
-      flex: 1,
-    },
-    eyebrow: {
-      ...TYPO.eyebrow,
-      color: C.main,
-      fontSize: 11,
-      letterSpacing: 1.2,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: FW.bold,
-      color: C.ink,
-      letterSpacing: -0.5,
-      marginTop: 2,
-    },
-    headerBadge: {
-      minWidth: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: C.main,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 7,
-    },
-    headerBadgeText: {
-      fontSize: 12,
-      fontWeight: FW.bold,
-      color: "#FFFFFF",
-    },
-    filterRow: {
+    titleRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+      marginBottom: 16,
     },
-    filterTabs: {
+    screenTitle: {
+      fontFamily: FONT_FAMILY.serif,
+      fontSize: 24,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      letterSpacing: -0.4,
+    },
+    closeBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F4F4F6",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionsBar: {
       flexDirection: "row",
-      backgroundColor: C.surface,
-      borderRadius: R.sm,
-      padding: 3,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    filterTab: {
-      paddingVertical: 6,
-      paddingHorizontal: 16,
-      borderRadius: R.sm,
-    },
-    filterTabActive: {
-      backgroundColor: C.main,   // was: C.ink (which is rendering as stark white/near-white here)
-    },
-    filterTabText: {
-      fontSize: 12.5,
-      fontWeight: FW.medium,
-      color: C.muted,
-    },
-    filterTabTextActive: {
-      color: "#FFFFFF",
-      fontWeight: FW.semiBold,
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 14,
     },
     markAllBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 5,
-      paddingVertical: 7,
-      paddingHorizontal: 12,
     },
-    markAllText: {
-      fontSize: 12.5,
-      fontWeight: FW.semiBold,
-      color: C.main,
+    markAllReadText: {
+      fontSize: 13.5,
+      fontWeight: "600",
+      color: "#6C5CE7",
     },
-    centerBox: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
+    unreadPill: {
+      backgroundColor: "rgba(108, 92, 231, 0.12)",
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 12,
     },
-    scroll: {
+    unreadPillText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: "#6C5CE7",
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: isDark ? "#2C2C34" : "#EBECEF",
+      marginHorizontal: -22,
+    },
+    scrollView: {
       flex: 1,
     },
     scrollContent: {
-      flexGrow: 1,          // was: padding: S.md, paddingBottom: S.xl
-      padding: S.md,
-      paddingBottom: S.xl,
+      paddingHorizontal: 0,
+      paddingTop: 6,
     },
-    section: {
-      marginBottom: S.md,
-    },
-    sectionHeader: {
-      fontSize: 11.5,
-      fontWeight: FW.bold,
-      color: C.muted,
-      letterSpacing: 0.8,
-      textTransform: "uppercase",
-      marginBottom: S.sm,
-      marginLeft: 2,
-    },
-    emptyCard: {
-      flex: 1,               // fills remaining scroll space
-      // backgroundColor: C.surface,
-      borderRadius: R.lg,
-      padding: S.xl,
-      alignItems: "center",
-      justifyContent: "center", // vertically centers icon/title/subtitle inside it
-      borderWidth: 0,
-      borderColor: C.border,
-      // removed marginTop: S.xl
-    },
-    emptyIconCircle: {
-      width: 64,
-      height: 64,
-      borderRadius: R.full,
-      backgroundColor: C.bg,
+    loadingCenter: {
+      flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: S.md,
     },
-    emptyTitle: {
-      fontSize: FS.h3,
-      fontWeight: FW.semiBold,
-      color: C.ink,
-      marginBottom: S.xs,
-    },
-    emptySubtitle: {
-      fontSize: FS.bodySm,
-      color: C.muted,
-      textAlign: "center",
-      lineHeight: 20,
-      maxWidth: 260,
-    },
-    itemCard: {
-      backgroundColor: C.surface,
-      borderRadius: R.md,
-      padding: S.md,
+    notificationRow: {
       flexDirection: "row",
       alignItems: "flex-start",
-      borderWidth: 1,
-      borderColor: C.border,
-      position: "relative",
-      marginBottom: S.sm,
-      ...SHADOWS.sm,
+      paddingVertical: 16,
     },
-    itemCardUnread: {
-      backgroundColor: C.lifted,
-      borderColor: "rgba(189, 68, 68, 0.2)",
+    rowBorderBottom: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: isDark ? "#26262E" : "#EFEFF4",
     },
-    iconBox: {
-      width: 40,
-      height: 40,
-      borderRadius: R.full,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: S.sm,
+    indicatorWrap: {
+      width: 22,
+      paddingTop: 5,
+      alignItems: "flex-start",
     },
-    itemMain: {
-      flex: 1,
-    },
-    itemHeaderRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 4,
-    },
-    itemTitle: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-      color: C.ink,
-      flex: 1,
-      marginRight: S.xs,
-    },
-    itemTitleBold: {
-      fontWeight: FW.bold,
-      color: C.ink,
-    },
-    timestamp: {
-      fontSize: 11,
-      color: C.muted,
-      fontWeight: FW.medium,
-    },
-    itemBody: {
-      fontSize: FS.caption,
-      color: C.body,
-      lineHeight: 18,
-    },
-    unreadDot: {
+    unreadPurpleDot: {
       width: 8,
       height: 8,
-      borderRadius: R.full,
-      backgroundColor: C.main,
-      position: "absolute",
-      top: S.md,
-      right: S.md,
+      borderRadius: 4,
+      backgroundColor: "#6C5CE7",
+    },
+    readHollowRing: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: isDark ? "#55555E" : "#C7C7CC",
+      backgroundColor: "transparent",
+    },
+    contentColumn: {
+      flex: 1,
+    },
+    itemTextBody: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: isDark ? "#D1D1D6" : "#3A3A3C",
+    },
+    normalWord: {
+      fontWeight: "400",
+      color: isDark ? "#CCCCCC" : "#48484A",
+    },
+    boldWord: {
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+    },
+    actionTextLink: {
+      fontWeight: "700",
+      color: "#6C5CE7",
+    },
+    timestampText: {
+      fontSize: 12,
+      color: isDark ? "#7C7C82" : "#A0A0A5",
+      marginTop: 4,
+      fontWeight: "400",
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 36,
+      paddingVertical: 60,
+    },
+    emptyIconCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: isDark ? "rgba(99, 102, 241, 0.12)" : "rgba(99, 102, 241, 0.08)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 18,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      marginBottom: 8,
+    },
+    emptySubtitle: {
+      fontSize: 13.5,
+      lineHeight: 20,
+      color: isDark ? "#8E8E93" : "#6E6E73",
+      textAlign: "center",
     },
   });
 }

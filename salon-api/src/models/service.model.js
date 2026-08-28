@@ -38,8 +38,34 @@ const serviceSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, "Category is required"],
-      enum: ["hair", "skin", "nails", "makeup", "spa", "other"],
+      enum: ["hair", "skin", "nails", "makeup", "spa", "combo", "other"],
       lowercase: true,
+    },
+
+    // Optional package / offer subtitle, e.g. "Completed Package Offer till sep 18, 2021"
+    packageOfferTag: {
+      type: String,
+      trim: true,
+      maxlength: [150, "Offer tag cannot exceed 150 characters"],
+    },
+
+    // Included sub-services for combo / package service
+    // e.g. ["Hairstyling", "Nail", "Hair color", "Body Glowing", "Facial", "Spa", "Eyebrows", "Make up", "Retouch", "Corner Lashes"]
+    includedServices: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    // Banner image for package / service
+    image: {
+      type: String,
+      trim: true,
+    },
+    imageUrl: {
+      type: String,
+      trim: true,
     },
 
     // price in smallest currency unit (paise for INR)

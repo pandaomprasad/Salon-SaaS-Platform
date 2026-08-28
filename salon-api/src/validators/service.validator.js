@@ -11,7 +11,7 @@ const createServiceValidator = [
   body("category")
     .notEmpty()
     .withMessage("Category is required")
-    .isIn(["hair", "skin", "nails", "makeup", "spa", "other"])
+    .isIn(["hair", "skin", "nails", "makeup", "spa", "combo", "other"])
     .withMessage("Invalid category"),
 
   // price must be in paise — minimum ₹1 = 100 paise
@@ -35,6 +35,25 @@ const createServiceValidator = [
     .trim()
     .isLength({ max: 300 })
     .withMessage("Description cannot exceed 300 characters"),
+
+  body("packageOfferTag")
+    .optional()
+    .trim()
+    .isLength({ max: 150 })
+    .withMessage("Offer tag cannot exceed 150 characters"),
+
+  body("includedServices")
+    .optional()
+    .isArray()
+    .withMessage("Included services must be an array of strings"),
+
+  body("image")
+    .optional()
+    .trim(),
+
+  body("imageUrl")
+    .optional()
+    .trim(),
 ];
 
 const updateServiceValidator = [
@@ -46,7 +65,7 @@ const updateServiceValidator = [
 
   body("category")
     .optional()
-    .isIn(["hair", "skin", "nails", "makeup", "spa", "other"])
+    .isIn(["hair", "skin", "nails", "makeup", "spa", "combo", "other"])
     .withMessage("Invalid category"),
 
   body("price")
@@ -60,6 +79,23 @@ const updateServiceValidator = [
     .optional()
     .isInt({ min: 15, max: 480 })
     .withMessage("Duration must be between 15 and 480 minutes"),
+
+  body("packageOfferTag")
+    .optional()
+    .trim()
+    .isLength({ max: 150 }),
+
+  body("includedServices")
+    .optional()
+    .isArray(),
+
+  body("image")
+    .optional()
+    .trim(),
+
+  body("imageUrl")
+    .optional()
+    .trim(),
 ];
 
 module.exports = { createServiceValidator, updateServiceValidator };

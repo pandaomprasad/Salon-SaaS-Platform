@@ -56,7 +56,7 @@ const getInitialLoad = async (req, res, next) => {
     // 3-5. Fetch services, staff and slots in parallel
     const [services, staffMembers, availableSlots] = await Promise.all([
       Service.find({ branchId: { $in: branchIds }, isActive: true })
-        .select('branchId name description category price durationMinutes currency eligibleStaff image photoUrl')
+        .select('branchId name description category price durationMinutes currency eligibleStaff image imageUrl photoUrl includedServices packageOfferTag')
         .lean(),
 
       User.find({ branchId: { $in: branchIds }, isActive: { $ne: false } })
@@ -519,7 +519,7 @@ const getBranchPublic = async (req, res, next) => {
     const isOpen = isBranchOpen(branch)
 
     const services = await Service.find({ branchId, isActive: true })
-      .select('name description category price durationMinutes currency')
+      .select('name description category price durationMinutes currency image imageUrl photoUrl includedServices packageOfferTag')
       .lean()
 
     const servicesByCategory = services.reduce((acc, service) => {
@@ -701,7 +701,7 @@ const getBranchServicesPublic = async (req, res, next) => {
     if (category) filter.category = category
 
     const services = await Service.find(filter)
-      .select('name description category price durationMinutes currency')
+      .select('name description category price durationMinutes currency image imageUrl photoUrl includedServices packageOfferTag')
       .lean()
 
     const servicesWithDisplay = services.map((s) => ({

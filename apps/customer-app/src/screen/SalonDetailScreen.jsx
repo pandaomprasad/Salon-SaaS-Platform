@@ -13,6 +13,7 @@ import {
   LayoutAnimation,
   UIManager,
   Animated,
+  Easing,
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,10 +31,10 @@ import ReviewsSection from "../components/ReviewsSection";
 import { ServiceCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { paiseToINR } from "../services/apiClient";
-import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { useAuth } from "../context/AuthContext";
 import VerifyEmailModal from "../components/VerifyEmailModal";
+import ComboServiceModal from "../components/ComboServiceModal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -63,7 +64,7 @@ const GALLERY_THUMBNAILS = [
   "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=300&auto=format&fit=crop",
 ];
 
-const ServiceList = memo(({ services, selectedServices = [], onSelect }) => {
+const ServiceList = memo(({ services, selectedServices = [], onSelect, onViewCombo }) => {
   return services.map((svc) => {
     const svcId = svc._id || svc.id;
     const isSelected = selectedServices.some((s) => (s._id || s.id) === svcId);
@@ -73,16 +74,152 @@ const ServiceList = memo(({ services, selectedServices = [], onSelect }) => {
         service={svc}
         selected={isSelected}
         onSelect={onSelect}
+        onViewCombo={onViewCombo}
       />
     );
   });
+});
+
+const SqueezingOpenBadge = memo(({ isOpen, styles, isHeaderPill = false }) => {
+  const animValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // 0 = close (collapsed dot circle)
+    // 1 = open (expanded wide pill)
+    animValue.setValue(0);
+
+    // Sequence:
+    // 1. Initially 0 (close/dot circle)
+    // 2. When opened: animate to 1 (expands open pill)
+    // 3. Hold for 1 second (1000ms)
+    // 4. After 1 sec: animate back to 0 (squeezes closed into dot circle)
+    const animSequence = Animated.sequence([
+      Animated.timing(animValue, {
+        toValue: 1,
+        duration: 380,
+        easing: Easing.out(Easing.back(1.2)),
+        useNativeDriver: false,
+      }),
+      Animated.delay(1000),
+      Animated.timing(animValue, {
+        toValue: 0,
+        duration: 450,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: false,
+      }),
+    ]);
+
+    animSequence.start();
+
+    return () => animSequence.stop();
+  }, [isOpen]);
+
+  const containerWidth = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [isHeaderPill ? 24 : 32, isHeaderPill ? 64 : 78],
+  });
+
+  const containerPadding = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 9],
+  });
+
+  const textWidth = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, isHeaderPill ? 34 : 40],
+  });
+
+  const textOpacity = animValue.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, 0, 1],
+  });
+
+  const textMarginLeft = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 5],
+  });
+
+  if (isHeaderPill) {
+    return (
+      <Animated.View
+        key="hdr_badge_v3"
+        style={[
+          styles.statusBadgePill,
+          isOpen ? styles.statusBadgeOpen : styles.statusBadgeClosed,
+          {
+            width: containerWidth,
+            height: 24,
+            borderRadius: 12,
+            paddingHorizontal: containerPadding,
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+            overflow: "hidden",
+          },
+        ]}
+      >
+        <View style={[styles.statusBadgeDot, isOpen ? styles.statusDotOpen : styles.statusDotClosed]} />
+        <Animated.View
+          style={{
+            width: textWidth,
+            opacity: textOpacity,
+            marginLeft: textMarginLeft,
+            overflow: "hidden",
+          }}
+        >
+          <Text
+            style={[styles.statusBadgeText, isOpen ? styles.statusTextOpen : styles.statusTextClosed]}
+            numberOfLines={1}
+          >
+            {isOpen ? "OPEN" : "CLOSED"}
+          </Text>
+        </Animated.View>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View
+      key="hero_badge_v3"
+      style={[
+        styles.heroStatusBadgePill,
+        isOpen ? styles.heroStatusOpen : styles.heroStatusClosed,
+        {
+          width: containerWidth,
+          height: 32,
+          borderRadius: 16,
+          paddingHorizontal: containerPadding,
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "row",
+          overflow: "hidden",
+        },
+      ]}
+    >
+      <View style={[styles.heroStatusDot, isOpen ? styles.heroDotOpen : styles.heroDotClosed]} />
+      <Animated.View
+        style={{
+          width: textWidth,
+          opacity: textOpacity,
+          marginLeft: textMarginLeft,
+          overflow: "hidden",
+        }}
+      >
+        <Text
+          style={[styles.heroStatusText, isOpen ? styles.heroTextOpen : styles.heroTextClosed]}
+          numberOfLines={1}
+        >
+          {isOpen ? "OPEN" : "CLOSED"}
+        </Text>
+      </Animated.View>
+    </Animated.View>
+  );
 });
 
 function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => getStyles(isDark), [isDark]);
   const insets = useSafeAreaInsets();
-  const { startSharedTransition, lastBounds } = useSharedElement();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [services, setServices] = useState([]);
@@ -98,6 +235,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const { user } = useAuth();
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [activeComboService, setActiveComboService] = useState(null);
 
   const totalPrice = useMemo(() => {
     return selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -195,18 +333,8 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   }, [reviewsList]);
 
   const handleBack = useCallback(() => {
-    if (startSharedTransition && lastBounds) {
-      startSharedTransition(
-        {
-          image: coverImage,
-          name: salonData?.name,
-          direction: "reverse",
-        },
-        lastBounds
-      );
-    }
     if (goBack) goBack();
-  }, [goBack, startSharedTransition, lastBounds, coverImage, salonData]);
+  }, [goBack]);
 
   useEffect(() => {
     const salonId = salon?._id || salon?.id;
@@ -334,6 +462,63 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     );
   }, [services, selectedCategory]);
 
+  const isOpenStatus = useMemo(() => {
+    const target = selectedBranch || salonData;
+    if (!target) return { isOpen: true };
+
+    if (
+      target.isActive === false ||
+      target.deactivatedByAdmin === true ||
+      target.isOpen === false ||
+      target.status === "CLOSED" ||
+      salonData?.isOpen === false
+    ) {
+      return { isOpen: false, nextOpenText: "Closed right now by management." };
+    }
+
+    const workingHours = target.workingHours || salonData?.workingHours;
+    if (!Array.isArray(workingHours) || workingHours.length === 0) {
+      return { isOpen: true };
+    }
+
+    const now = new Date();
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayOfWeek = now.getDay();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const todayWorking = workingHours.find((w) => w.day === dayOfWeek);
+    if (!todayWorking || todayWorking.isOpen === false) {
+      let nextDayText = "Closed today. You can still book an advance slot.";
+      for (let i = 1; i <= 7; i++) {
+        const nextDayIdx = (dayOfWeek + i) % 7;
+        const nextWorking = workingHours.find((w) => w.day === nextDayIdx && w.isOpen !== false);
+        if (nextWorking) {
+          const dayName = i === 1 ? "tomorrow" : `on ${dayNames[nextDayIdx]}`;
+          const openT = nextWorking.openTime || "9:00 AM";
+          nextDayText = `Opens ${dayName} at ${openT}. Advance booking available.`;
+          break;
+        }
+      }
+      return { isOpen: false, nextOpenText: nextDayText };
+    }
+
+    if (todayWorking.openTime && todayWorking.closeTime) {
+      const [openH, openM] = todayWorking.openTime.split(":").map(Number);
+      const [closeH, closeM] = todayWorking.closeTime.split(":").map(Number);
+      const openMinutes = openH * 60 + (openM || 0);
+      const closeMinutes = closeH * 60 + (closeM || 0);
+
+      if (currentMinutes < openMinutes) {
+        return { isOpen: false, nextOpenText: `Opens today at ${todayWorking.openTime}.` };
+      }
+      if (currentMinutes >= closeMinutes) {
+        return { isOpen: false, nextOpenText: `Closed for today (${todayWorking.closeTime}). Opens tomorrow.` };
+      }
+    }
+
+    return { isOpen: true };
+  }, [selectedBranch, salonData]);
+
   const handleSelectService = useCallback((svc) => {
     setSelectedServices((prev) => {
       const currentId = svc?._id || svc?.id;
@@ -403,6 +588,9 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             <Ionicons name="chevron-back" size={19} color="#000000ff" />
           </TouchableOpacity>
 
+          {/* Squeezing Open/Closed Badge on Top Hero Image */}
+          <SqueezingOpenBadge isOpen={isOpenStatus.isOpen} styles={styles} />
+
           <TouchableOpacity
             style={styles.circleHeartBtn}
             onPress={() => toggleFavorite(salonData)}
@@ -440,12 +628,32 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               </Text>
             </View>
 
-            <View style={styles.ratingBlock}>
-              <Ionicons name="star" size={13} color={GOLD} />
-              <Text style={styles.ratingText}>{reviewAvg}</Text>
-              <Text style={styles.ratingSubtext}>({reviewsList.length})</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              {/* Squeezing Open / Closed Status Badge in Header */}
+              {/* <SqueezingOpenBadge isOpen={isOpenStatus.isOpen} styles={styles} isHeaderPill={true} /> */}
+
+              <View style={styles.ratingBlock}>
+                <Ionicons name="star" size={13} color={GOLD} />
+                <Text style={styles.ratingText}>{reviewAvg}</Text>
+                <Text style={styles.ratingSubtext}>({reviewsList.length})</Text>
+              </View>
             </View>
           </View>
+
+          {/* Closed Salon Alert Banner */}
+          {!isOpenStatus.isOpen && (
+            <View style={styles.closedAlertBanner}>
+              <View style={styles.closedAlertIconCircle}>
+                <Ionicons name="time" size={18} color="#FF3B30" />
+              </View>
+              <View style={styles.closedAlertTextStack}>
+                <Text style={styles.closedAlertTitle}>Salon is Currently Closed</Text>
+                <Text style={styles.closedAlertSub}>
+                  {isOpenStatus.nextOpenText || "Closed right now. You can still schedule an advance appointment."}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Quick Actions: Call & Directions */}
           <View style={styles.quickActionsRow}>
@@ -487,6 +695,13 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.branchRow}>
               {(salonData?.branches || []).map((b) => {
                 const isSelected = (b._id || b.id) === (selectedBranch?._id || selectedBranch?.id);
+                const rawName = b.name || "Main Branch";
+                const displayTitle = rawName.includes(" — ")
+                  ? rawName.split(" — ")[1] || rawName
+                  : rawName.includes(" - ")
+                    ? rawName.split(" - ")[1] || rawName
+                    : rawName;
+
                 return (
                   <TouchableOpacity
                     key={b._id || b.id}
@@ -494,12 +709,12 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
                     onPress={() => handleBranchChange(b)}
                     activeOpacity={0.88}
                   >
-                    <Text style={[styles.branchTitle, isSelected && styles.branchTitleSelected]}>
-                      {b.name || "Main Branch"}
+                    <Text style={[styles.branchTitle, isSelected && styles.branchTitleSelected]} numberOfLines={1}>
+                      {displayTitle}
                     </Text>
-                    {b.address?.city ? (
-                      <Text style={[styles.branchCity, isSelected && styles.branchCitySelected]}>
-                        {b.address.city}
+                    {b.address?.city || b.address?.street ? (
+                      <Text style={[styles.branchCity, isSelected && styles.branchCitySelected]} numberOfLines={1}>
+                        {b.address?.city || b.address?.street}
                       </Text>
                     ) : null}
                   </TouchableOpacity>
@@ -508,6 +723,8 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             </ScrollView>
           </View>
         ) : null}
+
+
 
         {/* Services Menu Accordion per reference design */}
         <View style={styles.sectionBlock}>
@@ -524,8 +741,46 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               services={services}
               selectedServices={selectedServices}
               onSelectService={handleSelectService}
+              onViewComboService={setActiveComboService}
             />
           )}
+        </View>
+
+        {/* Address & Interactive Map Component */}
+        <View style={styles.sectionBlock}>
+          <Text style={styles.addressHeaderTitle}>Address</Text>
+          <Text style={styles.addressBodyText}>
+            {selectedBranch?.address?.street ||
+              selectedBranch?.address?.full ||
+              salonData?.address?.street ||
+              (salonData?.address?.city ? `${salonData?.address?.city}, Odisha` : null) ||
+              "6391 Elgin St. Celina, Delaware 10299"}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.addressMapCard}
+            onPress={handleGetDirections}
+            activeOpacity={0.92}
+          >
+            <Image
+              source={{ uri: "https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1000&auto=format&fit=crop" }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            <View style={styles.addressMapOverlay} />
+
+            {/* Center Salon Pin Marker */}
+            <View style={styles.addressMapPinCenter}>
+              <View style={styles.addressPinBadge}>
+                <Ionicons name="location-sharp" size={20} color="#FFFFFF" />
+              </View>
+            </View>
+
+            <View style={styles.tapToNavigatePill}>
+              <Ionicons name="navigate-outline" size={13} color="#FFFFFF" />
+              <Text style={styles.tapToNavigateText}>Tap for Directions</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionBlock}>
@@ -578,7 +833,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             const apptId = firstAppt._id || firstAppt.id;
             try {
               await appointmentService.rateAppointment(apptId, rating, comment);
-            } catch (e) {}
+            } catch (e) { }
           }
           setShowReviewModal(false);
         }}
@@ -670,8 +925,8 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
                 {selectedServices.length === 1
                   ? selectedServices[0]?.name || "Service"
                   : selectedServices.length > 1
-                  ? `${selectedServices.length} services`
-                  : "Total"}
+                    ? `${selectedServices.length} services`
+                    : "Total"}
               </Text>
               <Text style={styles.totalAmount}>
                 {selectedServices.length > 0 ? paiseToINR(totalPrice) : "₹0.00"}
@@ -695,6 +950,21 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         email={user?.email}
         onClose={() => setShowVerifyModal(false)}
         onVerified={() => setShowVerifyModal(false)}
+      />
+
+      <ComboServiceModal
+        visible={Boolean(activeComboService)}
+        service={activeComboService}
+        isSelected={
+          activeComboService
+            ? selectedServices.some(
+                (s) =>
+                  (s._id || s.id) === (activeComboService._id || activeComboService.id)
+              )
+            : false
+        }
+        onClose={() => setActiveComboService(null)}
+        onSelectService={handleSelectService}
       />
     </View>
   );
@@ -729,7 +999,7 @@ function getStyles(isDark) {
       left: 0,
       right: 0,
       bottom: 0,
-      height: "45%",
+      height: "0%",
       backgroundColor: "rgba(0, 0, 0, 0.45)",
     },
     circleBackBtn: {
@@ -757,6 +1027,55 @@ function getStyles(isDark) {
       justifyContent: "center",
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.22)",
+    },
+    heroStatusBadgePill: {
+      position: "absolute",
+      top: Platform.OS === "android" ? 44 : 52,
+      right: 58,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      paddingHorizontal: 9,
+      paddingVertical: 7,
+      borderRadius: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 4,
+      zIndex: 10,
+    },
+    heroStatusOpen: {
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderWidth: 1,
+      borderColor: "rgba(34, 197, 94, 0.35)",
+    },
+    heroStatusClosed: {
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderWidth: 1,
+      borderColor: "rgba(239, 68, 68, 0.35)",
+    },
+    heroStatusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    heroDotOpen: {
+      backgroundColor: "#22C55E",
+    },
+    heroDotClosed: {
+      backgroundColor: "#EF4444",
+    },
+    heroStatusText: {
+      fontSize: 10.5,
+      fontWeight: "800",
+      letterSpacing: 0.6,
+    },
+    heroTextOpen: {
+      color: "#15803D",
+    },
+    heroTextClosed: {
+      color: "#B91C1C",
     },
     priceOverlayPill: {
       position: "absolute",
@@ -794,6 +1113,7 @@ function getStyles(isDark) {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
+      display: "none",
     },
     dot: {
       width: 5,
@@ -831,6 +1151,83 @@ function getStyles(isDark) {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
+    },
+    statusBadgePill: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: R.pill,
+      gap: 5,
+    },
+    statusBadgeOpen: {
+      backgroundColor: isDark ? "rgba(34, 197, 94, 0.16)" : "#E8F8EE",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(34, 197, 94, 0.3)" : "#C3F0D3",
+    },
+    statusBadgeClosed: {
+      backgroundColor: isDark ? "rgba(239, 68, 68, 0.16)" : "#FEE2E2",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(239, 68, 68, 0.3)" : "#FECACA",
+    },
+    statusBadgeDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statusDotOpen: {
+      backgroundColor: "#22C55E",
+    },
+    statusDotClosed: {
+      backgroundColor: "#EF4444",
+    },
+    statusBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      letterSpacing: 0.5,
+    },
+    statusTextOpen: {
+      color: isDark ? "#4ADE80" : "#15803D",
+    },
+    statusTextClosed: {
+      color: isDark ? "#FCA5A5" : "#B91C1C",
+    },
+    closedAlertBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "rgba(255, 59, 48, 0.14)" : "#FFF2F2",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(255, 59, 48, 0.35)" : "#FFCACA",
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginTop: 14,
+      marginBottom: 4,
+      gap: 12,
+    },
+    closedAlertIconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isDark ? "rgba(255, 59, 48, 0.22)" : "#FFE5E5",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    closedAlertTextStack: {
+      flex: 1,
+    },
+    closedAlertTitle: {
+      fontSize: 13.5,
+      fontWeight: "700",
+      color: "#FF3B30",
+      letterSpacing: -0.1,
+    },
+    closedAlertSub: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: isDark ? "#E5E5EA" : "#555555",
+      marginTop: 2,
+      lineHeight: 16,
     },
     locationBlock: {
       flexDirection: "row",
@@ -881,6 +1278,71 @@ function getStyles(isDark) {
       color: C.ink,
       letterSpacing: -0.2,
       marginBottom: S.sm + 2,
+    },
+    addressHeaderTitle: {
+      fontFamily: FONT_FAMILY.serif,
+      fontSize: 18,
+      fontWeight: "700",
+      color: C.ink,
+      letterSpacing: -0.2,
+      marginBottom: 4,
+    },
+    addressBodyText: {
+      fontSize: 13.5,
+      fontWeight: "500",
+      color: C.muted,
+      lineHeight: 20,
+      marginBottom: 12,
+    },
+    addressMapCard: {
+      height: 185,
+      borderRadius: 24,
+      overflow: "hidden",
+      position: "relative",
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C34" : "#E5E5EB",
+    },
+    addressMapOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: isDark ? "rgba(18,18,22,0.35)" : "rgba(240,240,245,0.1)",
+    },
+    addressMapPinCenter: {
+      position: "absolute",
+      top: "38%",
+      left: "44%",
+      alignItems: "center",
+    },
+    addressPinBadge: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "#6C5CE7",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#6C5CE7",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4,
+      shadowRadius: 8,
+      elevation: 6,
+      borderWidth: 2.5,
+      borderColor: "#FFFFFF",
+    },
+    tapToNavigatePill: {
+      position: "absolute",
+      bottom: 12,
+      right: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(24, 24, 27, 0.85)",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 14,
+      gap: 5,
+    },
+    tapToNavigateText: {
+      color: "#FFFFFF",
+      fontSize: 11.5,
+      fontWeight: "600",
     },
     amenitiesScroll: {
       flexDirection: "row",
@@ -950,7 +1412,8 @@ function getStyles(isDark) {
       marginRight: 10,
       borderWidth: 1,
       borderColor: C.border,
-      minWidth: 148,
+      minWidth: 120,
+      maxWidth: 240,
     },
     branchPillSelected: {
       backgroundColor: C.ink,

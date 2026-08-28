@@ -23,7 +23,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
           const list = res?.data?.notifications || (Array.isArray(res?.data) ? res.data : []);
           const unread = list.some((n) => !n.isRead);
           if (active) setHasUnread(unread);
-        } catch (e) {}
+        } catch (e) { }
       }
     };
     checkUnread();
@@ -55,7 +55,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
       {/* Top bar: Location selector & actions */}
       <View style={styles.topBar}>
         <AppleTouchable style={styles.locationChip} onPress={onLocationClick} scaleTo={0.96}>
-          <Ionicons name="location-outline" size={14} color={C.main} />
+          <Ionicons name="location-outline" size={14} color={C.blue} />
           <Text style={styles.locationCity} numberOfLines={1}>{selectedCity || "Brahmapur"}</Text>
           <Ionicons name="chevron-down" size={12} color={C.muted} />
         </AppleTouchable>
@@ -87,7 +87,7 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
 
       {/* Hero Header - Display weight 400 with negative tracking per cursor/DESIGN.md */}
       <View style={styles.greetingBlock}>
-        <Text style={styles.sectionTag}>THE SALON EDIT</Text>
+        {/* <Text style={styles.sectionTag}>THE SALON EDIT</Text> */}
         <Text style={styles.greeting}>
           {getGreeting()}{displayName ? `, ${displayName}` : ""}
         </Text>
@@ -97,13 +97,13 @@ export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotifi
       </View>
 
       {/* Search Capsule Input */}
-      <FloatingSearchCapsule
+      {/* <FloatingSearchCapsule
         selectedCity={selectedCity}
         onLocationClick={onLocationClick}
         onSelectSuggestion={(term) => onSearchSubmit && onSearchSubmit(term)}
         onSearchSubmit={(term) => onSearchSubmit && onSearchSubmit(term)}
         onFilterPress={onFilterPress}
-      />
+      /> */}
     </View>
   );
 }
@@ -113,7 +113,7 @@ function getStyles() {
     hero: {
       paddingTop: Platform.OS === "android" ? 44 : 52,
       paddingHorizontal: S.md,
-      paddingBottom: S.md,
+      // paddingBottom: S.md,
       backgroundColor: C.bg,
       zIndex: 100,
     },
@@ -175,7 +175,7 @@ function getStyles() {
       borderColor: C.border,
     },
     greetingBlock: {
-      marginBottom: S.lg,
+      marginBottom: S.sm,
     },
     sectionTag: {
       ...TYPO.eyebrow,
@@ -183,7 +183,7 @@ function getStyles() {
       color: C.main,
     },
     greeting: {
-      fontFamily: FF.display,
+      // fontFamily: FF.display,
       fontSize: FS.headline,
       color: C.ink,
       lineHeight: FS.headline * 1.08,

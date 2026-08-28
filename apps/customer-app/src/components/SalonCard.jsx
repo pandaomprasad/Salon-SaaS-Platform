@@ -1,9 +1,8 @@
-import React, { useRef, memo, useCallback } from "react";
+import React, { memo, useCallback } from "react";
 import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import VerifiedBadge from "./VerifiedBadge";
 import { C, S, FS, FW, R, SHADOWS, FONT_FAMILY } from "../theme";
-import { useSharedElement } from "../context/SharedElementContext";
 import { useFavorites } from "../context/FavoritesContext";
 import BouncyButton from "./BouncyButton";
 import AppleTouchable from "./AppleTouchable";
@@ -63,11 +62,38 @@ function getLowestServicePrice(salon) {
   return null;
 }
 
+function checkIsOpen(salon) {
+  if (!salon) return true;
+  if (salon.isActive === false || salon.deactivatedByAdmin === true || salon.isOpen === false || salon.status === "CLOSED") {
+    return false;
+  }
+  const workingHours = salon.workingHours || salon.branches?.[0]?.workingHours;
+  if (!Array.isArray(workingHours) || workingHours.length === 0) return true;
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const todayWorking = workingHours.find((w) => w.day === dayOfWeek);
+  if (!todayWorking || todayWorking.isOpen === false) return false;
+
+  if (todayWorking.openTime && todayWorking.closeTime) {
+    const [openH, openM] = todayWorking.openTime.split(":").map(Number);
+    const [closeH, closeM] = todayWorking.closeTime.split(":").map(Number);
+    const openMinutes = openH * 60 + (openM || 0);
+    const closeMinutes = closeH * 60 + (closeM || 0);
+
+    if (currentMinutes < openMinutes || currentMinutes >= closeMinutes) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = "default" }) {
-  const cardRef = useRef(null);
-  const layoutBoundsRef = useRef(null);
-  const { startSharedTransition } = useSharedElement();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const isOpen = checkIsOpen(salon);
 
   const numericRating = typeof salon.rating === "number" ? salon.rating : parseFloat(salon.rating || 4.8);
   const ratingStr = numericRating.toFixed(1);
@@ -83,22 +109,9 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
   const distance = salon.distance || salon.distanceKm || salon.branches?.[0]?.distance || "Nearby";
   const lowestServicePrice = getLowestServicePrice(salon);
 
-  const measureCard = useCallback(() => {
-    if (cardRef.current && cardRef.current.measureInWindow) {
-      cardRef.current.measureInWindow((x, y, width, height) => {
-        if (width > 0 && height > 0) layoutBoundsRef.current = { x, y, width, height };
-      });
-    }
-  }, []);
-
   const handlePress = useCallback(() => {
-    const bounds = layoutBoundsRef.current;
-    if (startSharedTransition) {
-      startSharedTransition({ image: coverImage, name: salon.name }, bounds || { x: 16, y: 120, width: SCREEN_WIDTH - 32, height: 320 });
-    }
     if (onPress) onPress(salon);
-    measureCard();
-  }, [salon, onPress, coverImage, startSharedTransition, measureCard]);
+  }, [salon, onPress]);
 
   const handleFavPress = useCallback(
     (e) => {
@@ -113,8 +126,6 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
   if (isCompact) {
     return (
       <BouncyButton
-        ref={cardRef}
-        onLayout={measureCard}
         style={styles.compactCard}
         onPress={handlePress}
         accessibilityRole="button"
@@ -155,8 +166,6 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
 
   return (
     <BouncyButton
-      ref={cardRef}
-      onLayout={measureCard}
       style={[styles.card, isHorizontal ? styles.horizontal : styles.full]}
       onPress={handlePress}
     >
@@ -195,6 +204,14 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
         <View style={styles.titleRow}>
           <Text style={styles.name} numberOfLines={1}>{salon.name}</Text>
           <VerifiedBadge size={16} color={C.verified} />
+
+          {/* Open / Closed Status Badge */}
+          <View style={[styles.cardStatusBadge, isOpen ? styles.cardStatusOpen : styles.cardStatusClosed]}>
+            <View style={[styles.cardStatusDot, isOpen ? styles.cardDotOpen : styles.cardDotClosed]} />
+            <Text style={[styles.cardStatusText, isOpen ? styles.cardTextOpen : styles.cardTextClosed]}>
+              {isOpen ? "Open" : "Closed"}
+            </Text>
+          </View>
         </View>
 
         <Text style={styles.description} numberOfLines={1}>
@@ -397,7 +414,47 @@ function getStyles() {
       fontSize: 18,
       fontWeight: FW.bold,
       color: C.ink,
-      flex: 1,
+      flexShrink: 1,
+    },
+    cardStatusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 7,
+      paddingVertical: 2.5,
+      borderRadius: R.pill,
+      gap: 4,
+      marginLeft: "auto",
+    },
+    cardStatusOpen: {
+      backgroundColor: "#E8F8EE",
+      borderWidth: 1,
+      borderColor: "#C3F0D3",
+    },
+    cardStatusClosed: {
+      backgroundColor: "#FEE2E2",
+      borderWidth: 1,
+      borderColor: "#FECACA",
+    },
+    cardStatusDot: {
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
+    },
+    cardDotOpen: {
+      backgroundColor: "#22C55E",
+    },
+    cardDotClosed: {
+      backgroundColor: "#EF4444",
+    },
+    cardStatusText: {
+      fontSize: 9.5,
+      fontWeight: FW.bold,
+    },
+    cardTextOpen: {
+      color: "#15803D",
+    },
+    cardTextClosed: {
+      color: "#B91C1C",
     },
     description: {
       fontSize: FS.xs + 1,
@@ -424,7 +481,7 @@ function getStyles() {
       color: C.muted,
     },
     bookBtn: {
-      backgroundColor: C.main,
+      backgroundColor: C.blue,
       paddingHorizontal: 14,
       paddingVertical: 7,
       borderRadius: R.button,

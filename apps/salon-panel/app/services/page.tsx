@@ -37,6 +37,10 @@ interface ServiceItem {
   isActive: boolean;
   createdAt: string;
   priceFormatted?: { display: string };
+  packageOfferTag?: string;
+  includedServices?: string[];
+  image?: string;
+  imageUrl?: string;
 }
 
 interface BranchOption {
@@ -52,6 +56,7 @@ const CATEGORIES = [
   { value: "nails", label: "Nails" },
   { value: "makeup", label: "Makeup" },
   { value: "spa", label: "Spa" },
+  { value: "combo", label: "Combo / Package" },
   { value: "other", label: "Other" },
 ];
 
@@ -61,6 +66,7 @@ const CATEGORY_STYLES: Record<string, string> = {
   nails: "bg-pink-50 text-pink-700 border border-pink-200",
   makeup: "bg-amber-50 text-amber-700 border border-amber-200",
   spa: "bg-teal-50 text-teal-700 border border-teal-200",
+  combo: "bg-amber-50 text-amber-800 border border-amber-300 font-semibold",
   other: "bg-gray-100 text-gray-600 border border-gray-200",
 };
 
@@ -278,7 +284,14 @@ export default function ServicesPage() {
                 {/* Top row */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm truncate">{s.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-sm truncate">{s.name}</h3>
+                      {s.category === "combo" && (
+                        <span className="text-[10px] bg-amber-500/15 text-amber-600 font-bold px-1.5 py-0.5 rounded">
+                          ✨ Bundle
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize mt-1.5 inline-block ${CATEGORY_STYLES[s.category] || CATEGORY_STYLES.other
                         }`}
@@ -305,9 +318,35 @@ export default function ServicesPage() {
                   )}
                 </div>
 
+                {/* Offer tag */}
+                {s.packageOfferTag && (
+                  <div className="text-[11px] text-amber-700 font-medium mb-2 bg-amber-50/70 px-2 py-1 rounded-md border border-amber-200/60">
+                    🏷️ {s.packageOfferTag}
+                  </div>
+                )}
+
                 {/* Description */}
                 {s.description && (
                   <p className="text-xs text-ash mb-3 line-clamp-2">{s.description}</p>
+                )}
+
+                {/* Included Sub-Services List */}
+                {s.includedServices && s.includedServices.length > 0 && (
+                  <div className="mb-3 pt-2 border-t border-smoke/40">
+                    <p className="text-[10px] font-bold text-ash uppercase tracking-wider mb-1.5">
+                      Included Services ({s.includedServices.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {s.includedServices.map((item, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-1.5 py-0.5 rounded-md font-medium"
+                        >
+                          ✓ {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* Price + Duration */}
@@ -359,6 +398,21 @@ export default function ServicesPage() {
 
 // ── Reusable Add / Edit Modal ──
 
+const SUGGESTED_SUB_SERVICES = [
+  "Hairstyling",
+  "Nail",
+  "Hair color",
+  "Body Glowing",
+  "Facial",
+  "Spa",
+  "Eyebrows",
+  "Make up",
+  "Retouch",
+  "Corner Lashes",
+  "Draping",
+  "Head Massage",
+];
+
 function ServiceFormModal({
   branchId,
   service,
@@ -378,7 +432,14 @@ function ServiceFormModal({
     category: service?.category || "hair",
     price: service ? String(service.price / 100) : "",
     durationMinutes: service ? String(service.durationMinutes) : "",
+    packageOfferTag: service?.packageOfferTag || "",
+    imageUrl: service?.imageUrl || service?.image || "",
   });
+
+  const [includedServices, setIncludedServices] = useState<string[]>(
+    service?.includedServices || []
+  );
+  const [subServiceInput, setSubServiceInput] = useState("");
 
   const [fieldErrors, setFieldErrors] = useState<{ field: string; message: string }[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -392,6 +453,19 @@ function ServiceFormModal({
 
   function getError(field: string): string | undefined {
     return fieldErrors.find((e) => e.field === field)?.message;
+  }
+
+  function addSubService(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!includedServices.includes(trimmed)) {
+      setIncludedServices((prev) => [...prev, trimmed]);
+    }
+    setSubServiceInput("");
+  }
+
+  function removeSubService(name: string) {
+    setIncludedServices((prev) => prev.filter((item) => item !== name));
   }
 
   async function handleSubmit() {
@@ -420,12 +494,16 @@ function ServiceFormModal({
     setServerError(null);
     setFieldErrors([]);
 
-    const payload = {
+    const payload: any = {
       name: form.name.trim(),
       category: form.category,
       price: priceInPaise,
       durationMinutes: duration,
       description: form.description.trim() || undefined,
+      packageOfferTag: form.packageOfferTag.trim() || undefined,
+      imageUrl: form.imageUrl.trim() || undefined,
+      image: form.imageUrl.trim() || undefined,
+      includedServices: includedServices.length > 0 ? includedServices : undefined,
     };
 
     try {
@@ -449,10 +527,10 @@ function ServiceFormModal({
 
   return (
     <Modal title={isEditing ? "Edit Service" : "Add New Service"} onClose={onClose}>
-      <div className="space-y-4">
+      <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
         <Input
           label="Service Name"
-          placeholder="e.g. Haircut & Styling"
+          placeholder="e.g. Bridal Beauty Makeup"
           value={form.name}
           onChange={(e) => set("name", e.target.value)}
           error={getError("name")}
@@ -470,7 +548,7 @@ function ServiceFormModal({
           <Input
             label="Price (₹)"
             type="number"
-            placeholder="e.g. 500"
+            placeholder="e.g. 4999"
             value={form.price}
             onChange={(e) => set("price", e.target.value)}
             error={getError("price")}
@@ -478,12 +556,104 @@ function ServiceFormModal({
           <Input
             label="Duration (minutes)"
             type="number"
-            placeholder="e.g. 60"
+            placeholder="e.g. 180"
             value={form.durationMinutes}
             onChange={(e) => set("durationMinutes", e.target.value)}
             error={getError("durationMinutes")}
           />
         </div>
+
+        {/* Combo / Package specific fields */}
+        {(form.category === "combo" || includedServices.length > 0) && (
+          <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
+              <span>✨ Combo Package Configuration</span>
+            </div>
+
+            <Input
+              label="Package Offer Tag / Subtitle (optional)"
+              placeholder="e.g. Completed Package Offer till sep 18, 2026"
+              value={form.packageOfferTag}
+              onChange={(e) => set("packageOfferTag", e.target.value)}
+            />
+
+            <Input
+              label="Banner Image URL (optional)"
+              placeholder="https://images.unsplash.com/..."
+              value={form.imageUrl}
+              onChange={(e) => set("imageUrl", e.target.value)}
+            />
+
+            <div>
+              <label className="block text-xs font-medium text-ink mb-1.5">
+                Included Sub-Services ({includedServices.length})
+              </label>
+
+              {/* Sub-services chips */}
+              {includedServices.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3 bg-white p-2.5 rounded-lg border border-border">
+                  {includedServices.map((sub) => (
+                    <span
+                      key={sub}
+                      className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-800 font-medium px-2 py-1 rounded-md border border-emerald-200"
+                    >
+                      <span>✓ {sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSubService(sub)}
+                        className="text-emerald-700 hover:text-red-500 ml-0.5"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Add custom sub-service */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Type sub-service (e.g. Hairstyling, Facial)..."
+                  value={subServiceInput}
+                  onChange={(e) => setSubServiceInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addSubService(subServiceInput);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => addSubService(subServiceInput)}
+                >
+                  Add
+                </Button>
+              </div>
+
+              {/* Quick suggestions */}
+              <div className="mt-2">
+                <p className="text-[11px] text-ash mb-1">Quick add:</p>
+                <div className="flex flex-wrap gap-1">
+                  {SUGGESTED_SUB_SERVICES.filter(
+                    (s) => !includedServices.includes(s)
+                  ).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => addSubService(s)}
+                      className="text-[11px] bg-white hover:bg-smoke text-ash hover:text-ink px-2 py-0.5 rounded border border-border transition-colors"
+                    >
+                      + {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Textarea
           label="Description (optional)"

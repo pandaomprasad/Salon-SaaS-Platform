@@ -18,6 +18,7 @@ export default function CategoryAccordionList({
   services = [],
   selectedServices = [],
   onSelectService,
+  onViewComboService,
 }) {
   const { theme, isDark } = useTheme();
   const styles = getStyles(theme, isDark);
@@ -67,6 +68,7 @@ export default function CategoryAccordionList({
       {groupedCategories.map((group) => {
         const isExpanded = expandedCat === group.name;
         const count = group.items.length;
+        const isComboGroup = group.name.toLowerCase().includes("combo") || group.name.toLowerCase().includes("package");
 
         // Find if any service in this category is currently selected by customer
         const selectedInGroup = group.items.find((item) =>
@@ -93,14 +95,21 @@ export default function CategoryAccordionList({
               activeOpacity={0.88}
             >
               {/* Left: Category Name */}
-              <Text
-                style={[
-                  styles.categoryTitle,
-                  (isExpanded || selectedInGroup) && styles.categoryTitleActive,
-                ]}
-              >
-                {group.name}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text
+                  style={[
+                    styles.categoryTitle,
+                    (isExpanded || selectedInGroup) && styles.categoryTitleActive,
+                  ]}
+                >
+                  {group.name}
+                </Text>
+                {isComboGroup && (
+                  <View style={styles.comboHeaderPill}>
+                    <Text style={styles.comboHeaderPillText}>✦ Bundle</Text>
+                  </View>
+                )}
+              </View>
 
               {/* Right: Selected Sub-service Name + Price OR Count + Chevron */}
               <View style={styles.headerRightRow}>
@@ -143,17 +152,44 @@ export default function CategoryAccordionList({
                     (s) => (s._id || s.id) === serviceId
                   );
                   const isLast = index === group.items.length - 1;
+                  const isCombo =
+                    service.category?.toLowerCase() === "combo" ||
+                    isComboGroup ||
+                    Boolean(service.includedServices && service.includedServices.length > 0);
 
                   return (
-                    <View
+                    <TouchableOpacity
                       key={serviceId}
-                      style={[styles.serviceRow, isLast && styles.serviceRowLast]}
+                      style={[
+                        styles.serviceRow,
+                        isLast && styles.serviceRowLast,
+                        isCombo && styles.comboServiceRow,
+                      ]}
+                      onPress={() => {
+                        if (isCombo && onViewComboService) {
+                          onViewComboService(service);
+                        } else {
+                          onSelectService?.(service);
+                        }
+                      }}
+                      activeOpacity={0.88}
                     >
                       <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                          <Text style={styles.serviceName}>{service.name}</Text>
+                          {isCombo && (
+                            <View style={styles.comboItemTag}>
+                              <Text style={styles.comboItemTagText}>View Details ↗</Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={styles.serviceMeta}>
                           {service.durationMinutes || service.duration || 30} mins
-                          {service.description ? ` • ${service.description}` : ""}
+                          {service.packageOfferTag
+                            ? ` • ${service.packageOfferTag}`
+                            : service.description
+                            ? ` • ${service.description}`
+                            : ""}
                         </Text>
                       </View>
 
@@ -178,7 +214,7 @@ export default function CategoryAccordionList({
                           />
                         </SpringTouchable>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -296,6 +332,39 @@ function getStyles(theme, isDark) {
       fontSize: 15,
       fontWeight: "800",
       color: isDark ? "#FFFFFF" : "#1A1A24",
+    },
+    comboHeaderPill: {
+      backgroundColor: isDark ? "rgba(245, 158, 11, 0.2)" : "#FEF3C7",
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(245, 158, 11, 0.4)" : "#FDE68A",
+    },
+    comboHeaderPillText: {
+      fontSize: 10.5,
+      fontWeight: "800",
+      color: isDark ? "#FBBF24" : "#B45309",
+      letterSpacing: 0.2,
+    },
+    comboServiceRow: {
+      backgroundColor: isDark ? "rgba(245, 158, 11, 0.05)" : "rgba(245, 158, 11, 0.04)",
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      marginVertical: 2,
+    },
+    comboItemTag: {
+      backgroundColor: isDark ? "rgba(59, 130, 246, 0.2)" : "#EFF6FF",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(59, 130, 246, 0.4)" : "#DBEAFE",
+    },
+    comboItemTagText: {
+      fontSize: 9.5,
+      fontWeight: "700",
+      color: isDark ? "#60A5FA" : "#2563EB",
     },
     selectBtn: {
       width: 32,

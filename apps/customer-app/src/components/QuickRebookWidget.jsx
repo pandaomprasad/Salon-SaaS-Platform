@@ -27,21 +27,34 @@ function formatTime(timeStr) {
   } catch (e) { return timeStr; }
 }
 
+function getDateParts(dateStr) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return null;
+    return {
+      weekday: d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(),
+      day: d.getDate(),
+    };
+  } catch (e) { return null; }
+}
+
 export default function QuickRebookWidget({ isAuthenticated = true, appointment, onRebook, onViewDetails, onLogin }) {
   const styles = getStyles();
 
   if (!isAuthenticated) {
     return (
       <BouncyButton style={styles.card} onPress={onLogin || onRebook}>
-        <View style={styles.iconBox}>
-          <Ionicons name="calendar-outline" size={18} color={C.ink} />
+        <View style={styles.badgeCircle}>
+          <Ionicons name="calendar-outline" size={20} color={"#fff"} />
         </View>
         <View style={styles.textBlock}>
           <Text style={styles.cardTitle}>Your bookings, all in one place</Text>
           <Text style={styles.cardSub}>Sign in to keep track</Text>
         </View>
-        <View style={styles.primaryBtn}>
-          <Text style={styles.primaryBtnText}>Sign in</Text>
+        <View style={styles.chip}>
+          <Text style={styles.chipText}>Sign in</Text>
+          <Ionicons name="arrow-forward" size={13} color={"#000"} style={{ marginLeft: 4 }} />
         </View>
       </BouncyButton>
     );
@@ -64,35 +77,57 @@ export default function QuickRebookWidget({ isAuthenticated = true, appointment,
   const rawTime = appointment?.startTime || (typeof appointment?.slotId === "object" ? appointment.slotId?.startTime : null);
   const formattedDate = formatDate(rawDate);
   const formattedTime = formatTime(rawTime);
+  const dateParts = getDateParts(rawDate);
 
   const handlePress = isUpcoming ? (onViewDetails || onRebook) : onRebook;
 
+  // ---- Upcoming appointment: date-badge layout ----
+  if (isUpcoming) {
+    return (
+      <BouncyButton style={[styles.card, styles.cardActive]} onPress={handlePress}>
+        <View style={styles.dateBadge}>
+          {dateParts ? (
+            <>
+              <Text style={styles.dateBadgeWeekday}>{dateParts.weekday}</Text>
+              <Text style={styles.dateBadgeDay}>{dateParts.day}</Text>
+            </>
+          ) : (
+            <Ionicons name="calendar" size={18} color={C.ink} />
+          )}
+        </View>
+
+        <View style={styles.textBlock}>
+          <Text style={styles.cardTitleDark} numberOfLines={1}>{salonName}</Text>
+          <View style={styles.metaRow}>
+            <View style={styles.statusDot} />
+            <Text style={styles.metaText} numberOfLines={1}>
+              {formattedTime ? `${formattedTime} · ` : ""}{serviceName}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.iconBtnOutline}>
+          <Ionicons name="chevron-forward" size={16} color={C.ink} />
+        </View>
+      </BouncyButton>
+    );
+  }
+
+  // ---- No upcoming appointment: rebook prompt ----
   return (
-    <BouncyButton style={[styles.card, isUpcoming && styles.cardActive]} onPress={handlePress}>
-      {/* Timeline pill for status */}
-      <View style={[styles.iconBox, { backgroundColor: isUpcoming ? C.grep : C.lifted }]}>
-        <Ionicons name={isUpcoming ? "calendar" : "refresh-outline"} size={16} color={C.ink} />
+    <BouncyButton style={styles.card} onPress={handlePress}>
+      <View style={styles.badgeCircle}>
+        <Ionicons name="refresh-outline" size={18} color={"#fff"} />
       </View>
 
       <View style={styles.textBlock}>
-        <View style={styles.titleRow}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{salonName}</Text>
-          {isUpcoming ? (
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>CONFIRMED</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.cardSub} numberOfLines={1}>
-          {isUpcoming && formattedDate ? `${formattedDate}${formattedTime ? ` · ${formattedTime}` : ""}` : serviceName}
-        </Text>
+        <Text style={styles.cardTitle} numberOfLines={1}>{salonName}</Text>
+        <Text style={styles.cardSub} numberOfLines={1}>Last visit · {serviceName}</Text>
       </View>
 
-      {/* Primary button per cursor/DESIGN.md: 8px radius, Cursor Orange or Ink */}
-      <View style={[styles.primaryBtn, isUpcoming && styles.secondaryBtn]}>
-        <Text style={[styles.primaryBtnText, isUpcoming && styles.secondaryBtnText]}>
-          {isUpcoming ? "View" : "Rebook"}
-        </Text>
+      <View style={styles.chip}>
+        <Text style={styles.chipText}>Rebook</Text>
+        <Ionicons name="arrow-forward" size={13} color={"#000"} style={{ marginLeft: 4 }} />
       </View>
     </BouncyButton>
   );
@@ -104,79 +139,117 @@ function getStyles() {
       flexDirection: "row",
       alignItems: "center",
       marginHorizontal: S.md,
-      marginBottom: S.md,
+      marginBottom: S.sm,
       padding: S.md,
       borderRadius: R.lg,
-      backgroundColor: C.surface,
+      backgroundColor: C.blue,
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.blue,
       ...SHADOWS.sm,
     },
     cardActive: {
       backgroundColor: C.surface,
       borderColor: C.borderDark,
     },
-    iconBox: {
-      width: 36,
-      height: 36,
-      borderRadius: R.md,
-      backgroundColor: C.lifted,
+
+    // circular icon badge used on the blue "rebook" card
+    badgeCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(255,255,255,0.18)",
       alignItems: "center",
       justifyContent: "center",
       marginRight: S.sm,
-      borderWidth: 1,
-      borderColor: C.borderLight,
     },
+
+    // date badge used on the upcoming-appointment card
+    dateBadge: {
+      width: 44,
+      height: 48,
+      borderRadius: R.md,
+      backgroundColor: C.lifted,
+      borderWidth: 1,
+      borderColor: C.borderDark,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: S.sm,
+    },
+    dateBadgeWeekday: {
+      fontSize: 9,
+      fontWeight: FW.semiBold,
+      color: C.body,
+      letterSpacing: 0.5,
+    },
+    dateBadgeDay: {
+      fontSize: FS.bodySm + 5,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+      lineHeight: FS.bodySm + 6,
+    },
+
     textBlock: {
       flex: 1,
       marginRight: S.xs,
     },
-    titleRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
     cardTitle: {
       fontSize: FS.bodySm,
       fontWeight: FW.semiBold,
-      color: C.ink,
-      flexShrink: 1,
+      color: "#fff",
     },
-    statusPill: {
-      backgroundColor: C.grep,
-      paddingHorizontal: 6,
-      paddingVertical: 1,
-      borderRadius: R.pill,
-    },
-    statusPillText: {
-      fontSize: 9,
+    cardTitleDark: {
+      fontSize: FS.bodySm,
       fontWeight: FW.semiBold,
       color: C.ink,
-      letterSpacing: 0.88,
     },
     cardSub: {
       fontSize: FS.bodySm - 1,
-      color: C.body,
+      color: "rgba(255,255,255,0.75)",
       marginTop: 2,
     },
-    primaryBtn: {
-      backgroundColor: C.main,
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 3,
+    },
+    statusDot: {
+      width: 5,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: C.grep,
+      marginRight: 5,
+    },
+    metaText: {
+      fontSize: FS.bodySm - 1,
+      color: C.body,
+      flexShrink: 1,
+    },
+
+    // pill CTA used on both "sign in" and "rebook" cards
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#fff",
       paddingHorizontal: S.md,
-      paddingVertical: 6,
-      borderRadius: R.md,
+      paddingVertical: 7,
+      borderRadius: R.pill,
     },
-    primaryBtnText: {
-      color: C.bg,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+    chipText: {
+      color: "#000",
+      fontSize: FS.bodySm - 1,
+      fontWeight: FW.semiBold,
     },
-    secondaryBtn: {
-      backgroundColor: C.surface,
+
+    // compact circular affordance on the upcoming-appointment card
+    iconBtnOutline: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.blue,
       borderWidth: 1,
       borderColor: C.borderDark,
-    },
-    secondaryBtnText: {
-      color: C.ink,
     },
   });
 };

@@ -23,6 +23,7 @@ import LocationPickerModal from "../components/LocationPickerModal";
 import InteractiveMapModal from "../components/InteractiveMapModal";
 import AddReviewModal from "../components/AddReviewModal";
 import AppleTouchable from "../components/AppleTouchable";
+import ComingSoonLocation from "../components/ComingSoonLocation";
 import { browseService } from "../services/browseService";
 import { appointmentService } from "../services/appointmentService";
 import { useAuth } from "../context/AuthContext";
@@ -123,7 +124,7 @@ function HomeScreen({ navigate, onScroll }) {
               if (active) setPermissionModalType("location");
               return;
             }
-          } catch (e) {}
+          } catch (e) { }
 
           // Automatically fetch customer's real GPS / IP location on app launch
           console.log("📍 [HOME] Auto-detecting customer location on app open...");
@@ -144,7 +145,7 @@ function HomeScreen({ navigate, onScroll }) {
           if (!notifPerm.granted && notifPerm.canAskAgain) {
             if (active) setPermissionModalType("notification");
           }
-        } catch (e) {}
+        } catch (e) { }
       } catch (err) {
         console.warn("📍 [HOME] Auto-location detection fallback:", err.message);
       }
@@ -178,7 +179,7 @@ function HomeScreen({ navigate, onScroll }) {
           setPermissionModalType("notification");
           return;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       setPermissionModalType(null);
     } else if (permissionModalType === "notification") {
@@ -200,7 +201,7 @@ function HomeScreen({ navigate, onScroll }) {
           setPermissionModalType("notification");
           return;
         }
-      } catch (e) {}
+      } catch (e) { }
       setPermissionModalType(null);
     } else {
       setPermissionModalType(null);
@@ -342,62 +343,55 @@ function HomeScreen({ navigate, onScroll }) {
           onSearchSubmit={handleSearchSubmit}
         />
 
-        <TopPromoBanner onPressBanner={handleBannerPress} refreshTrigger={refreshing} />
-
-        <QuickRebookWidget
-          isAuthenticated={isAuthenticated}
-          appointment={upcomingAppt}
-          onRebook={handleRebook}
-          onViewDetails={() => navigate && navigate("Bookings")}
-          onLogin={() => navigate && navigate("Login")}
-          onExplore={handleExplore}
-        />
-
-        {/* Section: Featured Studios */}
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleBlock}>
-            <Text style={styles.sectionTag}>HANDPICKED</Text>
-            <Text style={styles.sectionTitle}>Loved in {selectedCity}</Text>
-          </View>
-
-          <View style={styles.headerActions}>
-            <AppleTouchable onPress={() => setMapModalVisible(true)} style={styles.buttonSecondary} scaleTo={0.94}>
-              <Ionicons name="map-outline" size={13} color={C.ink} />
-              <Text style={styles.buttonSecondaryText}>Map</Text>
-            </AppleTouchable>
-          </View>
-        </View>
-
         {loading ? (
           <View style={styles.emptyBlock}>
             <ActivityIndicator size="small" color={C.main} />
-            <Text style={styles.emptyText}>Loading salons…</Text>
+            <Text style={styles.emptyText}>Loading salons in {selectedCity}…</Text>
           </View>
-        ) : loadError && topRatedSalons.length === 0 ? (
-          <View style={styles.emptyBlock}>
-            <Ionicons name="wifi-outline" size={24} color={C.muted} />
-            <Text style={styles.emptyTitle}>Unable to connect</Text>
-            <Text style={styles.emptyText}>{loadError}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(false)}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : topRatedSalons.length === 0 ? (
-          <View style={styles.emptyBlock}>
-            <Ionicons name="star-outline" size={24} color={C.muted} />
-            <Text style={styles.emptyTitle}>No 3+★ salons in {selectedCity}</Text>
-            <Text style={styles.emptyText}>Check back soon for top-rated salons.</Text>
-          </View>
+        ) : salons.length === 0 ? (
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={handleLocationClick}
+            onSelectQuickCity={handleCitySelect}
+          />
         ) : (
-          <SalonCarousel salons={topRatedSalons} onSalonPress={handleSalonPress} styles={styles} />
-        )}
-
-        {/* Section: All Studios (>3 Stars with Pagination) */}
-        {topRatedSalons.length > 0 ? (
           <>
+            <TopPromoBanner onPressBanner={handleBannerPress} refreshTrigger={refreshing} />
+
+            <QuickRebookWidget
+              isAuthenticated={isAuthenticated}
+              appointment={upcomingAppt}
+              onRebook={handleRebook}
+              onViewDetails={() => navigate && navigate("Bookings")}
+              onLogin={() => navigate && navigate("Login")}
+              onExplore={handleExplore}
+            />
+
+            {/* Section: Featured Studios */}
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleBlock}>
-                <Text style={styles.sectionTag}>THE FULL LIST</Text>
+                <Text style={styles.sectionTitle}>Loved in {selectedCity}</Text>
+              </View>
+
+              <View style={styles.headerActions}>
+                <AppleTouchable
+                  onPress={() => navigate && navigate("AllSalons", { city: selectedCity })}
+                  style={styles.buttonSecondary}
+                  scaleTo={0.94}
+                >
+                  <Text style={styles.buttonSecondaryText}>All</Text>
+                  <Ionicons name="chevron-forward" size={12} color={isDark ? "#FFFFFF" : C.ink} style={{ marginLeft: 2 }} />
+                </AppleTouchable>
+              </View>
+            </View>
+
+            {topRatedSalons.length > 0 ? (
+              <SalonCarousel salons={topRatedSalons} onSalonPress={handleSalonPress} styles={styles} />
+            ) : null}
+
+            {/* Section: All Studios */}
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleBlock}>
                 <Text style={styles.sectionTitle}>Every salon in {selectedCity}</Text>
               </View>
             </View>
@@ -418,11 +412,11 @@ function HomeScreen({ navigate, onScroll }) {
               </AppleTouchable>
             ) : topRatedSalons.length > PAGE_SIZE ? (
               <View style={styles.endOfListBlock}>
-                <Text style={styles.endOfListText}>Showing all {topRatedSalons.length} top-rated salons</Text>
+                <Text style={styles.endOfListText}>Showing all {topRatedSalons.length} salons</Text>
               </View>
             ) : null}
           </>
-        ) : null}
+        )}
 
         {/* 80px Section rhythm bottom padding per cursor/DESIGN.md */}
         <View style={{ height: S.section }} />
@@ -451,130 +445,130 @@ export default memo(HomeScreen);
 
 function buildStyles() {
   return StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: C.bg, // Flat white canvas
-  },
-  scroller: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 84,
-  },
+    screen: {
+      flex: 1,
+      backgroundColor: C.bg, // Flat white canvas
+    },
+    scroller: {
+      flex: 1,
+    },
+    content: {
+      paddingBottom: 84,
+    },
 
-  // Section Headers per cursor/DESIGN.md
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    paddingHorizontal: S.md,
-    marginTop: S.xl,
-    marginBottom: S.sm,
-  },
-  sectionTitleBlock: {
-    flex: 1,
-  },
-  sectionTag: {
-    ...TYPO.eyebrow,
-    color: C.muted,
-    marginBottom: 2,
-  },
-  sectionTitle: {
-    fontSize: FS.titleLg,
-    fontWeight: "400", // Weight 400 per cursor/DESIGN.md
-    color: C.ink,
-    letterSpacing: -0.32,
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: 6,
-  },
+    // Section Headers per cursor/DESIGN.md
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      paddingHorizontal: S.md,
+      // marginTop: S.sm,
+      marginBottom: S.sm,
+    },
+    sectionTitleBlock: {
+      flex: 1,
+    },
+    sectionTag: {
+      ...TYPO.eyebrow,
+      color: C.muted,
+      // marginBottom: 2,
+    },
+    sectionTitle: {
+      fontSize: FS.titleLg,
+      fontWeight: "400", // Weight 400 per cursor/DESIGN.md
+      color: C.ink,
+      letterSpacing: -0.32,
+    },
+    headerActions: {
+      flexDirection: "row",
+      gap: 6,
+    },
 
-  // button-secondary spec per cursor/DESIGN.md (white bg, 1px hairline border, 8px radius)
-  buttonSecondary: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: C.surface,
-    paddingHorizontal: S.sm,
-    paddingVertical: 6,
-    borderRadius: R.md, // 8px radius
-    borderWidth: 1,
-    borderColor: C.borderDark,
-  },
-  buttonSecondaryText: {
-    fontSize: FS.bodySm,
-    fontWeight: FW.medium,
-    color: C.ink,
-  },
+    // button-secondary spec per cursor/DESIGN.md (white bg, 1px hairline border, 8px radius)
+    buttonSecondary: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: C.surface,
+      paddingHorizontal: S.sm,
+      paddingVertical: 6,
+      borderRadius: R.md, // 8px radius
+      borderWidth: 1,
+      borderColor: C.borderDark,
+    },
+    buttonSecondaryText: {
+      fontSize: FS.bodySm,
+      fontWeight: FW.medium,
+      color: C.ink,
+    },
 
-  horizontalCarousel: {
-    marginBottom: S.sm,
-  },
-  verticalList: {
-    paddingHorizontal: S.md,
-  },
+    horizontalCarousel: {
+      marginBottom: S.sm,
+    },
+    verticalList: {
+      paddingHorizontal: S.md,
+    },
 
-  // Empty / Loading states
-  emptyBlock: {
-    paddingVertical: S.xxl,
-    alignItems: "center",
-    marginHorizontal: S.md,
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: S.lg,
-    gap: S.xs,
-  },
-  emptyTitle: {
-    fontSize: FS.body,
-    fontWeight: FW.semiBold,
-    color: C.ink,
-  },
-  emptyText: {
-    fontSize: FS.bodySm,
-    color: C.body,
-    textAlign: "center",
-  },
-  retryBtn: {
-    marginTop: S.xs,
-    paddingHorizontal: S.md,
-    paddingVertical: 8,
-    backgroundColor: C.main, // Cursor Orange
-    borderRadius: R.md,
-  },
-  retryText: {
-    color: C.bg,
-    fontWeight: FW.medium,
-    fontSize: FS.bodySm,
-  },
+    // Empty / Loading states
+    emptyBlock: {
+      paddingVertical: S.xxl,
+      alignItems: "center",
+      marginHorizontal: S.md,
+      backgroundColor: C.surface,
+      borderRadius: R.lg,
+      borderWidth: 1,
+      borderColor: C.border,
+      padding: S.lg,
+      gap: S.xs,
+    },
+    emptyTitle: {
+      fontSize: FS.body,
+      fontWeight: FW.semiBold,
+      color: C.ink,
+    },
+    emptyText: {
+      fontSize: FS.bodySm,
+      color: C.body,
+      textAlign: "center",
+    },
+    retryBtn: {
+      marginTop: S.xs,
+      paddingHorizontal: S.md,
+      paddingVertical: 8,
+      backgroundColor: C.main, // Cursor Orange
+      borderRadius: R.md,
+    },
+    retryText: {
+      color: C.bg,
+      fontWeight: FW.medium,
+      fontSize: FS.bodySm,
+    },
 
-  // Pagination Styles
-  loadMoreBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.main,
-    paddingVertical: S.sm,
-    paddingHorizontal: S.md,
-    borderRadius: R.button,
-    marginTop: S.md,
-    marginHorizontal: S.md,
-  },
-  loadMoreText: {
-    color: "#FFFFFF",
-    fontSize: FS.bodySm,
-    fontWeight: FW.semiBold,
-  },
-  endOfListBlock: {
-    alignItems: "center",
-    marginTop: S.md,
-    paddingVertical: S.xs,
-  },
-  endOfListText: {
-    fontSize: FS.caption,
-    color: C.muted,
-  },
+    // Pagination Styles
+    loadMoreBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.main,
+      paddingVertical: S.sm,
+      paddingHorizontal: S.md,
+      borderRadius: R.button,
+      marginTop: S.md,
+      marginHorizontal: S.md,
+    },
+    loadMoreText: {
+      color: "#FFFFFF",
+      fontSize: FS.bodySm,
+      fontWeight: FW.semiBold,
+    },
+    endOfListBlock: {
+      alignItems: "center",
+      marginTop: S.md,
+      paddingVertical: S.xs,
+    },
+    endOfListText: {
+      fontSize: FS.caption,
+      color: C.muted,
+    },
   });
 }

@@ -192,6 +192,30 @@ async function seedBrahmapurSalon() {
         durationMinutes: 120,
         eligibleStaff: [staffDocs[1]._id],
       },
+      {
+        branchId: branch._id,
+        salonId: salon._id,
+        name: "Bridal Beauty Makeup",
+        description: "Women want to feel attractive. We offer timeless beauty package to accentuate their natural beauty so they can feel beautiful in every day.",
+        category: "combo",
+        packageOfferTag: "Completed Package Offer till sep 18, 2026",
+        includedServices: [
+          "Hairstyling",
+          "Nail",
+          "Hair color",
+          "Body Glowing",
+          "Facial",
+          "Spa",
+          "Eyebrows",
+          "Make up",
+          "Retouch",
+          "Corner Lashes",
+        ],
+        imageUrl: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop",
+        price: 499900, // ₹4999 in paise
+        durationMinutes: 180,
+        eligibleStaff: [staffDocs[0]._id, staffDocs[1]._id],
+      },
     ];
 
     await Service.deleteMany({ branchId: branch._id });

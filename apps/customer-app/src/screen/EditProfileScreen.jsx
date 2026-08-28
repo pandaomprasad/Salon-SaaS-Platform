@@ -11,436 +11,393 @@ import {
   Image,
   Platform,
   StatusBar,
+  Alert,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { C, S, FS, FW, R, TYPO } from "../theme";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../context/AuthContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { authService } from "../services/authService";
+import { useTheme } from "../context/ThemeContext";
 
-import { Alert } from "react-native";
+const MALE_AVATAR_ASSET = require("../../assets/male-avatar.png");
+const FEMALE_AVATAR_ASSET = require("../../assets/female-avatar.png");
+
+const TOP_INSET = Platform.OS === "ios" ? 52 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 36);
 
 export default function EditProfileScreen({ goBack }) {
-  const { user, updateUser, changePassword, deleteAccount } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { isDark } = useTheme();
 
-  const [name, setName] = useState(user?.name || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [phone, setPhone] = useState(user?.phone || "");
+  const [name, setName] = useState(user?.name || "Robert Fox");
+  const [email, setEmail] = useState(user?.email || "robert_fox@gmail.com");
+  const [gender, setGender] = useState(user?.gender || "Male");
+  const [birthDate, setBirthDate] = useState(user?.birthDate || "08/15/2012");
+  const [address, setAddress] = useState(user?.address || "6391 Elgin St. Celina, Delaware 10299");
+  const [phone, setPhone] = useState(user?.phone || "365248667");
+  const [countryCode, setCountryCode] = useState("+91");
+
+  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || null);
   const [saving, setSaving] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
-  const [saveError, setSaveError] = useState(null);
+  const [showGenderModal, setShowGenderModal] = useState(false);
 
-  // Change Password state
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [changingPass, setChangingPass] = useState(false);
-  const [passSuccess, setPassSuccess] = useState(false);
-  const [passError, setPassError] = useState(null);
+  const handlePickAvatar = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Needed", "Permission to access photo gallery is required.");
+        return;
+      }
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-  // Delete Account state
-  const [deleting, setDeleting] = useState(false);
+      if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+        setAvatarUri(pickerResult.assets[0].uri);
+      }
+    } catch (err) {
+      console.log("Error picking image:", err);
+    }
+  };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      setSaveError("Please enter your full name.");
-      return;
-    }
     setSaving(true);
-    setSaveError(null);
     try {
-      const res = await authService.updateProfile({
-        name: name.trim(),
-        phone: phone.trim(),
-      });
-      const updated = res?.data?.user;
-      if (updated) {
-        updateUser({ name: updated.name, phone: updated.phone });
-      } else {
-        updateUser({ name: name.trim(), phone: phone.trim() });
+      if (updateUser) {
+        await updateUser({
+          name: name.trim(),
+          email: email.trim(),
+          gender,
+          birthDate,
+          address: address.trim(),
+          phone: phone.trim(),
+          avatarUrl: avatarUri,
+        });
       }
-      setSavedSuccess(true);
-      setTimeout(() => {
-        setSavedSuccess(false);
-        if (goBack) goBack();
-      }, 1200);
+      Alert.alert("Success", "Profile updated successfully!");
+      if (goBack) goBack();
     } catch (err) {
-      setSaveError(err.message || "Failed to save changes. Please try again.");
+      Alert.alert("Error", err.message || "Failed to update profile.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      setPassError("Please enter both your current and new password.");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setPassError("New password must be at least 8 characters.");
-      return;
-    }
-    setChangingPass(true);
-    setPassError(null);
-
-    const res = await changePassword(currentPassword, newPassword);
-    setChangingPass(false);
-
-    if (res.success) {
-      setPassSuccess(true);
-      setCurrentPassword("");
-      setNewPassword("");
-      setTimeout(() => setPassSuccess(false), 2000);
-    } else {
-      setPassError(res.error || "Failed to change password.");
-    }
+  const getAvatarSource = () => {
+    if (avatarUri) return { uri: avatarUri };
+    if (gender.toLowerCase() === "female") return FEMALE_AVATAR_ASSET;
+    return MALE_AVATAR_ASSET;
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Permanent",
-          style: "destructive",
-          onPress: async () => {
-            setDeleting(true);
-            const res = await deleteAccount();
-            setDeleting(false);
-            if (!res.success) {
-              Alert.alert("Error", res.error || "Failed to delete account.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const styles = getStyles();
-  const insets = useSafeAreaInsets();
-  const isAndroid = Platform.OS === "android";
-  const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 0);
-  const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 20 : Math.max(insets.bottom, 20) + 20;
+  const styles = getStyles(isDark);
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
-        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={18} color={C.ink} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Account Settings</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
-        {/* Avatar Editor */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarBox}>
-            <Image
-              source={{ uri: user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop" }}
-              style={styles.avatar}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Top Header Row with Close Button */}
+        <View style={styles.topHeader}>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={goBack} style={styles.closeBtn} activeOpacity={0.7}>
+            <Ionicons name="close" size={24} color={isDark ? "#FFFFFF" : "#18181B"} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Avatar Area with "Change Avatar" */}
+        <View style={styles.avatarRow}>
+          <TouchableOpacity style={styles.avatarContainer} onPress={handlePickAvatar} activeOpacity={0.85}>
+            <Image source={getAvatarSource()} style={styles.avatarImg} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.7} style={styles.changeAvatarBtn}>
+            <Text style={styles.changeAvatarText}>Change Avatar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Form Inputs */}
+        {/* 1. Full Name */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Full name</Text>
+          <View style={styles.inputBox}>
+            <TextInput
+              style={styles.textInput}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter full name"
+              placeholderTextColor="#A0A0AB"
             />
           </View>
         </View>
 
-        {/* Inputs Form */}
-        <View style={styles.formGroup}>
-          <Text style={styles.sectionTitle}>PERSONAL DETAILS</Text>
-
-          <Text style={styles.inputLabel}>FULL NAME</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter full name"
-            placeholderTextColor={C.dustTaupe}
-          />
-
-          <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
-          <TextInput
-            style={[styles.input, styles.inputDisabled]}
-            value={email}
-            editable={false}
-            keyboardType="email-address"
-            placeholder="Enter email"
-            placeholderTextColor={C.dustTaupe}
-          />
-
-          <Text style={styles.inputLabel}>PHONE NUMBER</Text>
-          <TextInput
-            style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="Enter phone number"
-            placeholderTextColor={C.dustTaupe}
-          />
-
-          {saveError ? (
-            <Text style={styles.errorText}>{saveError}</Text>
-          ) : null}
-
-          <TouchableOpacity
-            style={[styles.saveBtn, savedSuccess && styles.successBtn]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.88}
-          >
-            {saving ? (
-              <ActivityIndicator color={C.bg} size="small" />
-            ) : savedSuccess ? (
-              <Text style={styles.saveBtnText}>✓ Details Saved</Text>
-            ) : (
-              <Text style={styles.saveBtnText}>Save Profile Details</Text>
-            )}
-          </TouchableOpacity>
+        {/* 2. Email */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.inputBox}>
+            <TextInput
+              style={styles.textInput}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              placeholder="Enter email address"
+              placeholderTextColor="#A0A0AB"
+            />
+          </View>
         </View>
 
-        {/* Change Password Form */}
-        <View style={styles.formGroup}>
-          <Text style={styles.sectionTitle}>SECURITY & PASSWORD</Text>
+        {/* 3. Gender & Birth of Date (Side by side) */}
+        <View style={styles.twoColumnRow}>
+          <View style={styles.columnField}>
+            <Text style={styles.label}>Gender</Text>
+            <TouchableOpacity style={styles.inputBox} onPress={() => setShowGenderModal(true)} activeOpacity={0.8}>
+              <Text style={styles.selectText}>{gender}</Text>
+              <Ionicons name="chevron-down" size={16} color="#66666E" />
+            </TouchableOpacity>
+          </View>
 
-          <Text style={styles.inputLabel}>CURRENT PASSWORD</Text>
-          <TextInput
-            style={styles.input}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-            placeholder="Enter current password"
-            placeholderTextColor={C.dustTaupe}
-          />
-
-          <Text style={styles.inputLabel}>NEW PASSWORD</Text>
-          <TextInput
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-            placeholder="At least 8 characters"
-            placeholderTextColor={C.dustTaupe}
-          />
-
-          {passError ? <Text style={styles.errorText}>{passError}</Text> : null}
-          {passSuccess ? <Text style={styles.successText}>✓ Password updated successfully</Text> : null}
-
-          <TouchableOpacity
-            style={[styles.secondaryBtn, passSuccess && styles.successBtn]}
-            onPress={handleChangePassword}
-            disabled={changingPass}
-            activeOpacity={0.88}
-          >
-            {changingPass ? (
-              <ActivityIndicator color={C.ink} size="small" />
-            ) : (
-              <Text style={styles.secondaryBtnText}>Update Password</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.columnField}>
+            <Text style={styles.label}>Birth of date</Text>
+            <View style={styles.inputBox}>
+              <TextInput
+                style={styles.textInput}
+                value={birthDate}
+                onChangeText={setBirthDate}
+                placeholder="MM/DD/YYYY"
+                placeholderTextColor="#A0A0AB"
+              />
+            </View>
+          </View>
         </View>
 
-        {/* Delete Account Form */}
-        <View style={styles.dangerGroup}>
-          <Text style={styles.dangerTitle}>PRIVACY & DATA DELETION</Text>
-          <Text style={styles.dangerText}>
-            Permanently delete your account and remove all personal booking data.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={handleDeleteAccount}
-            disabled={deleting}
-            activeOpacity={0.88}
-          >
-            {deleting ? (
-              <ActivityIndicator color="#DC2626" size="small" />
-            ) : (
-              <Text style={styles.deleteBtnText}>Delete My Account</Text>
-            )}
-          </TouchableOpacity>
+        {/* 4. Address */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Address</Text>
+          <View style={styles.inputBox}>
+            <TextInput
+              style={styles.textInput}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Enter address"
+              placeholderTextColor="#A0A0AB"
+            />
+          </View>
         </View>
+
+        {/* 5. Phone Number */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Phone number</Text>
+          <View style={styles.phoneInputRow}>
+            <View style={styles.countryCodeBox}>
+              <Text style={styles.flagText}>🇮🇳</Text>
+              <Text style={styles.countryCodeText}>{countryCode}</Text>
+              <Ionicons name="chevron-down" size={14} color="#66666E" style={{ marginLeft: 3 }} />
+            </View>
+
+            <View style={[styles.inputBox, { flex: 1, marginLeft: 10 }]}>
+              <TextInput
+                style={styles.textInput}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="Phone number"
+                placeholderTextColor="#A0A0AB"
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 32 }} />
+
+        {/* Save Button */}
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving} activeOpacity={0.88}>
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.saveBtnText}>Save</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Gender Picker Modal */}
+      <Modal visible={showGenderModal} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowGenderModal(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Gender</Text>
+            {["Male", "Female", "Other"].map((g) => (
+              <TouchableOpacity
+                key={g}
+                style={styles.genderOption}
+                onPress={() => {
+                  setGender(g);
+                  setShowGenderModal(false);
+                }}
+              >
+                <Text style={[styles.genderOptionText, gender === g && { color: "#6C5CE7", fontWeight: "700" }]}>{g}</Text>
+                {gender === g && <Ionicons name="checkmark" size={18} color="#6C5CE7" />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
-function getStyles() {
+function getStyles(isDark) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: C.bg,
+      backgroundColor: isDark ? "#121216" : "#FFFFFF",
     },
-    header: {
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingTop: TOP_INSET,
+      paddingBottom: 60,
+    },
+    topHeader: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingTop: 54,
-      paddingHorizontal: S.md,
-      paddingBottom: S.md,
-      borderBottomWidth: 1,
-      borderBottomColor: C.borderLight,
-      backgroundColor: C.bg,
+      marginBottom: 16,
     },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
+    closeBtn: {
+      padding: 6,
+    },
+    avatarRow: {
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: C.border,
+      marginBottom: 28,
     },
-    headerTitle: {
-      fontSize: FS.titleSm,
-      fontWeight: FW.semiBold,
-      color: C.ink,
+    avatarContainer: {
+      width: 72,
+      height: 72,
+      borderRadius: 24,
+      overflow: "hidden",
+      backgroundColor: isDark ? "#2A2A34" : "#F0F0F5",
+      marginRight: 16,
     },
-    content: {
-      paddingHorizontal: S.md,
-      paddingBottom: 40,
+    avatarImg: {
+      width: "100%",
+      height: "100%",
+      resizeMode: "cover",
     },
-    avatarSection: {
-      alignItems: "center",
-      marginVertical: S.md,
+    changeAvatarBtn: {
+      paddingVertical: 6,
     },
-    avatarBox: {
-      position: "relative",
+    changeAvatarText: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#6C5CE7",
     },
-    avatar: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: C.bone,
+    fieldGroup: {
+      marginBottom: 20,
     },
-    editBadge: {
-      position: "absolute",
-      bottom: 0,
-      right: 0,
-      backgroundColor: C.main,
-      width: 28,
-      height: 28,
+    label: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: isDark ? "#9999A0" : "#8E8E93",
+      marginBottom: 8,
+    },
+    inputBox: {
+      height: 52,
       borderRadius: 14,
+      backgroundColor: isDark ? "#1E1E26" : "#F7F7FA",
+      paddingHorizontal: 16,
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 2,
-      borderColor: C.surface,
+      justifyContent: "space-between",
     },
-    avatarHint: {
-      fontSize: FS.caption,
-      color: C.muted,
-      marginTop: S.xs,
+    textInput: {
+      flex: 1,
+      fontSize: 14.5,
+      fontWeight: "500",
+      color: isDark ? "#FFFFFF" : "#18181B",
     },
-    formGroup: {
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
-      padding: S.md,
-      marginVertical: S.sm,
-      borderWidth: 1,
-      borderColor: C.border,
+    selectText: {
+      fontSize: 14.5,
+      fontWeight: "500",
+      color: isDark ? "#FFFFFF" : "#18181B",
     },
-    inputLabel: {
-      ...TYPO.eyebrow,
-      color: C.main,
-      marginBottom: S.xxs,
-      marginTop: S.xs,
+    twoColumnRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 20,
     },
-    input: {
-      backgroundColor: C.surface,
-      borderRadius: R.md,
-      paddingHorizontal: S.sm,
-      height: 44,
-      fontSize: FS.bodySm,
-      color: C.ink,
-      borderWidth: 1,
-      borderColor: C.border,
-      marginBottom: S.xs,
+    columnField: {
+      flex: 1,
+      marginRight: 10,
     },
-    inputDisabled: {
-      color: C.muted,
-      backgroundColor: C.lifted,
+    phoneInputRow: {
+      flexDirection: "row",
+      alignItems: "center",
     },
-    errorText: {
-      color: C.error,
-      fontSize: FS.caption,
-      fontWeight: FW.medium,
-      marginTop: S.xs,
+    countryCodeBox: {
+      height: 52,
+      borderRadius: 14,
+      backgroundColor: isDark ? "#1E1E26" : "#F7F7FA",
+      paddingHorizontal: 12,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    flagText: {
+      fontSize: 16,
+      marginRight: 6,
+    },
+    countryCodeText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#FFFFFF" : "#18181B",
     },
     saveBtn: {
-      backgroundColor: C.main,
-      paddingVertical: 12,
-      borderRadius: R.md,
+      height: 54,
+      borderRadius: 18,
+      backgroundColor: "#6C5CE7",
       alignItems: "center",
-      marginTop: S.md,
-    },
-    successBtn: {
-      backgroundColor: C.success,
+      justifyContent: "center",
+      shadowColor: "#6C5CE7",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 4,
     },
     saveBtnText: {
-      color: C.bg,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#FFFFFF",
     },
-    sectionTitle: {
-      fontSize: 11,
-      fontWeight: FW.bold,
-      color: C.ink,
-      letterSpacing: 0.8,
-      marginBottom: S.xs,
-    },
-    secondaryBtn: {
-      backgroundColor: C.surface,
-      borderWidth: 1,
-      borderColor: C.border,
-      paddingVertical: 12,
-      borderRadius: R.md,
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
       alignItems: "center",
-      marginTop: S.sm,
+      justifyContent: "center",
+      padding: 24,
     },
-    secondaryBtnText: {
-      color: C.ink,
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
+    modalContent: {
+      width: "100%",
+      backgroundColor: isDark ? "#1E1E26" : "#FFFFFF",
+      borderRadius: 20,
+      padding: 20,
     },
-    successText: {
-      color: "#065F46",
-      fontSize: FS.caption,
-      fontWeight: FW.medium,
-      marginTop: S.xs,
+    modalTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      marginBottom: 16,
     },
-    dangerGroup: {
-      backgroundColor: "#FEF2F2",
-      borderRadius: R.lg,
-      padding: S.md,
-      marginVertical: S.sm,
-      borderWidth: 1,
-      borderColor: "#FCA5A5",
-      gap: 6,
-    },
-    dangerTitle: {
-      fontSize: 11,
-      fontWeight: FW.bold,
-      color: "#991B1B",
-      letterSpacing: 0.8,
-    },
-    dangerText: {
-      fontSize: FS.caption,
-      color: "#7F1D1D",
-      lineHeight: 18,
-    },
-    deleteBtn: {
-      backgroundColor: "#FFFFFF",
-      borderWidth: 1,
-      borderColor: "#FCA5A5",
-      paddingVertical: 10,
-      borderRadius: R.md,
+    genderOption: {
+      flexDirection: "row",
       alignItems: "center",
-      marginTop: S.xs,
+      justifyContent: "space-between",
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: isDark ? "#2E2E38" : "#EFEFF4",
     },
-    deleteBtnText: {
-      color: "#DC2626",
-      fontSize: FS.bodySm,
-      fontWeight: FW.semiBold,
+    genderOptionText: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: isDark ? "#FFFFFF" : "#18181B",
     },
   });
 }

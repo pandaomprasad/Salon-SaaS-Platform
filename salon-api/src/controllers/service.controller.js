@@ -139,6 +139,10 @@ const updateService = async (req, res, next) => {
       "price",
       "durationMinutes",
       "isActive",
+      "packageOfferTag",
+      "includedServices",
+      "image",
+      "imageUrl",
     ];
     allowed.forEach((field) => {
       if (req.body[field] !== undefined) service[field] = req.body[field];

@@ -9,6 +9,7 @@ import { paiseToINR } from "../services/apiClient";
 function getCategoryIcon(catName) {
   const name = (catName || "").toLowerCase();
   if (name.includes("hair")) return "cut-outline";
+  if (name.includes("combo") || name.includes("package")) return "gift-outline";
   if (name.includes("makeup") || name.includes("bridal")) return "sparkles-outline";
   if (name.includes("facial") || name.includes("skin") || name.includes("glow")) return "water-outline";
   if (name.includes("nail")) return "color-palette-outline";
@@ -16,12 +17,23 @@ function getCategoryIcon(catName) {
   return "cut-outline";
 }
 
-function ServiceCard({ service, selected, onSelect }) {
-  const { theme } = useTheme();
+function ServiceCard({ service, selected, onSelect, onViewCombo }) {
+  const { theme, isDark } = useTheme();
   const styles = getStyles();
   const categoryName = (service.category || "General").toUpperCase();
   const duration = service.durationMinutes || service.duration || 30;
   const iconName = getCategoryIcon(service.category);
+  const isCombo =
+    service.category?.toLowerCase() === "combo" ||
+    Boolean(service.includedServices && service.includedServices.length > 0);
+
+  const handleCardPress = () => {
+    if (isCombo && onViewCombo) {
+      onViewCombo(service);
+    } else if (onSelect) {
+      onSelect(service);
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -29,7 +41,7 @@ function ServiceCard({ service, selected, onSelect }) {
         styles.card,
         { backgroundColor: theme.surface, borderColor: selected ? theme.primary : theme.hairline },
       ]}
-      onPress={() => onSelect && onSelect(service)}
+      onPress={handleCardPress}
       activeOpacity={0.88}
     >
       <View style={styles.cardInnerRow}>
@@ -40,17 +52,38 @@ function ServiceCard({ service, selected, onSelect }) {
 
         {/* Info Column */}
         <View style={styles.infoCol}>
-          <Text style={[styles.categoryEyebrow, { color: theme.primary }]}>
-            {categoryName}  •  {duration} mins
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={[styles.categoryEyebrow, { color: theme.primary }]}>
+              {categoryName}  •  {duration} mins
+            </Text>
+            {isCombo && (
+              <View style={{ backgroundColor: isDark ? "rgba(245, 158, 11, 0.2)" : "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, borderWidth: 1, borderColor: isDark ? "rgba(245, 158, 11, 0.4)" : "#FDE68A" }}>
+                <Text style={{ fontSize: 9.5, fontWeight: "800", color: isDark ? "#FBBF24" : "#B45309" }}>✦ Bundle</Text>
+              </View>
+            )}
+          </View>
+
           <Text style={[styles.name, { color: theme.ink, fontFamily: FONT_FAMILY.serif }]}>
             {service.name}
           </Text>
+
+          {service.packageOfferTag ? (
+            <Text style={{ fontSize: 11, fontWeight: "600", color: isDark ? "#FBBF24" : "#D97706", marginBottom: 2 }}>
+              🏷️ {service.packageOfferTag}
+            </Text>
+          ) : null}
+
           {service.description ? (
             <Text style={[styles.description, { color: theme.muted }]} numberOfLines={2}>
               {service.description}
             </Text>
           ) : null}
+
+          {isCombo && (
+            <Text style={{ fontSize: 10.5, fontWeight: "700", color: theme.primary, marginTop: 4 }}>
+              Tap to view included services ↗
+            </Text>
+          )}
         </View>
 
         {/* Price & Add Action Button Column */}

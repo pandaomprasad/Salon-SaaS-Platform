@@ -85,7 +85,9 @@ export const C = {
 
   verified: "#2a7dff",
 
-  green: "#228B22"
+  green: "#228B22",
+  blue: "#6C5CE7",
+  blur: "rgba(255, 255, 255, 0.3)",
 };
 
 /**

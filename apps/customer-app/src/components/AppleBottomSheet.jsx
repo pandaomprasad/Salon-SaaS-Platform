@@ -11,15 +11,11 @@ import {
   Platform,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import { useTheme } from "../context/ThemeContext";
 import { APPLE_SPRINGS, triggerHaptic } from "../theme/appleMotion";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-/**
- * 🍎 AppleBottomSheet Component
- * Interruptible, 1:1 touch-tracked, spring-driven bottom sheet modal
- * with velocity-sensitive dismissal & glassmorphic backdrop.
- */
 export default function AppleBottomSheet({
   visible,
   onClose,
@@ -27,10 +23,9 @@ export default function AppleBottomSheet({
   height = SCREEN_HEIGHT * 0.75,
   title,
 }) {
+  const { isDark } = useTheme();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  // Track live Y position for interruptibility
   const lastY = useRef(0);
 
   useEffect(() => {
@@ -76,7 +71,6 @@ export default function AppleBottomSheet({
         });
       },
       onPanResponderMove: (_, gestureState) => {
-        // Prevent dragging above top limit (dy < 0) with rubberband dampening
         if (gestureState.dy < 0) {
           const rubberbandDy = gestureState.dy * 0.2;
           translateY.setValue(rubberbandDy);
@@ -86,8 +80,6 @@ export default function AppleBottomSheet({
       },
       onPanResponderRelease: (_, gestureState) => {
         const { dy, vy } = gestureState;
-
-        // Dismiss if dragged down > 120px or flicked down rapidly (vy > 0.5)
         if (dy > 120 || vy > 0.5) {
           triggerHaptic("light");
           Animated.parallel([
@@ -106,7 +98,6 @@ export default function AppleBottomSheet({
             if (onClose) onClose();
           });
         } else {
-          // Snap back open with spring bounce
           Animated.spring(translateY, {
             toValue: 0,
             ...APPLE_SPRINGS.sheetModal,
@@ -118,16 +109,26 @@ export default function AppleBottomSheet({
 
   if (!visible) return null;
 
+  const sheetBg = isDark ? "#181820" : "#FFFFFF";
+  const sheetBorder = isDark ? "#282834" : "#EFEFF4";
+  const handleColor = isDark ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.2)";
+
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
       <View style={styles.overlay}>
         {/* Glass Scrim Backdrop */}
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
             {Platform.OS === "ios" ? (
-              <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+              <BlurView intensity={30} style={StyleSheet.absoluteFill} tint={isDark ? "dark" : "light"} />
             ) : null}
-            <View style={styles.scrimDim} />
+            <View style={[styles.scrimDim, { backgroundColor: isDark ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.5)" }]} />
           </Animated.View>
         </TouchableWithoutFeedback>
 
@@ -135,12 +136,17 @@ export default function AppleBottomSheet({
         <Animated.View
           style={[
             styles.sheetContainer,
-            { height, transform: [{ translateY }] },
+            {
+              height,
+              backgroundColor: sheetBg,
+              borderColor: sheetBorder,
+              transform: [{ translateY }],
+            },
           ]}
         >
           {/* Drag Handle Bar */}
           <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
-            <View style={styles.dragHandleBar} />
+            <View style={[styles.dragHandleBar, { backgroundColor: handleColor }]} />
           </View>
 
           <View style={styles.content}>{children}</View>
@@ -160,25 +166,22 @@ const styles = StyleSheet.create({
   },
   scrimDim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
   },
   sheetContainer: {
     width: "100%",
-    backgroundColor: "rgba(24, 24, 26, 0.96)",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 24,
     overflow: "hidden",
   },
   dragHandleContainer: {
     width: "100%",
-    height: 32,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -186,7 +189,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
   },
   content: {
     flex: 1,

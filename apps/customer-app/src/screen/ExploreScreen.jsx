@@ -20,6 +20,7 @@ import SalonCard from "../components/SalonCard";
 import FloatingSearchCapsule from "../components/FloatingSearchCapsule";
 import LocationPickerModal from "../components/LocationPickerModal";
 import FilterModal from "../components/FilterModal";
+import ComingSoonLocation from "../components/ComingSoonLocation";
 import { SalonCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { customerService } from "../services/customerService";
@@ -29,12 +30,12 @@ import { cleanCityName, getCurrentLocation } from "../services/locationService";
 const IS_IOS = Platform.OS === "ios";
 
 const CATEGORIES = [
-  { id: "all", label: "All", iconName: "sparkles-outline" },
-  { id: "hair", label: "Haircut", iconName: "cut-outline", color: "#C48B36" },
-  { id: "facial", label: "Facials", iconName: "water-outline", color: "#3B82F6" },
-  { id: "nails", label: "Nails", iconName: "color-fill-outline", color: "#EC4899" },
-  { id: "spa", label: "Spa", iconName: "flower-outline", color: "#10B981" },
-  { id: "bridal", label: "Bridal", iconName: "ribbon-outline", color: "#8B5CF6" },
+  { id: "all", label: "All", icon: "✨" },
+  { id: "combo", label: "Combos", icon: "🎁" },
+  { id: "hair", label: "Haircut", icon: "✂️" },
+  { id: "facial", label: "Facials", icon: "🧴" },
+  { id: "nails", label: "Nails", icon: "💅" },
+  { id: "spa", label: "Spa", icon: "🌿" },
 ];
 
 const SUGGESTIONS = [
@@ -62,6 +63,7 @@ function EditorialHeader({
   selectedCategory,
   onSelectCategory,
   navigate,
+  hasSalons = true,
 }) {
   const sunOpacity = toggleAnim
     ? toggleAnim.interpolate({
@@ -79,118 +81,51 @@ function EditorialHeader({
 
   return (
     <View style={[styles.header, { backgroundColor: theme.canvas }]}>
-      {/* Top Bar: Location Selector & Action Buttons (Theme Toggle + Notifications) */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={[styles.locationChip, { backgroundColor: theme.surface, borderColor: theme.hairline }]}
-          onPress={onLocationClick}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="location-outline" size={14} color={theme.primary} />
-          <Text style={[styles.locationCity, { color: theme.ink }]} numberOfLines={1}>
-            {selectedCity || "Brahmapur"}
-          </Text>
-          <Ionicons name="chevron-down" size={12} color={theme.muted} />
-        </TouchableOpacity>
+      {/* Search Input Bar with Integrated Filter Button & Category Pills */}
+      {hasSalons ? (
+        <View style={{ marginBottom: 4 }}>
+          <FloatingSearchCapsule
+            value={search}
+            onChangeText={onSearchChange}
+            placeholder="Search by salon name or service..."
+            showDropdown={false}
+            onFilterPress={onFilterPress}
+          />
 
-        <View style={styles.topBarActions}>
-          {/* Theme Mode Switcher */}
-          <TouchableOpacity
-            style={[styles.themeBtn, { backgroundColor: theme.surface, borderColor: theme.hairline }]}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-            accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            accessibilityRole="button"
+          {/* Category Filter Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 10 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 6 }}
           >
-            {toggleAnim ? (
-              <>
-                <Animated.View style={{ opacity: sunOpacity, position: "absolute" }}>
-                  <Ionicons name="sunny-outline" size={17} color={theme.primary} />
-                </Animated.View>
-                <Animated.View style={{ opacity: moonOpacity }}>
-                  <Ionicons name="moon-outline" size={17} color={theme.primary} />
-                </Animated.View>
-              </>
-            ) : (
-              <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={17} color={theme.primary} />
-            )}
-          </TouchableOpacity>
-
-          {/* Notification Bell Button */}
-          <TouchableOpacity
-            style={[styles.notifBtn, { backgroundColor: theme.surface, borderColor: theme.hairline }]}
-            onPress={() => navigate && navigate("NotificationCenter")}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="notifications-outline" size={18} color={theme.ink} />
-            {hasUnread && <View style={[styles.notifBadgeDot, { backgroundColor: theme.primary }]} />}
-          </TouchableOpacity>
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => onSelectCategory && onSelectCategory(cat.id)}
+                  activeOpacity={0.85}
+                  style={[
+                    styles.catPill,
+                    isSelected ? styles.catPillActive : styles.catPillInactive,
+                  ]}
+                >
+                  <Text style={{ fontSize: 13, marginRight: 5 }}>{cat.icon}</Text>
+                  <Text
+                    style={[
+                      styles.catText,
+                      isSelected ? styles.catTextActive : styles.catTextInactive,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
-      </View>
-
-      {/* Header Title Row */}
-      {/* <View style={styles.headerTitleRow}>
-        <View style={{ flex: 1, paddingRight: S.sm }}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>FIND YOUR NEXT APPOINTMENT</Text>
-          <Text style={[styles.title, { color: theme.ink, fontFamily: FONT_FAMILY.serif }]}>
-            Search Salons
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.muted }]}>
-            Hair, skin &amp; spa — handpicked near you
-          </Text>
-        </View>
-      </View> */}
-
-      {/* Search Input Bar with Integrated Gold Filter Button */}
-      <View style={{ marginBottom: S.sm }}>
-        <FloatingSearchCapsule
-          value={search}
-          onChangeText={onSearchChange}
-          placeholder="Search by salon name or service..."
-          showDropdown={false}
-          onFilterPress={onFilterPress}
-        />
-      </View>
-
-      {/* Category Filter Chips (Horizontal Scroll) */}
-      {/* <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryRow}
-        contentContainerStyle={styles.categoryContent}
-      >
-        {CATEGORIES.map((cat) => {
-          const isSelected = selectedCategory === cat.id;
-          return (
-            <TouchableOpacity
-              key={cat.id}
-              style={[
-                styles.catPill,
-                isSelected
-                  ? [styles.catPillSelected, { backgroundColor: theme.primary }]
-                  : [styles.catPillUnselected, { backgroundColor: theme.surface, borderColor: theme.hairline }],
-              ]}
-              onPress={() => onSelectCategory(cat.id)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={cat.iconName}
-                size={14}
-                color={isSelected ? "#FFFFFF" : (cat.color || theme.primary)}
-                style={{ marginRight: 6 }}
-              />
-              <Text
-                style={[
-                  styles.catLabel,
-                  { color: isSelected ? "#FFFFFF" : theme.ink, fontWeight: isSelected ? "700" : "600" },
-                ]}
-              >
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView> */}
+      ) : null}
     </View>
   );
 }
@@ -408,6 +343,7 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
         navigate={navigate}
+        hasSalons={loading || salons.length > 0}
       />
 
       <LocationPickerModal
@@ -438,6 +374,12 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
             <SalonCardSkeleton variant="compact" />
             <SalonCardSkeleton variant="compact" />
           </View>
+        ) : salons.length === 0 ? (
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={handleCitySelect}
+          />
         ) : filteredSalons.length === 0 ? (
           <View style={[styles.centerContainer, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
             <Ionicons name="sparkles-outline" size={24} color={theme.primary} />
@@ -554,19 +496,27 @@ function buildEditorialStyles(isDark) {
     catPill: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      borderRadius: 14,
-      marginRight: 8,
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderRadius: 20,
     },
-    catPillSelected: {
-      // Solid Primary Gold fill
+    catPillActive: {
+      backgroundColor: C.blue,
     },
-    catPillUnselected: {
+    catPillInactive: {
+      backgroundColor: isDark ? "#1F1F28" : "#FFFFFF",
       borderWidth: 1,
+      borderColor: isDark ? "#2C2C38" : "#EBECEF",
     },
-    catLabel: {
+    catText: {
       fontSize: 13,
+      fontWeight: "600",
+    },
+    catTextActive: {
+      color: "#FFFFFF",
+    },
+    catTextInactive: {
+      color: isDark ? "#D1D1D6" : "#2C2C34",
     },
 
     listContainer: {

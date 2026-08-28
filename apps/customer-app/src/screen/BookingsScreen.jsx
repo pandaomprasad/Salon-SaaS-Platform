@@ -85,7 +85,7 @@ function formatTimeRange(start, end) {
   return `${startFormatted} - ${endFormatted}`;
 }
 
-export default function BookingsScreen({ navigate, onScroll }) {
+export default function BookingsScreen({ navigate, onScroll, onBack }) {
   const { isAuthenticated, user } = useAuth();
   const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState("Upcoming");
@@ -388,6 +388,11 @@ export default function BookingsScreen({ navigate, onScroll }) {
 
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
+          {onBack ? (
+            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+              <Ionicons name="arrow-back" size={20} color={isDark ? "#FFFFFF" : "#18181B"} />
+            </TouchableOpacity>
+          ) : null}
           <Text style={styles.title}>Your Appointments</Text>
           <View style={styles.headerIconGroup}>
             <TouchableOpacity style={styles.headerSquareBtn} activeOpacity={0.7}>
@@ -607,6 +612,15 @@ function getStyles(theme = {}, isDark = false) {
       alignItems: "center",
       justifyContent: "space-between",
       marginBottom: 20,
+    },
+    backBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F4F6",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
     },
     title: {
       fontSize: 22,

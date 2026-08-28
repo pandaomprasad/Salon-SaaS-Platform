@@ -40,4 +40,9 @@ export const customerService = {
     if (!getAuthToken()) return;
     return await apiClient.post("/notifications/read-all");
   },
+
+  deleteNotification: async (notificationId) => {
+    if (!getAuthToken()) return;
+    return await apiClient.delete(`/notifications/${notificationId}`);
+  },
 };

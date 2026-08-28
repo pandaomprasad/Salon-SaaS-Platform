@@ -33,6 +33,9 @@ import NotificationCenterScreen from "../screen/NotificationCenterScreen";
 import SavedSalonsScreen from "../screen/SavedSalonsScreen";
 import BannerDetailScreen from "../screen/BannerDetailScreen";
 import LegalScreen from "../screen/LegalScreen";
+import AboutScreen from "../screen/AboutScreen";
+import ShopScreen from "../screen/ShopScreen";
+import MapScreen from "../screen/MapScreen";
 import OnboardingScreen from "../screen/OnboardingScreen";
 import SplashScreen from "../screen/SplashScreen";
 import AndroidExpandingTabBar from "../components/AndroidExpandingTabBar";
@@ -51,13 +54,14 @@ const Stack = createNativeStackNavigator();
 const navigationRef = createNavigationContainerRef();
 
 const TABS = [
+  { id: "Explore", label: "Map", iconActive: "location", iconInactive: "location-outline" },
+  { id: "Salons", label: "Salons", iconActive: "storefront", iconInactive: "storefront-outline" },
   { id: "Home", label: "Home", iconActive: "home", iconInactive: "home-outline" },
-  { id: "Explore", label: "Search", iconActive: "search", iconInactive: "search-outline" },
-  { id: "Bookings", label: "Visits", iconActive: "calendar", iconInactive: "calendar-outline" },
+  { id: "Shop", label: "Shop", iconActive: "bag-handle", iconInactive: "bag-handle-outline" },
   { id: "Profile", label: "Profile", iconActive: "person", iconInactive: "person-outline" },
 ];
 
-const TAB_ORDER = TABS.map((t) => t.id);
+const TAB_ORDER = ["Explore", "Salons", "Home", "Shop", "Profile"];
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function AppNavigator() {
@@ -160,9 +164,10 @@ export default function AppNavigator() {
 
   const navigate = (screenName, params = {}) => {
     squeezeAnim.setValue(0);
-    if (["Home", "Explore", "Bookings", "Profile"].includes(screenName)) {
+    const targetTab = screenName === "Salons" ? "Explore" : screenName;
+    if (TAB_ORDER.includes(screenName)) {
       setCurrentTab(screenName);
-      setTabParams((prev) => ({ ...prev, [screenName]: params }));
+      setTabParams((prev) => ({ ...prev, [targetTab]: params }));
       if (navigationRef.isReady()) {
         navigationRef.navigate("MainTabs");
       }
@@ -200,67 +205,7 @@ export default function AppNavigator() {
 
   const renderTabBar = () => {
     if (hasOnboarded === false || showSplash) return null;
-    return isIos ? (
-      <Animated.View
-        style={[
-          styles.iosTabBarContainer,
-          {
-            bottom: iosBottomPosition,
-            backgroundColor: theme.tabBg,
-            borderColor: theme.tabBorder,
-            opacity: barOpacity,
-            transform: [{ translateY }, { scale }],
-          },
-        ]}
-      >
-        <View
-          style={styles.iosTabRow}
-          onLayout={(e) => setTabRowWidth(e.nativeEvent.layout.width)}
-        >
-          {tabRowWidth > 0 && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.tabIndicator,
-                {
-                  width: tabRowWidth / TABS.length,
-                  backgroundColor: theme.primary,
-                  transform: [{ translateX: indicatorAnim }],
-                },
-              ]}
-            />
-          )}
-          {TABS.map((tab) => {
-            const isSelected = currentTab === tab.id;
-            const iconName = isSelected ? tab.iconActive : tab.iconInactive;
-
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                style={styles.iosTabItem}
-                onPress={() => navigate(tab.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={iconName}
-                  size={20}
-                  color={isSelected ? theme.primary : theme.muted}
-                />
-                <Text
-                  style={[
-                    styles.iosTabLabel,
-                    { color: theme.muted },
-                    isSelected && { color: theme.primary, fontWeight: "600" },
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </Animated.View>
-    ) : (
+    return (
       <AndroidExpandingTabBar
         tabs={TABS}
         currentTab={currentTab}
@@ -280,17 +225,20 @@ export default function AppNavigator() {
         }}
       >
         <View style={{ width: SCREEN_WIDTH }}>
-          <HomeScreen navigate={navigate} onScroll={handleScroll} />
+          <MapScreen navigate={navigate} onScroll={handleScroll} />
         </View>
         <View style={{ width: SCREEN_WIDTH }}>
           <ExploreScreen
             navigate={navigate}
-            routeParams={tabParams["Explore"]}
+            routeParams={tabParams["Salons"]}
             onScroll={handleScroll}
           />
         </View>
         <View style={{ width: SCREEN_WIDTH }}>
-          <BookingsScreen navigate={navigate} onScroll={handleScroll} />
+          <HomeScreen navigate={navigate} onScroll={handleScroll} />
+        </View>
+        <View style={{ width: SCREEN_WIDTH }}>
+          <ShopScreen navigate={navigate} onScroll={handleScroll} />
         </View>
         <View style={{ width: SCREEN_WIDTH }}>
           <ProfileScreen navigate={navigate} onScroll={handleScroll} />
@@ -420,6 +368,15 @@ export default function AppNavigator() {
                   onScroll={handleScroll}
                 />
               )}
+            </Stack.Screen>
+            <Stack.Screen name="About">
+              {() => <AboutScreen goBack={goBack} navigate={navigate} />}
+            </Stack.Screen>
+            <Stack.Screen name="Shop">
+              {() => <ShopScreen navigate={navigate} onScroll={handleScroll} />}
+            </Stack.Screen>
+            <Stack.Screen name="Bookings">
+              {() => <BookingsScreen onBack={goBack} navigate={navigate} onScroll={handleScroll} />}
             </Stack.Screen>
           </Stack.Navigator>
         </NavigationContainer>

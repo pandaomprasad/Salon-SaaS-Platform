@@ -1,5 +1,5 @@
 // src/screen/AllSalonsScreen.jsx
-import React, { useState, useEffect, useCallback, memo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import {
   View,
   Text,
@@ -15,12 +15,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import SalonCard from "../components/SalonCard";
+import ComingSoonLocation from "../components/ComingSoonLocation";
+import LocationPickerModal from "../components/LocationPickerModal";
+import FloatingSearchCapsule from "../components/FloatingSearchCapsule";
+import FilterModal from "../components/FilterModal";
 import { browseService } from "../services/browseService";
 import { cleanCityName, getCurrentLocation } from "../services/locationService";
 import { storage } from "../services/storage";
 
 const CATEGORIES = [
   { id: "all", label: "All", icon: "✨" },
+  { id: "combo", label: "Combos", icon: "🎁" },
   { id: "hair", label: "Haircut", icon: "✂️" },
   { id: "facial", label: "Facials", icon: "🧴" },
   { id: "nails", label: "Nails", icon: "💅" },
@@ -37,6 +42,64 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    minRating: "all",
+    priceRange: "all",
+    sortBy: "recommended",
+    serviceType: "all",
+  });
+
+  const filteredSalons = useMemo(() => {
+    let list = [...salons];
+
+    if (filters.minRating && filters.minRating !== "all") {
+      const minVal = parseFloat(filters.minRating);
+      list = list.filter((s) => {
+        const r = parseFloat(s.rating || s.branches?.[0]?.rating?.avgScore || 4.5);
+        return r >= minVal;
+      });
+    }
+
+    if (filters.priceRange && filters.priceRange !== "all") {
+      list = list.filter((s) => {
+        const startingPrice = s.startingPrice || s.minPrice || 600;
+        if (filters.priceRange === "budget") return startingPrice < 500;
+        if (filters.priceRange === "moderate") return startingPrice >= 500 && startingPrice <= 1500;
+        if (filters.priceRange === "luxury") return startingPrice > 1500;
+        return true;
+      });
+    }
+
+    if (filters.serviceType && filters.serviceType !== "all") {
+      const typeStr = filters.serviceType.toLowerCase();
+      list = list.filter((s) => {
+        const catList = s.categories || s.services || [];
+        const summary = (s.servicesSummary || s.description || "").toLowerCase();
+        const nameStr = (s.name || "").toLowerCase();
+        return (
+          nameStr.includes(typeStr) ||
+          summary.includes(typeStr) ||
+          catList.some((c) => (c.name || c).toString().toLowerCase().includes(typeStr))
+        );
+      });
+    }
+
+    if (filters.sortBy === "rating") {
+      list.sort((a, b) => {
+        const rA = parseFloat(a.rating || a.branches?.[0]?.rating?.avgScore || 0);
+        const rB = parseFloat(b.rating || b.branches?.[0]?.rating?.avgScore || 0);
+        return rB - rA;
+      });
+    } else if (filters.sortBy === "price_low") {
+      list.sort((a, b) => (a.startingPrice || 500) - (b.startingPrice || 500));
+    } else if (filters.sortBy === "price_high") {
+      list.sort((a, b) => (b.startingPrice || 500) - (a.startingPrice || 500));
+    }
+
+    return list;
+  }, [salons, filters]);
 
   useEffect(() => {
     let active = true;
@@ -57,7 +120,7 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
             await storage.setItem("@user_selected_city", detected);
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     initCity();
     return () => { active = false; };
@@ -106,6 +169,9 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
     if (navigate) navigate("SalonDetail", { salon });
   }, [navigate]);
 
+  const hasActiveFilterOrSearch = Boolean(debouncedSearch.trim() || selectedCategory !== "all");
+  const isCityEmpty = !loading && salons.length === 0 && !hasActiveFilterOrSearch;
+
   const styles = buildStyles(isDark);
 
   return (
@@ -119,62 +185,58 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
         >
           <Ionicons name="arrow-back" size={18} color={C.ink} />
         </TouchableOpacity>
-        <View style={styles.navTitleBox}>
-          <Text style={styles.navEyebrow}>PARTNER STUDIOS</Text>
-          <Text style={styles.navTitle}>Salons in {selectedCity}</Text>
-        </View>
+
       </View>
 
-      {/* Search & Filter Bar */}
-      <View style={styles.filterSection}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={16} color={C.dustTaupe} style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search studio name or service..."
-            placeholderTextColor={C.dustTaupe}
+      {/* Search & Filter Bar - only shown if city has salons or user is searching */}
+      {!isCityEmpty && (
+        <View style={styles.filterSection}>
+          <FloatingSearchCapsule
             value={search}
             onChangeText={setSearch}
-            autoCapitalize="none"
+            onSelectSuggestion={(q) => setSearch(q)}
+            onSearchSubmit={(q) => setSearch(q)}
+            selectedCity={selectedCity}
+            placeholder="Search studio name or service..."
+            showDropdown={true}
+            onLocationClick={() => setLocationModalVisible(true)}
+            onFilterPress={() => setFilterModalVisible(true)}
           />
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={16} color={C.dustTaupe} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
 
-        {/* Category Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.catScroll}
-          contentContainerStyle={{ paddingRight: S.sm }}
-        >
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => setSelectedCategory(cat.id)}
-                activeOpacity={0.85}
-              >
-                {isSelected ? (
-                  <View style={styles.catPillActiveGradient}>
-                    <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
-                    <Text style={styles.catTextActive}>{cat.label}</Text>
-                  </View>
-                ) : (
-                  <View style={styles.catPillInactive}>
-                    <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
-                    <Text style={styles.catTextInactive}>{cat.label}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+          <View style={{ height: 10 }} />
+
+          {/* Category Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.catScroll}
+            contentContainerStyle={{ paddingRight: S.sm }}
+          >
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => setSelectedCategory(cat.id)}
+                  activeOpacity={0.85}
+                >
+                  {isSelected ? (
+                    <View style={styles.catPillActiveGradient}>
+                      <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
+                      <Text style={styles.catTextActive}>{cat.label}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.catPillInactive}>
+                      <Text style={{ fontSize: 12, marginRight: 4 }}>{cat.icon}</Text>
+                      <Text style={styles.catTextInactive}>{cat.label}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Main List */}
       <ScrollView
@@ -187,8 +249,17 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
         {loading ? (
           <View style={styles.centerBlock}>
             <ActivityIndicator size="small" color={C.main} />
-            <Text style={styles.loadingText}>Loading partner studios...</Text>
+            <Text style={styles.loadingText}>Loading partner studios in {selectedCity}...</Text>
           </View>
+        ) : isCityEmpty ? (
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={(c) => {
+              setSelectedCity(c);
+              storage.setItem("@user_selected_city", c);
+            }}
+          />
         ) : error && salons.length === 0 ? (
           <View style={styles.centerBlock}>
             <Ionicons name="alert-circle-outline" size={28} color={C.muted} />
@@ -198,18 +269,18 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : salons.length === 0 ? (
+        ) : filteredSalons.length === 0 ? (
           <View style={styles.centerBlock}>
-            <Ionicons name="storefront-outline" size={28} color={C.muted} />
-            <Text style={styles.emptyTitle}>No studios in {selectedCity}</Text>
-            <Text style={styles.emptySub}>Try searching for a different name or clearing filters.</Text>
+            <Ionicons name="search-outline" size={28} color={C.muted} />
+            <Text style={styles.emptyTitle}>No matching studios found</Text>
+            <Text style={styles.emptySub}>Try searching for a different name, adjusting price/rating filter, or clearing search.</Text>
           </View>
         ) : (
           <View style={styles.salonsList}>
             <Text style={styles.resultCountText}>
-              Showing {salons.length} {salons.length === 1 ? "studio" : "studios"} in {selectedCity}
+              Showing {filteredSalons.length} {filteredSalons.length === 1 ? "studio" : "studios"} in {selectedCity}
             </Text>
-            {salons.map((salon, idx) => (
+            {filteredSalons.map((salon, idx) => (
               <SalonCard
                 key={salon._id || salon.id}
                 salon={salon}
@@ -221,6 +292,23 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
           </View>
         )}
       </ScrollView>
+
+      <LocationPickerModal
+        visible={locationModalVisible}
+        selectedCity={selectedCity}
+        onSelectCity={(c) => {
+          setSelectedCity(c);
+          storage.setItem("@user_selected_city", c);
+        }}
+        onClose={() => setLocationModalVisible(false)}
+      />
+
+      <FilterModal
+        visible={filterModalVisible}
+        filters={filters}
+        onApplyFilters={setFilters}
+        onClose={() => setFilterModalVisible(false)}
+      />
     </View>
   );
 }
@@ -236,10 +324,10 @@ function buildStyles(isDark) {
       alignItems: "center",
       paddingTop: Platform.OS === "android" ? 44 : 52,
       paddingHorizontal: S.md,
-      paddingBottom: S.sm,
+      // paddingBottom: S.sm,
       backgroundColor: C.bg,
-      borderBottomWidth: 1,
-      borderBottomColor: C.border,
+      // borderBottomWidth: 1,
+      // borderBottomColor: C.border,
       gap: S.xs,
     },
     backBtn: {
@@ -250,7 +338,7 @@ function buildStyles(isDark) {
       justifyContent: "center",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: C.blue,
     },
     navTitleBox: {
       flex: 1,
