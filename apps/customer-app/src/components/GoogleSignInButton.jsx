@@ -6,8 +6,30 @@ import { useTheme } from "../context/ThemeContext";
 import SpringTouchable from "./SpringTouchable";
 import { R } from "../theme";
 
-export default function GoogleSignInButton({ onPress, loading = false, disabled = false }) {
+export default function GoogleSignInButton({ onPress, loading = false, disabled = false, variant = "full" }) {
   const { isDark } = useTheme();
+
+  if (variant === "circle") {
+    return (
+      <SpringTouchable
+        style={[
+          styles.circleBtn,
+          isDark ? styles.googleBtnDark : styles.googleBtnLight,
+          disabled && { opacity: 0.6 },
+        ]}
+        onPress={onPress}
+        disabled={disabled || loading}
+        scaleTo={0.92}
+        hapticType="medium"
+      >
+        {loading ? (
+          <ActivityIndicator color={isDark ? "#FFFFFF" : "#1A1A24"} size="small" />
+        ) : (
+          <Ionicons name="logo-google" size={24} color="#EA4335" />
+        )}
+      </SpringTouchable>
+    );
+  }
 
   return (
     <SpringTouchable
@@ -36,6 +58,14 @@ export default function GoogleSignInButton({ onPress, loading = false, disabled 
 }
 
 const styles = StyleSheet.create({
+  circleBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
   googleBtn: {
     height: 54,
     borderRadius: R.md,

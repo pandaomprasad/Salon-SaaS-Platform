@@ -145,7 +145,12 @@ function getStyles() {
       backgroundColor: C.blue,
       borderWidth: 1,
       borderColor: C.blue,
-      ...SHADOWS.sm,
+      // ...SHADOWS.sm,
+      shadowColor: C.blue,
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.25,
+      shadowRadius: 5,
+      elevation: 5,
     },
     cardActive: {
       backgroundColor: C.surface,

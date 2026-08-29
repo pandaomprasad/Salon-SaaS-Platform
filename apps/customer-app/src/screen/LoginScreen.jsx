@@ -57,7 +57,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
       if (routeParams?.redirectTo && navigate) {
         navigate(routeParams.redirectTo, routeParams.redirectData);
       } else if (navigate) {
-        navigate("Profile");
+        navigate("Home");
       }
     } else {
       setError(res.error || "Login failed");
@@ -79,13 +79,31 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Top Back Navigation Arrow */}
-        <View style={styles.topNav}>
-          {goBack ? (
+        {/* Top Header Bar (Back button or Skip button for first-time users) */}
+        <View
+          style={[
+            styles.topNav,
+            { justifyContent: routeParams?.hideBack ? "flex-end" : "space-between" },
+          ]}
+        >
+          {!routeParams?.hideBack && goBack ? (
             <SpringTouchable style={styles.backBtn} onPress={goBack} scaleTo={0.9}>
               <Ionicons name="arrow-back" size={22} color={styles.titleText.color} />
             </SpringTouchable>
-          ) : <View style={{ width: 36 }} />}
+          ) : (
+            !routeParams?.hideBack && <View style={{ width: 36 }} />
+          )}
+
+          {routeParams?.hideBack && (
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={() => navigate && navigate("Home")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipText}>Skip</Text>
+              <Ionicons name="chevron-forward" size={16} color={styles.skipText.color} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Welcome Header */}
@@ -173,24 +191,26 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
             <Text style={styles.dividerText}>Or Continue with</Text>
           </View>
 
-          {/* Full-width Continue with Google Button */}
-          <GoogleSignInButton
-            onPress={handleGoogleLogin}
-            loading={googleLoading}
-            disabled={loading}
-          />
-
-          {/* Full-width Continue with Apple Button */}
-          <AppleSignInButton
-            onSuccess={() => {
-              if (routeParams?.redirectTo && navigate) {
-                navigate(routeParams.redirectTo, routeParams.redirectData);
-              } else if (navigate) {
-                navigate("Profile");
-              }
-            }}
-            onError={(err) => setError(err)}
-          />
+          {/* Circle Social Login Buttons Row */}
+          <View style={styles.socialRow}>
+            <GoogleSignInButton
+              onPress={handleGoogleLogin}
+              loading={googleLoading}
+              disabled={loading}
+              variant="circle"
+            />
+            <AppleSignInButton
+              onSuccess={() => {
+                if (routeParams?.redirectTo && navigate) {
+                  navigate(routeParams.redirectTo, routeParams.redirectData);
+                } else if (navigate) {
+                  navigate("Home");
+                }
+              }}
+              onError={(err) => setError(err)}
+              variant="circle"
+            />
+          </View>
 
           {/* Footer Links: Forgot Password & Sign Up */}
           <View style={styles.footerBlock}>
@@ -217,7 +237,7 @@ export default function LoginScreen({ navigate, goBack, routeParams }) {
               if (routeParams?.redirectTo && navigate) {
                 navigate(routeParams.redirectTo, routeParams.redirectData);
               } else if (navigate) {
-                navigate("Profile");
+                navigate("Home");
               }
             }}
           />
@@ -243,11 +263,13 @@ function getStyles(theme, isDark) {
     scrollContent: {
       paddingHorizontal: 24,
       flexGrow: 1,
+      justifyContent: "center",
     },
     topNav: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 24,
+      marginBottom: 20,
+      minHeight: 40,
     },
     backBtn: {
       width: 40,
@@ -257,8 +279,23 @@ function getStyles(theme, isDark) {
       justifyContent: "center",
       backgroundColor: isDark ? "#1C1C1E" : "#F0F1F5",
     },
+    skipBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: isDark ? "#1C1C1E" : "#F0F1F5",
+    },
+    skipText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#A5B4FC" : accentColor,
+      marginRight: 2,
+    },
     headerBlock: {
       marginBottom: 32,
+      alignItems: "center",
     },
     titleText: {
       fontSize: 34,
@@ -266,17 +303,19 @@ function getStyles(theme, isDark) {
       color: isDark ? "#FFFFFF" : "#1A1A24",
       letterSpacing: -0.6,
       marginBottom: 6,
+      textAlign: "center",
     },
     subtitleText: {
       fontSize: 16,
       fontWeight: "400",
       color: isDark ? "#94A3B8" : "#9498A4",
+      textAlign: "center",
     },
     placeholderColor: {
       color: isDark ? "#64748B" : "#B0B4C0",
     },
     formContainer: {
-      flex: 1,
+      width: "100%",
     },
     inputPill: {
       flexDirection: "row",
@@ -305,6 +344,7 @@ function getStyles(theme, isDark) {
     rememberRow: {
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
       marginBottom: 24,
       marginTop: 2,
     },
@@ -377,7 +417,7 @@ function getStyles(theme, isDark) {
     },
     footerBlock: {
       alignItems: "center",
-      marginTop: "auto",
+      marginTop: 12,
       paddingBottom: 0,
     },
     forgotBtn: {

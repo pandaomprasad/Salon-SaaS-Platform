@@ -38,7 +38,7 @@ const buildUserPayload = async (user) => {
 // staff/manager/owner are created by owner (we build that later)
 const register = async (req, res, next) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, gender } = req.body;
 
     // Reject disposable emails & invalid MX records
     const check = await validateEmail(email);
@@ -68,6 +68,7 @@ const register = async (req, res, next) => {
       email: cleanEmail,
       phone,
       password,
+      gender: gender ? gender.toLowerCase().trim() : undefined,
       role: customerRole._id,
       isEmailVerified: false,
     });

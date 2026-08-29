@@ -129,11 +129,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const register = useCallback(async (name, email, password, phone) => {
+  const register = useCallback(async (name, email, password, phone, gender) => {
     setError(null);
     setLoading(true);
     try {
-      const res = await authService.register(name, email, password, phone);
+      const res = await authService.register(name, email, password, phone, gender);
       const accessToken = res?.data?.accessToken || res?.accessToken;
       const refreshToken = res?.data?.refreshToken || res?.refreshToken;
       const userData = res?.data?.user || res?.user;

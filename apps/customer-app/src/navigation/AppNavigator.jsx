@@ -165,15 +165,36 @@ export default function AppNavigator() {
   const navigate = (screenName, params = {}) => {
     squeezeAnim.setValue(0);
     const targetTab = screenName === "Salons" ? "Explore" : screenName;
-    if (TAB_ORDER.includes(screenName)) {
-      setCurrentTab(screenName);
-      setTabParams((prev) => ({ ...prev, [targetTab]: params }));
+    if (TAB_ORDER.includes(screenName) || screenName === "MainTabs") {
+      if (TAB_ORDER.includes(screenName)) {
+        setCurrentTab(screenName);
+        setTabParams((prev) => ({ ...prev, [targetTab]: params }));
+      }
       if (navigationRef.isReady()) {
-        navigationRef.navigate("MainTabs");
+        const currentRoute = navigationRef.getCurrentRoute()?.name;
+        if (
+          currentRoute === "Login" ||
+          currentRoute === "Register" ||
+          currentRoute === "Onboarding"
+        ) {
+          navigationRef.reset({
+            index: 0,
+            routes: [{ name: "MainTabs" }],
+          });
+        } else {
+          navigationRef.navigate("MainTabs");
+        }
       }
     } else {
       if (navigationRef.isReady()) {
-        navigationRef.navigate(screenName, params);
+        if (screenName === "Login" && params?.hideBack) {
+          navigationRef.reset({
+            index: 0,
+            routes: [{ name: "Login", params }],
+          });
+        } else {
+          navigationRef.navigate(screenName, params);
+        }
       }
     }
   };
@@ -181,6 +202,8 @@ export default function AppNavigator() {
   const goBack = () => {
     if (navigationRef.isReady() && navigationRef.canGoBack()) {
       navigationRef.goBack();
+    } else if (navigationRef.isReady()) {
+      navigationRef.navigate("MainTabs");
     }
   };
 
@@ -279,7 +302,10 @@ export default function AppNavigator() {
                   onFinish={() => {
                     setHasOnboarded(true);
                     setCurrentTab("Home");
-                    navigation.replace("MainTabs");
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: "Login", params: { hideBack: true } }],
+                    });
                   }}
                   navigate={(name, params) => navigate(name, params)}
                 />

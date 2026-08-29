@@ -8,7 +8,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import SpringTouchable from "./SpringTouchable";
 
-export default function AppleSignInButton({ onSuccess, onError }) {
+export default function AppleSignInButton({ onSuccess, onError, variant = "full" }) {
   const { isDark } = useTheme();
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,6 +62,31 @@ export default function AppleSignInButton({ onSuccess, onError }) {
     }
   };
 
+  if (variant === "circle") {
+    return (
+      <SpringTouchable
+        style={[
+          styles.circleBtn,
+          isDark ? styles.appleBtnDark : styles.appleBtnLight,
+        ]}
+        onPress={handleAppleSignIn}
+        disabled={loading}
+        scaleTo={0.92}
+        hapticType="medium"
+      >
+        {loading ? (
+          <ActivityIndicator color={isDark ? "#121212" : "#FFFFFF"} size="small" />
+        ) : (
+          <Ionicons
+            name="logo-apple"
+            size={26}
+            color={isDark ? "#121212" : "#FFFFFF"}
+          />
+        )}
+      </SpringTouchable>
+    );
+  }
+
   return (
     <SpringTouchable
       style={[
@@ -93,6 +118,14 @@ export default function AppleSignInButton({ onSuccess, onError }) {
 }
 
 const styles = StyleSheet.create({
+  circleBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
   appleBtn: {
     height: 54,
     borderRadius: R.md,

@@ -116,6 +116,14 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    gender: {
+      type: String,
+      enum: ["male", "female", "other"],
+      required: [true, "Gender is required"],
+      lowercase: true,
+      trim: true,
+    },
+
     // extra permissions assigned to this specific user
     // overrides and extends their role permissions
     // e.g. give one manager "report:read" without giving all managers that permission

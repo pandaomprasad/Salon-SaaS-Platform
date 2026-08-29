@@ -21,6 +21,11 @@ const registerValidator = [
     .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
     .matches(/[0-9]/).withMessage('Password must contain a number')
     .matches(/[!@#$%^&*]/).withMessage('Password must contain a special character'),
+
+  body('gender')
+    .trim()
+    .notEmpty().withMessage('Gender is required')
+    .isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
 ]
 
 const ownerRegisterValidator = [

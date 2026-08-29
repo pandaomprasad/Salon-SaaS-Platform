@@ -26,12 +26,13 @@ export const authService = {
     return res;
   },
 
-  register: async (name, email, password, phone) => {
+  register: async (name, email, password, phone, gender) => {
     const res = await apiClient.post("/auth/register", {
       name,
       email,
       password,
       phone,
+      gender,
       role: "customer",
     });
     if (res.data?.accessToken) {

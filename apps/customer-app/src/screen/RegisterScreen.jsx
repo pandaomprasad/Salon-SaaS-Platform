@@ -35,26 +35,27 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [gender, setGender] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showGoogleModal, setShowGoogleModal] = useState(false);
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
-      setError("Please fill in all required fields.");
+    if (!name || !email || !password || !gender) {
+      setError("Please fill in all required fields, including selecting your gender.");
       return;
     }
     setError("");
     setLoading(true);
-    const res = await register(name.trim(), email.trim().toLowerCase(), password, phone.trim());
+    const res = await register(name.trim(), email.trim().toLowerCase(), password, phone.trim(), gender);
     setLoading(false);
 
     if (res.success) {
       if (routeParams?.redirectTo && navigate) {
         navigate(routeParams.redirectTo, routeParams.redirectData);
       } else if (navigate) {
-        navigate("Profile");
+        navigate("Home");
       }
     } else {
       setError(res.error || "Registration failed");
@@ -134,6 +135,48 @@ export default function RegisterScreen({ navigate, goBack, routeParams }) {
             value={phone}
             onChangeText={setPhone}
           />
+        </View>
+
+        {/* Mandatory Gender Selector */}
+        <View style={styles.genderBlock}>
+          <Text style={styles.genderLabel}>
+            Gender <Text style={styles.requiredStar}>*</Text>
+          </Text>
+          <View style={styles.genderRow}>
+            {[
+              { id: "male", label: "Male", icon: "male-outline" },
+              { id: "female", label: "Female", icon: "female-outline" },
+              { id: "other", label: "Other", icon: "transgender-outline" },
+            ].map((item) => {
+              const isSelected = gender === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.genderChip,
+                    isSelected && styles.genderChipSelected,
+                  ]}
+                  onPress={() => setGender(item.id)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={16}
+                    color={isSelected ? "#FFFFFF" : styles.placeholderColor.color}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.genderChipText,
+                      isSelected && styles.genderChipTextSelected,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Password Input */}
@@ -283,6 +326,51 @@ function getStyles(theme, isDark) {
     },
     inputIcon: {
       marginRight: 14,
+    },
+    genderBlock: {
+      marginBottom: 16,
+      marginTop: 2,
+    },
+    genderLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#CBD5E1" : "#475569",
+      marginBottom: 8,
+      marginLeft: 4,
+    },
+    requiredStar: {
+      color: "#EF4444",
+      fontWeight: "700",
+    },
+    genderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    genderChip: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F5F8",
+      borderWidth: 1.5,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+    },
+    genderChipSelected: {
+      backgroundColor: accentColor,
+      borderColor: accentColor,
+    },
+    genderChipText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: isDark ? "#94A3B8" : "#64748B",
+    },
+    genderChipTextSelected: {
+      color: "#FFFFFF",
+      fontWeight: "700",
     },
     input: {
       flex: 1,

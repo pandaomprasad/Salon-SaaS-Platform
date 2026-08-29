@@ -252,7 +252,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
     if (onFinish) {
       onFinish();
     } else if (navigate) {
-      navigate("Home");
+      navigate("Login", { hideBack: true });
     }
   };
 
