@@ -29,6 +29,7 @@ import { appointmentService } from "../services/appointmentService";
 import { useAuth } from "../context/AuthContext";
 import { storage } from "../services/storage";
 import { cleanCityName, getCurrentLocation } from "../services/locationService";
+import { useLocationStore } from "../store/useLocationStore";
 import { socketClient } from "../services/socketClient";
 
 const SalonCarousel = memo(({ salons, onSalonPress, styles }) => (
@@ -68,8 +69,11 @@ const PAGE_SIZE = 5;
 function HomeScreen({ navigate, onScroll }) {
   const { isDark } = useTheme();
   const { user, isAuthenticated } = useAuth();
-  const [selectedCity, setSelectedCity] = useState("Brahmapur");
-  const initialCleanCity = cleanCityName("Brahmapur");
+  const selectedCity = useLocationStore((state) => state.selectedCity);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
+  const initLocation = useLocationStore((state) => state.initLocation);
+  const detectCurrentLocation = useLocationStore((state) => state.detectCurrentLocation);
+  const initialCleanCity = cleanCityName(selectedCity || "Brahmapur");
   const initialSalons = GLOBAL_SALON_CACHE[initialCleanCity] || [];
   const [salons, setSalons] = useState(initialSalons);
   const [loading, setLoading] = useState(initialSalons.length === 0);
@@ -113,33 +117,17 @@ function HomeScreen({ navigate, onScroll }) {
     let active = true;
     const initLocationAndPermissions = async () => {
       try {
-        const savedCity = await storage.getItem("@user_selected_city");
-        if (savedCity && savedCity.trim()) {
-          if (active) setSelectedCity(savedCity);
-        } else {
-          // Check Location permission / GPS status
-          try {
-            const locPerm = await Location.getForegroundPermissionsAsync();
-            if (!locPerm.granted && locPerm.canAskAgain) {
-              if (active) setPermissionModalType("location");
-              return;
-            }
-          } catch (e) { }
+        await initLocation();
 
-          // Automatically fetch customer's real GPS / IP location on app launch
-          console.log("📍 [HOME] Auto-detecting customer location on app open...");
-          const geoResult = await getCurrentLocation();
-          if (geoResult && geoResult.city) {
-            const detectedCity = cleanCityName(geoResult.city);
-            if (detectedCity && active) {
-              console.log(`📍 [HOME] Location auto-detected: "${detectedCity}"`);
-              setSelectedCity(detectedCity);
-              await storage.setItem("@user_selected_city", detectedCity);
-            }
+        // Check Location permission / GPS status
+        try {
+          const locPerm = await Location.getForegroundPermissionsAsync();
+          if (!locPerm.granted && locPerm.canAskAgain) {
+            if (active) setPermissionModalType("location");
           }
-        }
+        } catch (e) { }
 
-        // Next check Notification permission
+        // Check Notification permission
         try {
           const notifPerm = await Notifications.getPermissionsAsync();
           if (!notifPerm.granted && notifPerm.canAskAgain) {
@@ -152,7 +140,7 @@ function HomeScreen({ navigate, onScroll }) {
     };
     initLocationAndPermissions();
     return () => { active = false; };
-  }, []);
+  }, [initLocation]);
 
   const handleEnablePermission = async () => {
     setPermissionLoading(true);

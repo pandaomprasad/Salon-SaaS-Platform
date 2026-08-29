@@ -22,6 +22,7 @@ import FilterModal from "../components/FilterModal";
 import { browseService } from "../services/browseService";
 import { cleanCityName, getCurrentLocation } from "../services/locationService";
 import { storage } from "../services/storage";
+import { useLocationStore } from "../store/useLocationStore";
 
 const CATEGORIES = [
   { id: "all", label: "All", icon: "✨" },
@@ -34,7 +35,9 @@ const CATEGORIES = [
 
 export default function AllSalonsScreen({ navigate, goBack, routeParams, onScroll }) {
   const { isDark } = useTheme();
-  const [selectedCity, setSelectedCity] = useState(routeParams?.city || "Brahmapur");
+  const selectedCity = useLocationStore((state) => state.selectedCity);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
+  const initLocation = useLocationStore((state) => state.initLocation);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -102,29 +105,12 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
   }, [salons, filters]);
 
   useEffect(() => {
-    let active = true;
-    const initCity = async () => {
-      if (routeParams?.city) return;
-      try {
-        const saved = await storage.getItem("@user_selected_city");
-        if (saved && saved.trim()) {
-          if (active) setSelectedCity(saved);
-          return;
-        }
-
-        const geoResult = await getCurrentLocation();
-        if (geoResult && geoResult.city) {
-          const detected = cleanCityName(geoResult.city);
-          if (detected && active) {
-            setSelectedCity(detected);
-            await storage.setItem("@user_selected_city", detected);
-          }
-        }
-      } catch (e) { }
-    };
-    initCity();
-    return () => { active = false; };
-  }, [routeParams?.city]);
+    if (routeParams?.city) {
+      setSelectedCity(routeParams.city);
+    } else {
+      initLocation();
+    }
+  }, [routeParams?.city, initLocation, setSelectedCity]);
 
   // 300ms Search Debounce
   useEffect(() => {
@@ -296,10 +282,7 @@ export default function AllSalonsScreen({ navigate, goBack, routeParams, onScrol
       <LocationPickerModal
         visible={locationModalVisible}
         selectedCity={selectedCity}
-        onSelectCity={(c) => {
-          setSelectedCity(c);
-          storage.setItem("@user_selected_city", c);
-        }}
+        onSelectCity={(c) => setSelectedCity(c)}
         onClose={() => setLocationModalVisible(false)}
       />
 

@@ -1,6 +1,7 @@
 const Salon = require('../models/salon.model')
 const User = require('../models/user.model')
 const AppError = require('../utils/AppError')
+const { invalidateCatalogCache } = require('../services/cache.service')
 
 // ================================
 // POST /api/v1/salons
@@ -26,6 +27,8 @@ const createSalon = async (req, res, next) => {
       await User.findByIdAndUpdate(userId, { salonId: salon._id })
     }
 
+    await invalidateCatalogCache({ salonId: salon._id.toString() })
+
     res.status(201).json({
       success: true,
       message: 'Salon created successfully',
@@ -40,21 +43,37 @@ const createSalon = async (req, res, next) => {
 // GET /api/v1/salons
 // owner sees their own salons
 // ================================
+const parsePagination = require('../utils/pagination')
+
 const getMySalons = async (req, res, next) => {
   try {
     const { userId, role } = req.user
+    const { page, limit, skip } = parsePagination(req.query, 20, 100)
 
     const filter = role === 'owner'
       ? { owner: userId }
       : { _id: req.user.salonId }
 
-    const salons = await Salon.find(filter)
-      .populate('owner', 'name email')
-      .lean()
+    const [salons, total] = await Promise.all([
+      Salon.find(filter)
+        .populate('owner', 'name email')
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Salon.countDocuments(filter)
+    ])
 
     res.status(200).json({
       success: true,
-      data: { salons }
+      data: {
+        salons,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      }
     })
   } catch (error) {
     next(error)
@@ -120,6 +139,8 @@ const updateSalon = async (req, res, next) => {
 
     await salon.save()
 
+    await invalidateCatalogCache({ salonId: salonId.toString() })
+
     res.status(200).json({
       success: true,
       message: 'Salon updated successfully',
@@ -151,6 +172,8 @@ const deleteSalon = async (req, res, next) => {
     // soft delete — just deactivate, never hard delete
     salon.isActive = false
     await salon.save()
+
+    await invalidateCatalogCache({ salonId: salonId.toString() })
 
     res.status(200).json({
       success: true,

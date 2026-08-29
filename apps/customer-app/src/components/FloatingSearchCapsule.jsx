@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
+import { useLocationStore } from "../store/useLocationStore";
 import { C } from "../theme";
 
 const SAMPLE_SUGGESTIONS = [
@@ -37,12 +38,14 @@ export default function FloatingSearchCapsule({
   onFilterPress,
   onLocationClick,
   onSparkleClick,
-  selectedCity = "Brahmapur",
+  selectedCity: propSelectedCity,
   selectedState = "Odisha",
   placeholder = "Search luxury stays, salons & spa",
   showDropdown = true,
 }) {
   const { isDark } = useTheme();
+  const storeCity = useLocationStore((state) => state.selectedCity);
+  const activeCity = propSelectedCity && propSelectedCity !== "Brahmapur" ? propSelectedCity : (storeCity || "Bhubaneswar");
   const [isFocused, setIsFocused] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState(value || "");
@@ -105,12 +108,15 @@ export default function FloatingSearchCapsule({
             activeOpacity={0.85}
           >
             <View style={styles.locationIconBox}>
-              <Ionicons name="location" size={17} color="#FFFFFF" />
+              <Ionicons name="location" size={17} color={isDark ? "#FFFFFF" : "#6C5CE7"} />
             </View>
             <View style={styles.locationTextStack}>
-              <Text style={styles.locationTitleText}>
-                {selectedCity}{selectedState ? `, ${selectedState}` : ", Odisha"}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Text style={styles.locationTitleText}>
+                  {activeCity}{selectedState ? `, ${selectedState}` : ""}
+                </Text>
+                <Ionicons name="chevron-down" size={13} color={isDark ? "#9498A4" : "#71717A"} style={{ marginTop: 1 }} />
+              </View>
               <Text style={styles.locationSubText}>Find the perfect salon for you</Text>
             </View>
           </TouchableOpacity>
@@ -148,25 +154,6 @@ export default function FloatingSearchCapsule({
               <Ionicons name="funnel" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
-
-          {/* Horizontal Scroll Category Pills */}
-          {/* <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryScrollContent}
-          >
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={styles.categoryPill}
-                onPress={() => handleSelect(cat.label)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.categoryIconText}>{cat.icon}</Text>
-                <Text style={styles.categoryLabelText}>{cat.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView> */}
         </View>
       </View>
 
@@ -205,16 +192,16 @@ function getStyles(isDark) {
       marginVertical: 4,
     },
     cardContainer: {
-      backgroundColor: isDark ? "#121216" : "#16161bea",
+      backgroundColor: isDark ? "#121216" : "#FFFFFF",
       borderRadius: 28,
       padding: 6,
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.44,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.44 : 0.08,
       shadowRadius: 16,
-      elevation: 10,
+      elevation: isDark ? 10 : 4,
       borderWidth: 1,
-      borderColor: isDark ? "#3a3a3a6e" : C.blue,
+      borderColor: isDark ? "#3a3a3a6e" : "#EBECEF",
     },
     darkHeaderBlock: {
       flexDirection: "row",
@@ -234,7 +221,7 @@ function getStyles(isDark) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: "#030303ff",
+      backgroundColor: isDark ? "#030303" : "rgba(108, 92, 231, 0.12)",
       alignItems: "center",
       justifyContent: "center",
     },
@@ -242,13 +229,13 @@ function getStyles(isDark) {
       justifyContent: "center",
     },
     locationTitleText: {
-      color: "#FFFFFF",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
       fontSize: 16,
       fontWeight: "700",
       letterSpacing: -0.2,
     },
     locationSubText: {
-      color: "#9498A4",
+      color: isDark ? "#9498A4" : "#64748B",
       fontSize: 12,
       fontWeight: "500",
       letterSpacing: -0.1,

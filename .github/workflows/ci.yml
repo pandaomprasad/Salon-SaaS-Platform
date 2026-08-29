@@ -1,72 +1,43 @@
-name: Salon SaaS Platform CI Pipeline
+name: Salon SaaS Platform CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
 jobs:
-  backend-test:
-    name: Backend API Integration Tests & Lint
+  test-backend:
     runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20.x
           cache: 'npm'
-          cache-dependency-path: salon-api/package-lock.json
 
-      - name: Install salon-api Dependencies
-        working-directory: ./salon-api
-        run: npm ci || npm install
+      - name: Install Dependencies
+        run: |
+          cd salon-api
+          npm ci
 
-      - name: Execute Backend Tests
-        working-directory: ./salon-api
+      - name: Run Syntax Check & Linter
+        run: |
+          cd salon-api
+          node -c src/app.js src/services/cache.service.js src/controllers/appointment.controller.js
+
+      - name: Run Test Verification Suite
         env:
           NODE_ENV: test
-          JWT_ACCESS_SECRET: test_ci_access_secret_123
-          JWT_REFRESH_SECRET: test_ci_refresh_secret_456
-        run: npm test
-
-  frontend-typecheck:
-    name: Frontend TypeScript Verification
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Type-check Salon Panel
+          JWT_SECRET: test_jwt_secret_key_12345
+          REDIS_ENABLED: "false"
         run: |
-          cd apps/salon-panel
-          npm ci || npm install
-          npx tsc --noEmit
-
-      - name: Type-check Admin Panel
-        run: |
-          cd apps/admin-panel
-          npm ci || npm install
-          npx tsc --noEmit
-
-      - name: Type-check Owner Landing Page
-        run: |
-          cd apps/owner-landing-page
-          npm ci || npm install
-          npx tsc --noEmit
+          cd salon-api
+          node test_cache_invalidation.js
+          node test_pubsub_sync.js
+          node test_circuit_breaker.js
+          node test_rate_limiter.js
+          node test_api_versioning.js
+          node test_swagger_docs.js

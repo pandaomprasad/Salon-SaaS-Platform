@@ -6,6 +6,7 @@ const Slot = require('../models/slot.model')
 const Appointment = require('../models/appointment.model')
 const User = require('../models/user.model')
 const AppError = require('../utils/AppError')
+const parsePagination = require('../utils/pagination')
 const dayjs = require('dayjs')
 const { getCache, setCache, delCache, delCachePattern } = require('../services/cache.service')
 const { isBranchOpen } = require('../utils/salonStatus')
@@ -188,7 +189,8 @@ const getInitialLoad = async (req, res, next) => {
 // ================================
 const browseSalons = async (req, res, next) => {
   try {
-    const { search, city, category, page = 1, limit = 10 } = req.query
+    const { search, city, category } = req.query
+    const { page, limit, skip } = parsePagination(req.query, 10, 100)
     const cacheCity = city ? city.split(',')[0].trim().toLowerCase() : null
     const cacheKey = `salons:list:${search || 'all'}:${cacheCity || 'all'}:${category || 'all'}:${page}:${limit}`
 
@@ -203,8 +205,6 @@ const browseSalons = async (req, res, next) => {
       const sanitized = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       filter.name = { $regex: new RegExp(sanitized, 'i') }
     }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit)
 
     let salonIdsInCity = null
     let catSalonIds = null
@@ -238,10 +238,12 @@ const browseSalons = async (req, res, next) => {
     if (cityBranches) {
       salonIdsInCity = cityBranches.map((b) => b.salonId.toString())
       if (salonIdsInCity.length === 0) {
+        const emptyResult = { salons: [], total: 0, page: parseInt(page), totalPages: 0, hasMore: false }
+        await setCache(cacheKey, emptyResult, 300)
         return res.status(200).json({
           success: true,
           cached: false,
-          data: { salons: [], total: 0, page: parseInt(page), totalPages: 0, hasMore: false }
+          data: emptyResult
         })
       }
       filter._id = { $in: salonIdsInCity }
@@ -254,33 +256,29 @@ const browseSalons = async (req, res, next) => {
       }
 
       if (catSalonIds.length === 0) {
+        const emptyResult = { salons: [], total: 0, page: parseInt(page), totalPages: 0, hasMore: false }
+        await setCache(cacheKey, emptyResult, 300)
         return res.status(200).json({
           success: true,
           cached: false,
-          data: { salons: [], total: 0, page: parseInt(page), totalPages: 0, hasMore: false }
+          data: emptyResult
         })
       }
       filter._id = { $in: catSalonIds }
     }
 
-    const [salons, total] = await Promise.all([
+    const branchFilter = { isActive: true }
+    if (filter._id) branchFilter.salonId = filter._id
+    if (cacheCity) branchFilter.citySlug = cacheCity
+
+    const [salons, total, branchCounts, branches] = await Promise.all([
       Salon.find(filter)
         .populate('owner', 'name')
         .select('name description contactEmail contactPhone logo')
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
-      Salon.countDocuments(filter)
-    ])
-
-    const salonIds = salons.map((s) => s._id)
-
-    const branchFilter = { salonId: { $in: salonIds }, isActive: true }
-    if (cacheCity) {
-      branchFilter.citySlug = cacheCity
-    }
-
-    const [branchCounts, branches] = await Promise.all([
+      Salon.countDocuments(filter),
       Branch.aggregate([
         { $match: branchFilter },
         { $group: { _id: '$salonId', count: { $sum: 1 } } }
@@ -336,9 +334,9 @@ const browseSalons = async (req, res, next) => {
       salons: salonsWithBranches,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
       }
     }
 
@@ -405,7 +403,8 @@ const getSalonPublic = async (req, res, next) => {
 // ================================
 const browseBranches = async (req, res, next) => {
   try {
-    const { city, category, date, search, page = 1, limit = 10 } = req.query
+    const { city, category, date, search } = req.query
+    const { page, limit, skip } = parsePagination(req.query, 10, 100)
     const cacheCity = city ? city.split(',')[0].trim().toLowerCase() : null
     const cacheKey = `branches:list:${cacheCity || 'all'}:${category || 'all'}:${date || 'all'}:${search || 'all'}:${page}:${limit}`
 
@@ -447,15 +446,13 @@ const browseBranches = async (req, res, next) => {
         : { $in: withSlots }
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit)
-
     const [branches, total] = await Promise.all([
       Branch.find(filter)
         .populate('salonId', 'name logo')
         .populate('managerId', 'name')
         .select('name address contactPhone contactEmail workingHours slotDurationMinutes salonId managerId')
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(limit)
         .lean(),
       Branch.countDocuments(filter)
     ])

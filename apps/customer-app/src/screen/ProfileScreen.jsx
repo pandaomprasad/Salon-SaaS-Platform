@@ -31,6 +31,7 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
   const isVerified = Boolean(user?.isEmailVerified || user?.email_verified);
 
+  // 1. Initial mount & AppState foreground refresh
   useEffect(() => {
     if (!isAuthenticated || !refreshProfile) return;
 
@@ -42,17 +43,20 @@ export default function ProfileScreen({ navigate, onScroll }) {
       }
     });
 
-    let interval = null;
-    if (!isVerified) {
-      interval = setInterval(() => {
-        refreshProfile();
-      }, 4000);
-    }
-
     return () => {
       subscription.remove();
-      if (interval) clearInterval(interval);
     };
+  }, [isAuthenticated, refreshProfile]);
+
+  // 2. Periodic polling ONLY if user email is unverified
+  useEffect(() => {
+    if (!isAuthenticated || isVerified || !refreshProfile) return;
+
+    const interval = setInterval(() => {
+      refreshProfile();
+    }, 4000);
+
+    return () => clearInterval(interval);
   }, [isAuthenticated, isVerified, refreshProfile]);
 
   const handleShareApp = async () => {

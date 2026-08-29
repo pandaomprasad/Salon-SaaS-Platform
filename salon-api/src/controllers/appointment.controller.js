@@ -6,12 +6,13 @@ const User = require("../models/user.model");
 const Salon = require("../models/salon.model");
 const Branch = require("../models/branch.model");
 const AppError = require("../utils/AppError");
+const parsePagination = require("../utils/pagination");
 const dayjs = require("dayjs");
 const { getIO } = require("../config/socket");
 const { slotOverlapsLeave } = require("../utils/staffLeaveHelper");
 const { getActiveStaffLeaves } = require("../utils/staffLeaveQueries");
 
-const { delCachePattern } = require("../services/cache.service");
+const { getCache, setCache, delCachePattern } = require("../services/cache.service");
 const { sendPushToUser } = require("../services/push.service");
 const { notifyUser } = require("../services/notification.service");
 const {
@@ -57,6 +58,43 @@ const bookAppointment = async (req, res, next) => {
     const { slotId, serviceId, serviceIds, customerNotes, guests } = req.body;
     const { userId } = req.user;
 
+    // --------------------------------
+    // Idempotency Key Check
+    // Prevents duplicate appointment creation on network retries
+    // --------------------------------
+    const idempotencyKey = req.headers["idempotency-key"] || req.headers["x-idempotency-key"];
+    if (idempotencyKey) {
+      const idempotencyCacheKey = `idempotency:booking:${userId}:${idempotencyKey}`;
+      const cachedResponse = await getCache(idempotencyCacheKey);
+      if (cachedResponse) {
+        console.log(`🔁 [IDEMPOTENCY] Returning cached response for key: ${idempotencyKey}`);
+        return res.status(200).json({
+          ...cachedResponse,
+          isIdempotentRetry: true,
+        });
+      }
+    }
+
+    // --------------------------------
+    // User Retry Detection (Without Idempotency Key)
+    // If the user already booked this exact slot, return existing booking instead of 409 Conflict
+    // --------------------------------
+    const existingSlotBooking = await Appointment.findOne({
+      customerId: userId,
+      slotId,
+      status: { $in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+    });
+
+    if (existingSlotBooking) {
+      console.log(`🔁 [USER RETRY DETECTED] Returning existing appointment ${existingSlotBooking._id} for customer ${userId}`);
+      return res.status(200).json({
+        success: true,
+        message: "Appointment already booked by you",
+        data: { appointment: existingSlotBooking },
+        isUserRetry: true,
+      });
+    }
+
     const guestCount = Math.min(Math.max(parseInt(guests, 10) || 1, 1), 10);
 
     // --------------------------------
@@ -67,8 +105,15 @@ const bookAppointment = async (req, res, next) => {
       return next(new AppError("Slot not found", 404));
     }
 
-    if (slot.status !== "AVAILABLE") {
-      return next(new AppError("This slot is no longer available", 400));
+    // Allow slot if AVAILABLE, or if RESERVED/BOOKED by current user, or if RESERVED over 10 minutes ago
+    const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const isSlotAvailable =
+      slot.status === "AVAILABLE" ||
+      (slot.reservedBy && slot.reservedBy.toString() === userId.toString() && ["RESERVED", "BOOKED"].includes(slot.status)) ||
+      (slot.status === "RESERVED" && slot.reservedAt && slot.reservedAt < tenMinsAgo && !slot.appointmentId);
+
+    if (!isSlotAvailable) {
+      return next(new AppError("This slot is no longer available", 409));
     }
 
     // --------------------------------
@@ -180,65 +225,139 @@ const bookAppointment = async (req, res, next) => {
     }
 
     // --------------------------------
-    // Step 4 — atomic booking inside a transaction
-    // if ANY step fails, ALL steps roll back
+    // Step 4 — atomic slot acquisition
+    // Uses findOneAndUpdate condition on status: AVAILABLE or expired RESERVED
     // --------------------------------
     let appointment;
-    const session = await mongoose.startSession();
+    const slotAcquireFilter = {
+      _id: slotId,
+      $or: [
+        { status: "AVAILABLE" },
+        { reservedBy: userId, status: { $in: ["RESERVED", "BOOKED"] } },
+        { status: "RESERVED", reservedAt: { $lt: tenMinsAgo }, appointmentId: null },
+      ],
+    };
 
+    let session = null;
     try {
-      await session.withTransaction(async () => {
-        const slotToBook = await Slot.findOneAndUpdate(
-          { _id: slotId, status: "AVAILABLE" },
-          { status: "BOOKED" },
-          { new: true, session },
-        );
+      session = await mongoose.startSession();
+    } catch (sErr) {
+      session = null;
+    }
 
-        if (!slotToBook) {
-          throw new AppError("Slot was just booked by another customer", 409);
+    if (session && typeof session.withTransaction === "function") {
+      try {
+        await session.withTransaction(async () => {
+          const slotToBook = await Slot.findOneAndUpdate(
+            slotAcquireFilter,
+            { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
+            { new: true, session },
+          );
+
+          if (!slotToBook) {
+            throw new AppError("Slot was just booked by another customer", 409);
+          }
+
+          const created = await Appointment.create(
+            [
+              {
+                salonId: slot.salonId,
+                branchId: slot.branchId,
+                customerId: userId,
+                staffId: slot.staffId,
+                serviceId: primaryService._id,
+                services: serviceIdList,
+                slotId,
+                date: slot.date,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                pricePaid: totalPricePaid,
+                currency: primaryService.currency || "INR",
+                customerNotes,
+                guests: guestCount,
+                status: "PENDING",
+                history: [
+                  {
+                    status: "PENDING",
+                    changedBy: userId,
+                    changedAt: new Date(),
+                    note: "Appointment booked by customer",
+                  },
+                ],
+              },
+            ],
+            { session },
+          );
+
+          appointment = created[0];
+
+          await Slot.findByIdAndUpdate(
+            slotId,
+            { appointmentId: appointment._id },
+            { session },
+          );
+        });
+      } catch (txError) {
+        if (txError.status === 409 || txError.message?.includes("booked by another customer")) {
+          return next(new AppError("Slot was just booked by another customer", 409));
         }
+        // If session transactions fail (e.g. standalone Mongo during dev/test), fallback to atomic findOneAndUpdate
+        session = null;
+      } finally {
+        if (session) session.endSession();
+      }
+    }
 
-        const created = await Appointment.create(
-          [
+    // Single-node or fallback atomic slot booking
+    if (!appointment) {
+      const slotToBook = await Slot.findOneAndUpdate(
+        slotAcquireFilter,
+        { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
+        { new: true },
+      );
+
+      if (!slotToBook) {
+        return next(new AppError("Slot was just booked by another customer", 409));
+      }
+
+      try {
+        appointment = await Appointment.create({
+          salonId: slot.salonId,
+          branchId: slot.branchId,
+          customerId: userId,
+          staffId: slot.staffId,
+          serviceId: primaryService._id,
+          services: serviceIdList,
+          slotId,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          pricePaid: totalPricePaid,
+          currency: primaryService.currency || "INR",
+          customerNotes,
+          guests: guestCount,
+          status: "PENDING",
+          history: [
             {
-              salonId: slot.salonId,
-              branchId: slot.branchId,
-              customerId: userId,
-              staffId: slot.staffId,
-              serviceId: primaryService._id,
-              services: serviceIdList,
-              slotId,
-              date: slot.date,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              pricePaid: totalPricePaid,
-              currency: primaryService.currency || "INR",
-              customerNotes,
-              guests: guestCount,
               status: "PENDING",
-              history: [
-                {
-                  status: "PENDING",
-                  changedBy: userId,
-                  changedAt: new Date(),
-                  note: "Appointment booked by customer",
-                },
-              ],
+              changedBy: userId,
+              changedAt: new Date(),
+              note: "Appointment booked by customer",
             },
           ],
-          { session },
-        );
+        });
 
-        appointment = created[0];
-
-        await Slot.findByIdAndUpdate(
-          slotId,
-          { appointmentId: appointment._id },
-          { session },
-        );
-      });
-    } finally {
-      session.endSession();
+        await Slot.findByIdAndUpdate(slotId, { appointmentId: appointment._id });
+      } catch (createErr) {
+        // Rollback atomic slot reservation on appointment creation failure
+        await Slot.findByIdAndUpdate(slotId, {
+          status: "AVAILABLE",
+          reservedBy: null,
+          reservedAt: null,
+          appointmentId: null,
+        });
+        throw createErr;
+      }
     }
 
     // Invalidate Redis slot caches for this branch/date only.
@@ -395,11 +514,18 @@ const bookAppointment = async (req, res, next) => {
       console.log("In-app notification save error:", e.message);
     }
 
-    res.status(201).json({
+    const responsePayload = {
       success: true,
       message: "Appointment booked successfully",
       data: { appointment },
-    });
+    };
+
+    if (idempotencyKey) {
+      const idempotencyCacheKey = `idempotency:booking:${userId}:${idempotencyKey}`;
+      await setCache(idempotencyCacheKey, responsePayload, 86400);
+    }
+
+    res.status(201).json(responsePayload);
   } catch (error) {
     next(error);
   }
@@ -416,7 +542,8 @@ const bookAppointment = async (req, res, next) => {
 const getAppointments = async (req, res, next) => {
   try {
     const { userId, role, branchId, salonId } = req.user;
-    const { date, status, branchId: queryBranchId, page = 1, limit = 20 } = req.query;
+    const { date, status, branchId: queryBranchId } = req.query;
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
 
     const filter = {};
 
@@ -441,9 +568,6 @@ const getAppointments = async (req, res, next) => {
     if (date && role !== "staff") filter.date = date;
     if (status) filter.status = status;
 
-    // pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const [appointments, total] = await Promise.all([
       Appointment.find(filter)
         .populate("customerId", "name phone email")
@@ -453,7 +577,7 @@ const getAppointments = async (req, res, next) => {
         .populate("salonId", "name")
         .sort({ date: -1, startTime: 1 })
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(limit)
         .lean(),
       Appointment.countDocuments(filter),
     ]);
@@ -464,9 +588,9 @@ const getAppointments = async (req, res, next) => {
         appointments,
         pagination: {
           total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit)),
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
         },
       },
     });
@@ -614,6 +738,8 @@ const updateAppointmentStatus = async (req, res, next) => {
               {
                 status: "AVAILABLE",
                 appointmentId: null,
+                reservedBy: null,
+                reservedAt: null,
               },
               { session, new: true },
             );
@@ -643,6 +769,8 @@ const updateAppointmentStatus = async (req, res, next) => {
               {
                 status: "AVAILABLE",
                 appointmentId: null,
+                reservedBy: null,
+                reservedAt: null,
               },
               { session, new: true },
             );
@@ -1247,8 +1375,6 @@ const getMyAppointmentHistory = async (req, res, next) => {
       status,
       fromDate,
       toDate,
-      page = 1,
-      limit = 20,
       sort = "newest",
     } = req.query;
 
@@ -1269,10 +1395,7 @@ const getMyAppointmentHistory = async (req, res, next) => {
       if (toDate) filter.date.$lte = toDate;
     }
 
-    // --------------------------------
-    // Step 2 — pagination
-    // --------------------------------
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
     const sortOrder =
       sort === "oldest"
         ? { date: 1, startTime: 1 }
@@ -1289,7 +1412,7 @@ const getMyAppointmentHistory = async (req, res, next) => {
         .populate("salonId", "name")
         .sort(sortOrder)
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(limit)
         .lean(),
       Appointment.countDocuments(filter),
       Appointment.aggregate([
@@ -1347,9 +1470,9 @@ const getMyAppointmentHistory = async (req, res, next) => {
         },
         pagination: {
           total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit)),
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
         },
       },
     });

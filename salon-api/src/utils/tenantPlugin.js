@@ -26,6 +26,7 @@ const tenantPlugin = (schema, options = {}) => {
   // --------------------------------
 
   const injectScope = function () {
+    if (this.getOptions && this.getOptions().skipTenant) return;
     const context = getTenantContext()
 
     // no context means this query is running outside

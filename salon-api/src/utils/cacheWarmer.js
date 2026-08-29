@@ -32,9 +32,12 @@ const warmCacheOnBoot = async () => {
     const mock1 = createMockReqRes({ page: '1', limit: '10' });
     await browseController.browseSalons(mock1.req, mock1.res, mock1.next);
 
-    // 2. City specific salons list (Brahmapur)
-    const mock2 = createMockReqRes({ city: 'Brahmapur', page: '1', limit: '10' });
-    await browseController.browseSalons(mock2.req, mock2.res, mock2.next);
+    // 2. City specific salons list (Brahmapur & Bhubaneswar)
+    const mock2a = createMockReqRes({ city: 'Brahmapur', page: '1', limit: '10' });
+    await browseController.browseSalons(mock2a.req, mock2a.res, mock2a.next);
+
+    const mock2b = createMockReqRes({ city: 'Bhubaneswar', page: '1', limit: '10' });
+    await browseController.browseSalons(mock2b.req, mock2b.res, mock2b.next);
 
     // 3. Consolidated Initial Load
     if (typeof browseController.getInitialLoad === 'function') {

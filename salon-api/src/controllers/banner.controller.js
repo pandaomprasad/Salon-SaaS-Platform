@@ -1,5 +1,13 @@
 // salon-api/src/controllers/banner.controller.js
 const Banner = require('../models/Banner');
+const { delCachePattern } = require('../services/cache.service');
+
+const clearBannerCache = async () => {
+  try {
+    await delCachePattern('banners:*');
+    await delCachePattern('initial_load:*');
+  } catch (err) {}
+};
 
 /**
  * Get active promotional banners for Customer App
@@ -50,6 +58,7 @@ exports.getAdminBanners = async (req, res, next) => {
 exports.createBanner = async (req, res, next) => {
   try {
     const banner = await Banner.create(req.body);
+    await clearBannerCache();
     res.status(201).json({
       success: true,
       data: banner,
@@ -74,6 +83,8 @@ exports.updateBanner = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Banner not found' });
     }
 
+    await clearBannerCache();
+
     res.status(200).json({
       success: true,
       data: banner,
@@ -93,6 +104,8 @@ exports.deleteBanner = async (req, res, next) => {
     if (!banner) {
       return res.status(404).json({ success: false, message: 'Banner not found' });
     }
+
+    await clearBannerCache();
 
     res.status(200).json({
       success: true,

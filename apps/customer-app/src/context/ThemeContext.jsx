@@ -1,6 +1,6 @@
 // src/context/ThemeContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { Animated, Easing, Platform, useColorScheme } from "react-native";
+import { Animated, Easing, Platform, useColorScheme, Appearance } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
 import { storage } from "../services/storage";
 import { applyTheme } from "../theme";
@@ -84,8 +84,19 @@ const ThemeContext = createContext({
 
 export function ThemeProvider({ children }) {
   const systemColorScheme = useColorScheme(); // "dark" | "light"
+  const [deviceScheme, setDeviceScheme] = useState(Appearance.getColorScheme() || "light");
   const [themeMode, setThemeModeState] = useState("system"); // "light" | "dark" | "system"
-  const [isDark, setIsDark] = useState(systemColorScheme === "dark");
+
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setDeviceScheme(colorScheme || "light");
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const activeSystemDark = (systemColorScheme || deviceScheme) === "dark";
+
+  const [isDark, setIsDark] = useState(activeSystemDark);
   const toggleAnim = useRef(new Animated.Value(0)).current;
 
   // Resolve actual boolean isDark based on themeMode and system preference
@@ -96,7 +107,7 @@ export function ThemeProvider({ children }) {
     } else if (themeMode === "light") {
       activeIsDark = false;
     } else {
-      activeIsDark = systemColorScheme === "dark";
+      activeIsDark = activeSystemDark;
     }
 
     applyTheme(activeIsDark);
@@ -107,7 +118,7 @@ export function ThemeProvider({ children }) {
       const activeTheme = activeIsDark ? DARK : LIGHT;
       NavigationBar.setButtonStyleAsync(activeTheme.navBarButtonStyle).catch(() => {});
     }
-  }, [themeMode, systemColorScheme]);
+  }, [themeMode, activeSystemDark]);
 
   // Load saved theme mode on startup
   useEffect(() => {
@@ -117,10 +128,8 @@ export function ThemeProvider({ children }) {
         if (savedMode && ["light", "dark", "system"].includes(savedMode)) {
           setThemeModeState(savedMode);
         } else {
-          // Check fallback legacy key
-          const legacyKey = await storage.getItem("@salon_app_theme");
-          if (legacyKey === "dark") setThemeModeState("dark");
-          else if (legacyKey === "light") setThemeModeState("light");
+          // Default to system if no mode saved
+          setThemeModeState("system");
         }
       } catch (e) {}
     };
@@ -131,7 +140,7 @@ export function ThemeProvider({ children }) {
     if (!["light", "dark", "system"].includes(mode)) return;
     setThemeModeState(mode);
 
-    const activeIsDark = mode === "dark" || (mode === "system" && systemColorScheme === "dark");
+    const activeIsDark = mode === "dark" || (mode === "system" && activeSystemDark);
     applyTheme(activeIsDark);
     setIsDark(activeIsDark);
 
@@ -144,6 +153,7 @@ export function ThemeProvider({ children }) {
 
     try {
       await storage.setItem(THEME_MODE_KEY, mode);
+      await storage.removeItem("@salon_app_theme");
     } catch (e) {}
   };
 

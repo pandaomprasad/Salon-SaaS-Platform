@@ -11,94 +11,38 @@ const {
 
 const authenticate = require('../middleware/authenticate');
 const checkPermission = require('../middleware/checkPermission');
+const { requireBranchScope } = require('../middleware/checkScope');
 const validate = require('../middleware/validate');
 const { createServiceValidator, updateServiceValidator } = require('../validators/service.validator');
 
 router.use(authenticate);
 
-/**
- * @openapi
- * /branches/{branchId}/services:
- *   post:
- *     summary: Create a new service under a branch
- *     tags: [Service Catalog]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       201:
- *         description: Service created
- *   get:
- *     summary: Get service catalog for a branch
- *     tags: [Service Catalog]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Service catalog list
- */
 router.post(
   '/',
   checkPermission('service:create'),
+  requireBranchScope,
   createServiceValidator, validate,
   createService
 );
 
-router.get('/', checkPermission('service:read'), getServices);
+router.get('/', checkPermission('service:read'), requireBranchScope, getServices);
 
-/**
- * @openapi
- * /branches/{branchId}/services/{serviceId}:
- *   get:
- *     summary: Get service details
- *     tags: [Service Catalog]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Service details
- *   patch:
- *     summary: Update service details & pricing
- *     tags: [Service Catalog]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Service updated
- *   delete:
- *     summary: Soft delete service
- *     tags: [Service Catalog]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Service deleted
- */
-router.get('/:serviceId', checkPermission('service:read'), getService);
+router.get('/:serviceId', checkPermission('service:read'), requireBranchScope, getService);
 
 router.patch(
   '/:serviceId',
   checkPermission('service:update'),
+  requireBranchScope,
   updateServiceValidator, validate,
   updateService
 );
 
-router.delete('/:serviceId', checkPermission('service:delete'), deleteService);
+router.delete('/:serviceId', checkPermission('service:delete'), requireBranchScope, deleteService);
 
-/**
- * @openapi
- * /branches/{branchId}/services/{serviceId}/staff:
- *   patch:
- *     summary: Assign staff specialists to a service
- *     tags: [Service Catalog]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Staff assigned to service successfully
- */
 router.patch(
   '/:serviceId/staff',
   checkPermission('service:update'),
+  requireBranchScope,
   assignStaffToService
 );
 

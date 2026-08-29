@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -63,6 +63,48 @@ const TABS = [
 
 const TAB_ORDER = ["Explore", "Salons", "Home", "Shop", "Profile"];
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const MainTabsScreen = React.memo(function MainTabsScreen({
+  slideAnim,
+  navigate,
+  handleScroll,
+  tabParams,
+  renderTabBar,
+}) {
+  return (
+    <View style={{ flex: 1, overflow: "hidden" }}>
+      <Animated.View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          width: SCREEN_WIDTH * TAB_ORDER.length,
+          transform: [{ translateX: slideAnim }],
+        }}
+      >
+        <View style={{ width: SCREEN_WIDTH }}>
+          <MapScreen navigate={navigate} onScroll={handleScroll} />
+        </View>
+        <View style={{ width: SCREEN_WIDTH }}>
+          <ExploreScreen
+            navigate={navigate}
+            routeParams={tabParams["Salons"]}
+            onScroll={handleScroll}
+          />
+        </View>
+        <View style={{ width: SCREEN_WIDTH }}>
+          <HomeScreen navigate={navigate} onScroll={handleScroll} />
+        </View>
+        <View style={{ width: SCREEN_WIDTH }}>
+          <ShopScreen navigate={navigate} onScroll={handleScroll} />
+        </View>
+        <View style={{ width: SCREEN_WIDTH }}>
+          <ProfileScreen navigate={navigate} onScroll={handleScroll} />
+        </View>
+      </Animated.View>
+      {renderTabBar()}
+    </View>
+  );
+});
 
 export default function AppNavigator() {
   const styles = getStyles();
@@ -139,7 +181,7 @@ export default function AppNavigator() {
     }).start();
   }, [currentTab, tabRowWidth]);
 
-  const handleScroll = (event) => {
+  const handleScroll = useCallback((event) => {
     if (Platform.OS !== "ios") return;
     const y = event.nativeEvent?.contentOffset?.y || 0;
     const diff = y - lastY.current;
@@ -160,9 +202,9 @@ export default function AppNavigator() {
       }).start();
     }
     lastY.current = y;
-  };
+  }, [squeezeAnim]);
 
-  const navigate = (screenName, params = {}) => {
+  const navigate = useCallback((screenName, params = {}) => {
     squeezeAnim.setValue(0);
     const targetTab = screenName === "Salons" ? "Explore" : screenName;
     if (TAB_ORDER.includes(screenName) || screenName === "MainTabs") {
@@ -197,15 +239,15 @@ export default function AppNavigator() {
         }
       }
     }
-  };
+  }, [squeezeAnim]);
 
-  const goBack = () => {
+  const goBack = useCallback(() => {
     if (navigationRef.isReady() && navigationRef.canGoBack()) {
       navigationRef.goBack();
     } else if (navigationRef.isReady()) {
       navigationRef.navigate("MainTabs");
     }
-  };
+  }, []);
 
   const isIos = Platform.OS === "ios";
   const insets = useSafeAreaInsets();
@@ -226,7 +268,7 @@ export default function AppNavigator() {
     outputRange: [1, 0.92],
   });
 
-  const renderTabBar = () => {
+  const renderTabBar = useCallback(() => {
     if (hasOnboarded === false || showSplash) return null;
     return (
       <AndroidExpandingTabBar
@@ -235,40 +277,19 @@ export default function AppNavigator() {
         onSelectTab={(tabId) => navigate(tabId)}
       />
     );
-  };
+  }, [hasOnboarded, showSplash, currentTab, navigate]);
 
-  const MainTabsScreen = () => (
-    <View style={{ flex: 1, overflow: "hidden" }}>
-      <Animated.View
-        style={{
-          flex: 1,
-          flexDirection: "row",
-          width: SCREEN_WIDTH * TAB_ORDER.length,
-          transform: [{ translateX: slideAnim }],
-        }}
-      >
-        <View style={{ width: SCREEN_WIDTH }}>
-          <MapScreen navigate={navigate} onScroll={handleScroll} />
-        </View>
-        <View style={{ width: SCREEN_WIDTH }}>
-          <ExploreScreen
-            navigate={navigate}
-            routeParams={tabParams["Salons"]}
-            onScroll={handleScroll}
-          />
-        </View>
-        <View style={{ width: SCREEN_WIDTH }}>
-          <HomeScreen navigate={navigate} onScroll={handleScroll} />
-        </View>
-        <View style={{ width: SCREEN_WIDTH }}>
-          <ShopScreen navigate={navigate} onScroll={handleScroll} />
-        </View>
-        <View style={{ width: SCREEN_WIDTH }}>
-          <ProfileScreen navigate={navigate} onScroll={handleScroll} />
-        </View>
-      </Animated.View>
-      {renderTabBar()}
-    </View>
+  const renderMainTabs = useCallback(
+    () => (
+      <MainTabsScreen
+        slideAnim={slideAnim}
+        navigate={navigate}
+        handleScroll={handleScroll}
+        tabParams={tabParams}
+        renderTabBar={renderTabBar}
+      />
+    ),
+    [slideAnim, navigate, handleScroll, tabParams, renderTabBar]
   );
 
   if (showSplash) {
@@ -295,7 +316,7 @@ export default function AppNavigator() {
               fullScreenGestureEnabled: true,
             }}
           >
-            <Stack.Screen name="MainTabs" component={MainTabsScreen} />
+            <Stack.Screen name="MainTabs" component={renderMainTabs} />
             <Stack.Screen name="Onboarding">
               {({ navigation }) => (
                 <OnboardingScreen

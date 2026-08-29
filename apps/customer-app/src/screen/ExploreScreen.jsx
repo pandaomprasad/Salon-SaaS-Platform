@@ -25,7 +25,7 @@ import { SalonCardSkeleton } from "../components/SkeletonLoader";
 import { browseService } from "../services/browseService";
 import { customerService } from "../services/customerService";
 import { storage } from "../services/storage";
-import { cleanCityName, getCurrentLocation } from "../services/locationService";
+import { useLocationStore } from "../store/useLocationStore";
 
 const IS_IOS = Platform.OS === "ios";
 
@@ -90,6 +90,8 @@ function EditorialHeader({
             placeholder="Search by salon name or service..."
             showDropdown={false}
             onFilterPress={onFilterPress}
+            selectedCity={selectedCity}
+            onLocationClick={onLocationClick}
           />
 
           {/* Category Filter Pills */}
@@ -134,7 +136,9 @@ function EditorialHeader({
 
 function ExploreScreen({ navigate, routeParams, onScroll }) {
   const { theme, isDark, toggleTheme, toggleAnim } = useTheme();
-  const [selectedCity, setSelectedCity] = useState("Brahmapur");
+  const selectedCity = useLocationStore((state) => state.selectedCity);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
+  const initLocation = useLocationStore((state) => state.initLocation);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [filters, setFilters] = useState({
@@ -152,28 +156,8 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
   const debounceRef = useRef(null);
 
   useEffect(() => {
-    let active = true;
-    const loadSavedCity = async () => {
-      try {
-        const saved = await storage.getItem("@user_selected_city");
-        if (saved && saved.trim()) {
-          if (active) setSelectedCity(saved);
-          return;
-        }
-
-        const geoResult = await getCurrentLocation();
-        if (geoResult && geoResult.city) {
-          const detectedCity = cleanCityName(geoResult.city);
-          if (detectedCity && active) {
-            setSelectedCity(detectedCity);
-            await storage.setItem("@user_selected_city", detectedCity);
-          }
-        }
-      } catch (e) { }
-    };
-    loadSavedCity();
-    return () => { active = false; };
-  }, []);
+    initLocation();
+  }, [initLocation]);
 
   useEffect(() => {
     setSearch(routeParams?.search || "");
@@ -192,9 +176,8 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
 
   const handleCitySelect = useCallback((city) => {
     setSelectedCity(city);
-    storage.setItem("@user_selected_city", city);
     setLocationModalVisible(false);
-  }, []);
+  }, [setSelectedCity]);
 
   useEffect(() => {
     let active = true;
@@ -244,7 +227,8 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
       setLoading(true);
     }
     try {
-      const params = {};
+      const cleanCity = cleanCityName(selectedCity);
+      const params = { city: cleanCity };
       if (debouncedSearch.trim()) {
         params.search = debouncedSearch.trim();
       } else if (selectedCategory !== "all") {
@@ -259,10 +243,10 @@ function ExploreScreen({ navigate, routeParams, onScroll }) {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, selectedCategory, salons.length]);
+  }, [selectedCity, debouncedSearch, selectedCategory]);
 
   useEffect(() => {
-    fetchSalons(salons.length > 0);
+    fetchSalons(false);
   }, [fetchSalons]);
 
   // Apply Price, Rating, Sort & Service Filters

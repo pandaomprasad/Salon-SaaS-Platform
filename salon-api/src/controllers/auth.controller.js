@@ -74,7 +74,7 @@ const register = async (req, res, next) => {
     });
 
     // Generate JWT verification token (expires in 1 hour)
-    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET;
     const verificationToken = jwt.sign(
       { userId: user._id, email: user.email },
       verificationSecret,
@@ -781,7 +781,8 @@ const changePassword = async (req, res, next) => {
       return next(new AppError("Current and new passwords are required", 400));
     }
 
-    const user = await User.findById(req.user._id).select("+password");
+    const userId = req.user.userId || req.user._id;
+    const user = await User.findById(userId).select("+password");
     if (!user || !user.password) {
       return next(new AppError("User password not found or signed in via Google", 400));
     }
@@ -809,7 +810,7 @@ const changePassword = async (req, res, next) => {
 // ================================
 const deleteAccount = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.userId || req.user._id;
     const user = await User.findById(userId);
     if (!user) {
       return next(new AppError("User not found", 404));
@@ -842,7 +843,7 @@ const verifyEmail = async (req, res, next) => {
       return next(new AppError("Missing verification token", 400));
     }
 
-    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET;
 
     let payload;
     try {
@@ -896,7 +897,7 @@ const verifyEmail = async (req, res, next) => {
 // ================================
 const verifyEmailLanding = async (req, res) => {
   const { token } = req.query;
-  const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+  const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET;
 
   let success = false;
   let title = "Verification Failed";
@@ -981,7 +982,7 @@ const resendVerification = async (req, res, next) => {
       });
     }
 
-    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET || "secret-email-verification-key";
+    const verificationSecret = process.env.EMAIL_VERIFICATION_SECRET || process.env.JWT_ACCESS_SECRET;
     const verificationToken = jwt.sign(
       { userId: user._id, email: user.email },
       verificationSecret,

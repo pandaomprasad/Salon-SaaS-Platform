@@ -27,17 +27,7 @@ const {
   refreshValidator
 } = require('../validators/auth.validator')
 
-const rateLimit = require('express-rate-limit')
-
-// Strict rate limiter for authentication endpoints to block brute-force attacks
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: {
-    success: false,
-    message: 'Too many authentication attempts. Please try again in 15 minutes.',
-  },
-})
+const { authLimiter } = require('../middleware/rateLimiter.middleware')
 
 // public routes — no token needed
 router.post('/register', authLimiter, registerValidator, validate, register)

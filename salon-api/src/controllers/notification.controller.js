@@ -7,17 +7,19 @@ const AppError = require("../utils/AppError");
 // query: ?unread=true  → only unread
 //        ?limit=N      → cap returned items
 // ================================
+const parsePagination = require("../utils/pagination");
+
 const getMyNotifications = async (req, res, next) => {
   try {
     const { userId } = req.user;
+    const { limit, skip } = parsePagination(req.query, 50, 200);
 
     const filter = { recipientId: userId };
     if (req.query.unread === "true") filter.isRead = false;
 
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-
     const notifications = await Notification.find(filter)
       .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(limit)
       .lean();
 

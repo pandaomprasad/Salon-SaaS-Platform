@@ -64,13 +64,25 @@ const slotSchema = new mongoose.Schema(
     // ================================
 
     // AVAILABLE — no booking yet
-    // BOOKED     — has an appointment
+    // RESERVED  — temporarily locked during payment checkout
+    // BOOKED     — has a confirmed appointment
     // BLOCKED    — manually blocked by staff/manager (break, leave)
     // COMPLETED  — past slot, appointment done
     status: {
       type: String,
-      enum: ['AVAILABLE', 'BOOKED', 'BLOCKED', 'COMPLETED'],
+      enum: ['AVAILABLE', 'RESERVED', 'BOOKED', 'BLOCKED', 'COMPLETED'],
       default: 'AVAILABLE'
+    },
+
+    reservedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+
+    reservedAt: {
+      type: Date,
+      default: null
     },
 
     // reference to the appointment that booked this slot

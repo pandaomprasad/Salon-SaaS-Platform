@@ -5,7 +5,7 @@ const Slot = require("../models/slot.model");
 const User = require("../models/user.model");
 const Appointment = require("../models/appointment.model");
 const AppError = require("../utils/AppError");
-const { delCachePattern } = require("../services/cache.service");
+const { delCachePattern, invalidateCatalogCache } = require("../services/cache.service");
 
 // ================================
 // POST /api/v1/salons/:salonId/branches
@@ -32,6 +32,8 @@ const createBranch = async (req, res, next) => {
       salonId,
     });
 
+    await invalidateCatalogCache({ salonId: salonId.toString(), branchId: branch._id.toString() });
+
     res.status(201).json({
       success: true,
       message: "Branch created successfully",
@@ -47,10 +49,13 @@ const createBranch = async (req, res, next) => {
 // owner sees all branches of their salon
 // manager/staff see only their branch
 // ================================
+const parsePagination = require('../utils/pagination');
+
 const getBranches = async (req, res, next) => {
   try {
     const { salonId } = req.params;
     const { role, branchId } = req.user;
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
 
     let filter = { salonId };
 
@@ -59,13 +64,26 @@ const getBranches = async (req, res, next) => {
       filter._id = branchId;
     }
 
-    const branches = await Branch.find(filter)
-      .populate("managerId", "name email phone")
-      .lean();
+    const [branches, total] = await Promise.all([
+      Branch.find(filter)
+        .populate("managerId", "name email phone")
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Branch.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
-      data: { branches },
+      data: {
+        branches,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
     next(error);
@@ -145,8 +163,7 @@ const updateBranch = async (req, res, next) => {
 
     await branch.save();
 
-    await delCachePattern(`branch:services:${branchId}:*`);
-    await delCachePattern(`branch:detail:${branchId}*`);
+    await invalidateCatalogCache({ salonId: salonId.toString(), branchId: branchId.toString() });
 
     res.status(200).json({
       success: true,
@@ -210,6 +227,9 @@ const deleteBranch = async (req, res, next) => {
       // deactivate all staff and managers in this branch
       User.updateMany({ branchId }, { isActive: false }),
     ]);
+
+    await invalidateCatalogCache({ salonId: salonId.toString(), branchId: branchId.toString() });
+    await delCachePattern(`branch:slots:${branchId}:*`);
 
     res.status(200).json({
       success: true,

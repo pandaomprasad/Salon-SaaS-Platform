@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { getCurrentLocation, searchLocations, cleanCityName } from "../services/locationService";
 import { storage } from "../services/storage";
+import { useLocationStore } from "../store/useLocationStore";
 import AppleBottomSheet from "./AppleBottomSheet";
 
 const RECENT_KEY = "@recent_locations_v2";
@@ -163,7 +164,8 @@ export default function LocationPickerModal({
         return updated;
       });
 
-      onSelectCity(cityName);
+      useLocationStore.getState().setSelectedCity(cityName);
+      if (onSelectCity) onSelectCity(cityName);
       onClose();
     },
     [onSelectCity, onClose]

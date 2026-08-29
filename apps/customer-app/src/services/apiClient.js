@@ -51,7 +51,15 @@ export const setUnauthorizedHandler = (handler) => {
 
 export const getAuthToken = () => userToken;
 
-async function request(endpoint, options = {}, retries = 1, isAuthRetry = false) {
+const CLIENT_GET_CACHE = new Map();
+const IN_FLIGHT_GET_REQUESTS = new Map();
+
+export const clearClientCache = () => {
+  CLIENT_GET_CACHE.clear();
+  IN_FLIGHT_GET_REQUESTS.clear();
+};
+
+async function executeRequest(endpoint, options = {}, retries = 1, isAuthRetry = false) {
   const url = `${API_BASE_URL}${endpoint}`;
   const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   const startTimeISO = new Date().toISOString();
@@ -128,7 +136,7 @@ async function request(endpoint, options = {}, retries = 1, isAuthRetry = false)
 
             if (newToken) {
               userToken = newToken;
-              return request(endpoint, options, retries, true);
+              return executeRequest(endpoint, options, retries, true);
             }
           } catch (refreshErr) {
             isRefreshing = false;
@@ -157,7 +165,7 @@ async function request(endpoint, options = {}, retries = 1, isAuthRetry = false)
         error.message === "Network request timed out")
     ) {
       console.warn(`API Error [${method} ${endpoint}]: ${error.message} — retrying once…`);
-      return request(endpoint, options, retries - 1);
+      return executeRequest(endpoint, options, retries - 1);
     }
 
     if (error.name === "AbortError") {
@@ -176,12 +184,59 @@ async function request(endpoint, options = {}, retries = 1, isAuthRetry = false)
   }
 }
 
+async function request(endpoint, options = {}, retries = 1, isAuthRetry = false) {
+  const method = options.method || "GET";
+
+  // Invalidate client GET memory cache on data mutations
+  if (method !== "GET") {
+    CLIENT_GET_CACHE.clear();
+    return executeRequest(endpoint, options, retries, isAuthRetry);
+  }
+
+  const cacheKey = `${userToken ? "auth" : "anon"}:${endpoint}`;
+
+  // 1. Return fresh client memory cached data (unless bypassCache is requested)
+  if (!options.bypassCache) {
+    const cached = CLIENT_GET_CACHE.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      console.log(`⚡ [API CLIENT CACHE HIT] GET ${endpoint} (0ms)`);
+      return cached.data;
+    }
+  }
+
+  // 2. Reuse pending in-flight Promise for identical concurrent GET requests
+  if (IN_FLIGHT_GET_REQUESTS.has(cacheKey)) {
+    console.log(`🔄 [API CLIENT DEDUPLICATED] GET ${endpoint}`);
+    return IN_FLIGHT_GET_REQUESTS.get(cacheKey);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const result = await executeRequest(endpoint, options, retries, isAuthRetry);
+      if (result) {
+        const ttlMs = options.ttlMs || 30000; // 30s client memory cache
+        CLIENT_GET_CACHE.set(cacheKey, {
+          data: result,
+          expiresAt: Date.now() + ttlMs,
+        });
+      }
+      return result;
+    } finally {
+      IN_FLIGHT_GET_REQUESTS.delete(cacheKey);
+    }
+  })();
+
+  IN_FLIGHT_GET_REQUESTS.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
 export const apiClient = {
   get: (endpoint, options) => request(endpoint, { ...options, method: "GET" }),
   post: (endpoint, body, options) => request(endpoint, { ...options, method: "POST", body: JSON.stringify(body) }),
   put: (endpoint, body, options) => request(endpoint, { ...options, method: "PUT", body: JSON.stringify(body) }),
   patch: (endpoint, body, options) => request(endpoint, { ...options, method: "PATCH", body: JSON.stringify(body) }),
   delete: (endpoint, options) => request(endpoint, { ...options, method: "DELETE" }),
+  clearCache: clearClientCache,
 };
 
 export function paiseToINR(paise) {

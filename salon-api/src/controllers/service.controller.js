@@ -3,7 +3,7 @@ const Branch = require("../models/branch.model");
 const User = require("../models/user.model");
 const AppError = require("../utils/AppError");
 const { formatPrice } = require("../utils/priceHelper");
-const { delCachePattern } = require("../services/cache.service");
+const { delCachePattern, invalidateCatalogCache } = require("../services/cache.service");
 
 // ================================
 // POST /api/v1/branches/:branchId/services
@@ -48,6 +48,7 @@ const createService = async (req, res, next) => {
 
     await delCachePattern(`branch:services:${branchId}:*`);
     await delCachePattern(`branch:detail:${branchId}*`);
+    await invalidateCatalogCache({ branchId: branchId.toString() });
 
     res.status(201).json({
       success: true,
@@ -152,6 +153,7 @@ const updateService = async (req, res, next) => {
 
     await delCachePattern(`branch:services:${branchId}:*`);
     await delCachePattern(`branch:detail:${branchId}*`);
+    await invalidateCatalogCache({ branchId: branchId.toString() });
 
     res.status(200).json({
       success: true,
@@ -190,6 +192,7 @@ const deleteService = async (req, res, next) => {
 
     await delCachePattern(`branch:services:${branchId}:*`);
     await delCachePattern(`branch:detail:${branchId}*`);
+    await invalidateCatalogCache({ branchId: branchId.toString() });
 
     res.status(200).json({
       success: true,

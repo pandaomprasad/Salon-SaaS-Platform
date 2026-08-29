@@ -1,18 +1,35 @@
 // src/services/browseService.js
 import { apiClient } from "./apiClient";
+import { useLocationStore } from "../store/useLocationStore";
+import { cleanCityName } from "./locationService";
 
 const SERVICES_MEMORY_CACHE = new Map();
 const SALON_MEMORY_CACHE = new Map();
 
+function resolveCityParam(params = {}) {
+  const queryParams = { ...params };
+  if (!queryParams.city) {
+    try {
+      const activeCity = useLocationStore.getState().selectedCity;
+      if (activeCity) {
+        queryParams.city = cleanCityName(activeCity);
+      }
+    } catch (e) {}
+  }
+  return queryParams;
+}
+
 export const browseService = {
   getInitialLoad: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    const queryParams = resolveCityParam(params);
+    const query = new URLSearchParams(queryParams).toString();
     const endpoint = `/browse/initial-load${query ? `?${query}` : ""}`;
     return await apiClient.get(endpoint);
   },
 
   getSalons: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    const queryParams = resolveCityParam(params);
+    const query = new URLSearchParams(queryParams).toString();
     const endpoint = `/browse/salons${query ? `?${query}` : ""}`;
     return await apiClient.get(endpoint);
   },
@@ -30,7 +47,8 @@ export const browseService = {
   },
 
   getBranches: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    const queryParams = resolveCityParam(params);
+    const query = new URLSearchParams(queryParams).toString();
     const endpoint = `/browse/branches${query ? `?${query}` : ""}`;
     return await apiClient.get(endpoint);
   },

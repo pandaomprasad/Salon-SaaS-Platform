@@ -12,20 +12,21 @@ const {
 
 const authenticate = require("../middleware/authenticate");
 const checkPermission = require("../middleware/checkPermission");
+const { requireBranchScope } = require("../middleware/checkScope");
 
 router.use(authenticate);
 
-router.post("/generate", checkPermission("slot:create"), generateSlots);
+router.post("/generate", checkPermission("slot:create"), requireBranchScope, generateSlots);
 
-router.get("/", checkPermission("slot:read"), getSlots);
-router.post("/block-check", checkPermission("slot:update"), blockCheck);
+router.get("/", checkPermission("slot:read"), requireBranchScope, getSlots);
+router.post("/block-check", checkPermission("slot:update"), requireBranchScope, blockCheck);
 
-router.post("/block-bulk", checkPermission("slot:update"), blockBulk);
+router.post("/block-bulk", checkPermission("slot:update"), requireBranchScope, blockBulk);
 
-router.post("/unblock-bulk", checkPermission("slot:update"), unblockBulk);
+router.post("/unblock-bulk", checkPermission("slot:update"), requireBranchScope, unblockBulk);
 
-router.patch("/:slotId/block", checkPermission("slot:update"), blockSlot);
+router.patch("/:slotId/block", checkPermission("slot:update"), requireBranchScope, blockSlot);
 
-router.patch("/:slotId/unblock", checkPermission("slot:update"), unblockSlot);
+router.patch("/:slotId/unblock", checkPermission("slot:update"), requireBranchScope, unblockSlot);
 
 module.exports = router;

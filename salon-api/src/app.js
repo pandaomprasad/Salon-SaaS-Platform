@@ -1,5 +1,7 @@
 // load .env file first before anything else
 require("dotenv").config();
+const validateEnvSecrets = require("./config/validateEnv");
+validateEnvSecrets();
 
 console.log("🚀 Starting Salon API Server...");
 
@@ -155,28 +157,53 @@ app.get("/health", async (req, res) => {
   const redisClient = require("./config/redis");
   let redisStatus = "OFFLINE (Fallback Active)";
   let totalKeys = 0;
-  let sampleKeys = [];
+
+  // Live MongoDB Diagnostic Ping
+  let dbStatus = "DISCONNECTED";
+  let dbPingMs = null;
+  let isDbHealthy = false;
+
+  try {
+    const mongoState = mongoose.connection.readyState;
+    if (mongoState === 1) { // 1 = connected
+      const dbStart = Date.now();
+      await mongoose.connection.db.admin().ping();
+      dbPingMs = Date.now() - dbStart;
+      dbStatus = "CONNECTED";
+      isDbHealthy = true;
+    } else {
+      const stateNames = { 0: "DISCONNECTED", 2: "CONNECTING", 3: "DISCONNECTING" };
+      dbStatus = stateNames[mongoState] || "UNKNOWN";
+    }
+  } catch (e) {
+    dbStatus = `PING_FAILED (${e.message})`;
+  }
 
   try {
     if (redisClient && redisClient.status === "ready") {
       redisStatus = "CONNECTED & ACTIVELY STORING DATA";
       const keys = await redisClient.scan(0, "COUNT", 50);
-      sampleKeys = keys[1] || [];
-      totalKeys = sampleKeys.length;
+      totalKeys = (keys[1] || []).length;
     }
   } catch (e) {
     redisStatus = `OFFLINE (${e.message})`;
   }
 
-  res.status(200).json({
-    success: true,
-    message: "Salon API Health Diagnostics",
+  const isHealthy = isDbHealthy;
+  const statusCode = isHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    success: isHealthy,
+    message: isHealthy ? "Salon API Health Diagnostics" : "Service Unavailable: Database Ping Failed",
     environment: process.env.NODE_ENV || "development",
     timestamp: new Date().toISOString(),
+    databaseDiagnostics: {
+      status: dbStatus,
+      latencyMs: dbPingMs,
+    },
     redisDiagnostics: {
       status: redisStatus,
       keysStored: totalKeys,
-      sampleKeysStored: sampleKeys,
     },
   });
 });
@@ -221,7 +248,12 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   logger.error(`${err.message} — ${req.method} ${req.originalUrl}`);
 
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || err.status || 500;
+
+  if (statusCode === 503 || err.retryAfter) {
+    res.setHeader("Retry-After", String(err.retryAfter || 10));
+  }
+
   res.status(statusCode).json({
     success: false,
     message: err.message || "Internal server error",
