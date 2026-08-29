@@ -319,6 +319,8 @@ export interface BookAppointmentPayload {
 
 export interface UpdateStatusPayload {
   status: AppointmentStatus;
+  reason?: string;
+  note?: string;
 }
 
 export interface ReschedulePayload {
