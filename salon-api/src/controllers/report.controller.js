@@ -31,34 +31,33 @@ const getOverview = async (req, res, next) => {
       date: { $gte: start, $lte: end }
     }
 
-    if (role === 'manager') filter.branchId = branchId
-    if (role === 'owner') filter.salonId = salonId
+    if (role === 'manager') filter.branchId = branchId;
+    if (role === 'owner') filter.salonId = salonId;
 
-    // run all queries in parallel for performance
-    const [
-      totalAppointments,
-      completedAppointments,
-      cancelledAppointments,
-      pendingAppointments,
-      confirmedAppointments,
-      noShowAppointments,
-      revenueData
-    ] = await Promise.all([
-      Appointment.countDocuments(filter),
-      Appointment.countDocuments({ ...filter, status: 'COMPLETED' }),
-      Appointment.countDocuments({ ...filter, status: 'CANCELLED' }),
-      Appointment.countDocuments({ ...filter, status: 'PENDING' }),
-      Appointment.countDocuments({ ...filter, status: 'CONFIRMED' }),
-      Appointment.countDocuments({ ...filter, status: 'NO_SHOW' }),
+    // Single aggregation query replacing 7 separate database round-trips
+    const [stats] = await Appointment.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } },
+          cancelled: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] } },
+          pending: { $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] } },
+          confirmed: { $sum: { $cond: [{ $eq: ["$status", "CONFIRMED"] }, 1, 0] } },
+          noShow: { $sum: { $cond: [{ $eq: ["$status", "NO_SHOW"] }, 1, 0] } },
+          totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, { $ifNull: ["$pricePaid", 0] }, 0] } },
+        },
+      },
+    ]);
 
-      // total revenue from completed appointments only
-      Appointment.aggregate([
-        { $match: { ...filter, status: 'COMPLETED' } },
-        { $group: { _id: null, total: { $sum: '$pricePaid' } } }
-      ])
-    ])
-
-    const totalRevenue = revenueData[0]?.total || 0
+    const totalAppointments = stats?.total || 0;
+    const completedAppointments = stats?.completed || 0;
+    const cancelledAppointments = stats?.cancelled || 0;
+    const pendingAppointments = stats?.pending || 0;
+    const confirmedAppointments = stats?.confirmed || 0;
+    const noShowAppointments = stats?.noShow || 0;
+    const totalRevenue = stats?.totalRevenue || 0;
 
     const responseData = {
       period: { startDate: start, endDate: end },
@@ -75,7 +74,6 @@ const getOverview = async (req, res, next) => {
       },
       revenue: {
         total: totalRevenue,
-        // formatted display e.g. ₹5000.00
         display: `₹${(totalRevenue / 100).toFixed(2)}`
       }
     }
