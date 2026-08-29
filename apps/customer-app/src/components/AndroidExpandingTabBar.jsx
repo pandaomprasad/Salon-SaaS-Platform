@@ -12,13 +12,15 @@ import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }) {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 12);
+  const bottomInset = Math.max(insets.bottom, 10);
 
-  const barBg = isDark ? "#181820" : "#FFFFFF";
-  const barBorder = isDark ? "#282834" : "#EFEFF4";
-  const centerBtnBg = isDark ? "#6C5CE7" : "#0F172A";
+  const barBg = isDark ? "#1C1C1E" : "#FFFFFF";
+  const barBorder = isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)";
+  const centerBtnBg = theme.primary || (isDark ? "#D49B45" : "#C48B36");
+  const activeColor = isDark ? "#FFFFFF" : theme.ink || "#121212";
+  const inactiveColor = isDark ? "#8E8E93" : "#7A7A80";
 
   return (
     <View style={[styles.floatingWrapper, { bottom: bottomInset }]}>
@@ -28,6 +30,8 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
           {
             backgroundColor: barBg,
             borderColor: barBorder,
+            shadowColor: isDark ? "#000000" : "#121212",
+            shadowOpacity: isDark ? 0.35 : 0.08,
           },
         ]}
       >
@@ -40,26 +44,38 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
               return (
                 <TouchableOpacity
                   key={tab.id}
-                  activeOpacity={0.82}
+                  activeOpacity={0.85}
                   onPress={() => onSelectTab(tab.id)}
                   style={styles.tabItem}
                 >
-                  <View style={[styles.centerSquircle, { backgroundColor: centerBtnBg }]}>
+                  <View
+                    style={[
+                      styles.centerSquircle,
+                      {
+                        backgroundColor: centerBtnBg,
+                        shadowColor: centerBtnBg,
+                      },
+                    ]}
+                  >
                     <Ionicons
                       name="home"
-                      size={20}
+                      size={21}
                       color="#FFFFFF"
                     />
                   </View>
-                  <Text style={[styles.tabLabel, styles.centerLabelText, { color: isDark ? "#FFFFFF" : "#0F172A" }]}>
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      styles.centerLabelText,
+                      { color: isSelected ? activeColor : inactiveColor },
+                    ]}
+                  >
                     {tab.label}
                   </Text>
                 </TouchableOpacity>
               );
             }
 
-            const activeColor = isDark ? "#FFFFFF" : "#0F172A";
-            const inactiveColor = isDark ? "#71717A" : "#8E8E93";
             const iconColor = isSelected ? activeColor : inactiveColor;
 
             return (
@@ -72,7 +88,7 @@ export default function AndroidExpandingTabBar({ tabs, currentTab, onSelectTab }
                 <View style={styles.iconWrapper}>
                   <Ionicons
                     name={isSelected ? (tab.iconActive || tab.icon) : (tab.iconInactive || tab.icon)}
-                    size={20}
+                    size={21}
                     color={iconColor}
                   />
                 </View>
@@ -104,14 +120,12 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   container: {
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
     paddingVertical: 8,
-    paddingHorizontal: 10,
-    shadowColor: "#000000",
+    paddingHorizontal: 12,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
+    shadowRadius: 16,
     elevation: 8,
   },
   tabsRow: {
@@ -125,21 +139,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconWrapper: {
-    height: 44,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
   centerSquircle: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
   },
   tabLabel: {
     fontSize: 10.5,

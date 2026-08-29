@@ -567,7 +567,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.canvas} />
 
       {/* ── Header (staggered entrance: slide down + fade) ──── */}
-      <Animated.View
+      {/* <Animated.View
         style={[
           styles.header,
           {
@@ -602,7 +602,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         )}
-      </Animated.View>
+      </Animated.View> */}
 
       {/* ── Carousel (staggered entrance: scale up) ──────── */}
       <Animated.View
@@ -684,7 +684,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
 
             const backgroundColor = scrollX.interpolate({
               inputRange,
-              outputRange: [COLORS.hairlineStrong, COLORS.primary, COLORS.hairlineStrong],
+              outputRange: [COLORS.hairlineStrong, C.blue, COLORS.hairlineStrong],
               extrapolate: "clamp",
             });
 
@@ -750,252 +750,252 @@ export default function OnboardingScreen({ onFinish, navigate }) {
 
 function getStyles() {
   return StyleSheet.create({
-  // ── Root ──────────────────────────────────────────────────
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.canvas,
-  },
+    // ── Root ──────────────────────────────────────────────────
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.canvas,
+    },
 
-  // ── Header ────────────────────────────────────────────────
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === "android" ? 16 : 8,
-    height: 64,
-  },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  logoCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.hairline,
-  },
-  logoText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.ink,
-    letterSpacing: 2,
-    marginLeft: 10,
-  },
-  skipButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 9999,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.hairline,
-  },
-  skipText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.muted,
-  },
+    // ── Header ────────────────────────────────────────────────
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 24,
+      paddingTop: Platform.OS === "android" ? 16 : 8,
+      height: 64,
+    },
+    logoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    logoCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: COLORS.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: COLORS.hairline,
+    },
+    logoText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: COLORS.ink,
+      letterSpacing: 2,
+      marginLeft: 10,
+    },
+    skipButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 18,
+      borderRadius: 9999,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.hairline,
+    },
+    skipText: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: C.blue,
+    },
 
-  // ── Carousel Wrapper ──────────────────────────────────────
-  carouselWrapper: {
-    flex: 1,
-  },
+    // ── Carousel Wrapper ──────────────────────────────────────
+    carouselWrapper: {
+      flex: 1,
+    },
 
-  // ── Slide ─────────────────────────────────────────────────
-  slideContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 28,
-  },
+    // ── Slide ─────────────────────────────────────────────────
+    slideContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 28,
+    },
 
-  // ── Graphic Card ──────────────────────────────────────────
-  graphicCard: {
-    width: width - 56,
-    height: height * 0.38,
-    borderRadius: 12,
-    backgroundColor: COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.hairline,
-    overflow: "hidden",
-  },
+    // ── Graphic Card ──────────────────────────────────────────
+    graphicCard: {
+      width: width - 56,
+      height: height * 0.38,
+      borderRadius: 12,
+      backgroundColor: COLORS.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: COLORS.hairline,
+      overflow: "hidden",
+    },
 
-  // ── Decorative Floating Orbs ──────────────────────────────
-  decorOrb: {
-    position: "absolute",
-    borderRadius: 9999,
-  },
-  decorOrbLarge: {
-    width: 170,
-    height: 170,
-    top: -35,
-    right: -45,
-  },
-  decorOrbMed: {
-    width: 110,
-    height: 110,
-    bottom: -25,
-    left: -30,
-  },
-  decorOrbTiny: {
-    width: 60,
-    height: 60,
-    top: 20,
-    left: 30,
-  },
+    // ── Decorative Floating Orbs ──────────────────────────────
+    decorOrb: {
+      position: "absolute",
+      borderRadius: 9999,
+    },
+    decorOrbLarge: {
+      width: 170,
+      height: 170,
+      top: -35,
+      right: -45,
+    },
+    decorOrbMed: {
+      width: 110,
+      height: 110,
+      bottom: -25,
+      left: -30,
+    },
+    decorOrbTiny: {
+      width: 60,
+      height: 60,
+      top: 20,
+      left: 30,
+    },
 
-  // ── Icon Ring ─────────────────────────────────────────────
-  iconAccentRing: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    backgroundColor: "transparent",
-  },
-  iconInnerCircle: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    // ── Icon Ring ─────────────────────────────────────────────
+    iconAccentRing: {
+      width: 112,
+      height: 112,
+      borderRadius: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1.5,
+      backgroundColor: "transparent",
+    },
+    iconInnerCircle: {
+      width: 86,
+      height: 86,
+      borderRadius: 43,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  // ── Floating Decor Badges ─────────────────────────────────
-  floatingDecorBadge: {
-    position: "absolute",
-    top: 18,
-    right: 22,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  floatingDecorBadge2: {
-    position: "absolute",
-    bottom: 18,
-    left: 22,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
+    // ── Floating Decor Badges ─────────────────────────────────
+    floatingDecorBadge: {
+      position: "absolute",
+      top: 18,
+      right: 22,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+    },
+    floatingDecorBadge2: {
+      position: "absolute",
+      bottom: 18,
+      left: 22,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+    },
 
-  // ── Badge Pill ────────────────────────────────────────────
-  badgePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 9999,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.ink,
-    letterSpacing: 1.2,
-  },
+    // ── Badge Pill ────────────────────────────────────────────
+    badgePill: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 9999,
+      borderWidth: 1,
+    },
+    badgeText: {
+      fontSize: 10,
+      fontWeight: "600",
+      color: COLORS.ink,
+      letterSpacing: 1.2,
+    },
 
-  // ── Text Content ──────────────────────────────────────────
-  textContainer: {
-    marginTop: 30,
-    alignItems: "center",
-    paddingHorizontal: 8,
-    overflow: "hidden",
-  },
-  titleText: {
-    fontSize: 28,
-    fontWeight: "400",
-    color: COLORS.ink,
-    textAlign: "center",
-    lineHeight: 36,
-    letterSpacing: -0.6,
-  },
-  subtitleText: {
-    fontSize: 15,
-    fontWeight: "400",
-    color: COLORS.body,
-    textAlign: "center",
-    lineHeight: 23,
-    marginTop: 12,
-  },
+    // ── Text Content ──────────────────────────────────────────
+    textContainer: {
+      marginTop: 30,
+      alignItems: "center",
+      paddingHorizontal: 8,
+      overflow: "hidden",
+    },
+    titleText: {
+      fontSize: 28,
+      fontWeight: "400",
+      color: COLORS.ink,
+      textAlign: "center",
+      lineHeight: 36,
+      letterSpacing: -0.6,
+    },
+    subtitleText: {
+      fontSize: 15,
+      fontWeight: "400",
+      color: COLORS.body,
+      textAlign: "center",
+      lineHeight: 23,
+      marginTop: 12,
+    },
 
-  // ── Footer ────────────────────────────────────────────────
-  footer: {
-    paddingHorizontal: 28,
-    paddingBottom: Platform.OS === "ios" ? 36 : 28,
-    alignItems: "center",
-  },
-  paginationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 16,
-    marginBottom: 24,
-  },
-  dot: {
-    borderRadius: 3,
-    marginHorizontal: 4,
-  },
+    // ── Footer ────────────────────────────────────────────────
+    footer: {
+      paddingHorizontal: 28,
+      paddingBottom: Platform.OS === "ios" ? 36 : 28,
+      alignItems: "center",
+    },
+    paginationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      height: 16,
+      marginBottom: 24,
+    },
+    dot: {
+      borderRadius: 3,
+      marginHorizontal: 4,
+    },
 
-  // ── CTA Button ────────────────────────────────────────────
-  ctaButton: {
-    width: "100%",
-    height: 52,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  shimmerOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 80,
-    height: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    // Angled via skew not available natively — use a wide band
-    borderRadius: 8,
-  },
-  ctaButtonText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.onPrimary,
-    letterSpacing: 0.2,
-  },
-  ctaArrowCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.primaryActive,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 10,
-  },
+    // ── CTA Button ────────────────────────────────────────────
+    ctaButton: {
+      width: "100%",
+      height: 52,
+      borderRadius: 8,
+      backgroundColor: C.blue,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
+    shimmerOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: 80,
+      height: "100%",
+      backgroundColor: "rgba(6, 6, 6, 0.12)",
+      // Angled via skew not available natively — use a wide band
+      borderRadius: 8,
+    },
+    ctaButtonText: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: COLORS.onPrimary,
+      letterSpacing: 0.2,
+    },
+    ctaArrowCircle: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: COLORS.primaryActive,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 10,
+    },
 
-  // ── Terms Hint ────────────────────────────────────────────
-  termsHint: {
-    fontSize: 11,
-    fontWeight: "400",
-    color: COLORS.mutedSoft,
-    textAlign: "center",
-    marginTop: 14,
-    letterSpacing: 0.1,
-  },
+    // ── Terms Hint ────────────────────────────────────────────
+    termsHint: {
+      fontSize: 11,
+      fontWeight: "400",
+      color: COLORS.mutedSoft,
+      textAlign: "center",
+      marginTop: 14,
+      letterSpacing: 0.1,
+    },
   });
 }

@@ -36,7 +36,7 @@ export const LIGHT = {
   tabBg: "#FFFFFF",
   tabBorder: "#E8E8E0",
   statusBar: "dark-content",
-  navBarColor: "#fff",
+  navBarColor: "#FBFBF9",
   navBarButtonStyle: "dark",
 };
 
@@ -69,16 +69,16 @@ export const DARK = {
   tabBg: "#1C1C1E",
   tabBorder: "#2A2A2C",
   statusBar: "light-content",
-  navBarColor: "#FFFFFF",
-  navBarButtonStyle: "dark",
+  navBarColor: "#0D0D0D",
+  navBarButtonStyle: "light",
 };
 
 const ThemeContext = createContext({
   theme: LIGHT,
   isDark: false,
   themeMode: "system", // "light" | "dark" | "system"
-  setThemeMode: () => {},
-  toggleTheme: () => {},
+  setThemeMode: () => { },
+  toggleTheme: () => { },
   toggleAnim: null,
 });
 
@@ -116,7 +116,8 @@ export function ThemeProvider({ children }) {
 
     if (Platform.OS === "android") {
       const activeTheme = activeIsDark ? DARK : LIGHT;
-      NavigationBar.setButtonStyleAsync(activeTheme.navBarButtonStyle).catch(() => {});
+      NavigationBar.setBackgroundColorAsync(activeTheme.navBarColor).catch(() => { });
+      NavigationBar.setButtonStyleAsync(activeTheme.navBarButtonStyle).catch(() => { });
     }
   }, [themeMode, activeSystemDark]);
 
@@ -131,7 +132,7 @@ export function ThemeProvider({ children }) {
           // Default to system if no mode saved
           setThemeModeState("system");
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     loadThemeMode();
   }, []);
@@ -154,7 +155,7 @@ export function ThemeProvider({ children }) {
     try {
       await storage.setItem(THEME_MODE_KEY, mode);
       await storage.removeItem("@salon_app_theme");
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const toggleTheme = async () => {
