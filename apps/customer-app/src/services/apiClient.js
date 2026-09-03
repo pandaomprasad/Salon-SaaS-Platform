@@ -2,31 +2,30 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-// Dynamically determine API base URL
+// Dynamically determine API base URL (supports Android device/emulator, Web, iOS)
 const getBaseUrl = () => {
-  // If explicitly requested to use local dev server
-  if (process.env.EXPO_PUBLIC_USE_LOCAL_API === "true" && typeof __DEV__ !== "undefined" && __DEV__) {
-    try {
-      const hostUri =
-        Constants.expoConfig?.hostUri ||
-        Constants.manifest2?.extra?.expoGo?.developer?.manifest?.debuggerHost ||
-        Constants.manifest?.debuggerHost;
+  // 1. Try Expo host URI (automatically gets your PC's IP address on Wi-Fi/Expo Go)
+  try {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      Constants.manifest2?.extra?.expoGo?.developer?.manifest?.debuggerHost ||
+      Constants.manifest?.debuggerHost;
 
-      if (hostUri) {
-        const ip = hostUri.split(":")[0];
-        if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
-          return `http://${ip}:6969/api/v1`;
-        }
+    if (hostUri) {
+      const ip = hostUri.split(":")[0];
+      if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
+        return `http://${ip}:6969/api/v1`;
       }
-    } catch (e) {}
-
-    if (process.env.EXPO_PUBLIC_DEV_API_URL) {
-      return process.env.EXPO_PUBLIC_DEV_API_URL;
     }
+  } catch (e) {}
+
+  // 2. Android Emulator fallback (10.0.2.2 reaches the host PC)
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:6969/api/v1";
   }
 
-  // Default: Live Railway API Backend URL
-  return process.env.EXPO_PUBLIC_API_URL || "https://optimistic-ambition-production-32e7.up.railway.app/api/v1";
+  // 3. Web & iOS fallback
+  return "http://localhost:6969/api/v1";
 };
 
 export const API_BASE_URL = getBaseUrl();
@@ -89,11 +88,6 @@ async function executeRequest(endpoint, options = {}, retries = 1, isAuthRetry =
 
     const response = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
-
-    const duration = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime).toFixed(2);
-    console.log(
-      `⏱️ [API CLIENT TIME] ${method} ${endpoint} | Status: ${response.status} | Duration: ${duration}ms | Started: ${startTimeISO}`
-    );
 
     const rawText = await response.text();
 
@@ -199,14 +193,12 @@ async function request(endpoint, options = {}, retries = 1, isAuthRetry = false)
   if (!options.bypassCache) {
     const cached = CLIENT_GET_CACHE.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
-      console.log(`⚡ [API CLIENT CACHE HIT] GET ${endpoint} (0ms)`);
       return cached.data;
     }
   }
 
   // 2. Reuse pending in-flight Promise for identical concurrent GET requests
   if (IN_FLIGHT_GET_REQUESTS.has(cacheKey)) {
-    console.log(`🔄 [API CLIENT DEDUPLICATED] GET ${endpoint}`);
     return IN_FLIGHT_GET_REQUESTS.get(cacheKey);
   }
 
@@ -214,7 +206,7 @@ async function request(endpoint, options = {}, retries = 1, isAuthRetry = false)
     try {
       const result = await executeRequest(endpoint, options, retries, isAuthRetry);
       if (result) {
-        const ttlMs = options.ttlMs || 30000; // 30s client memory cache
+        const ttlMs = options.ttlMs || 180000; // 3 minutes client memory cache for all GET requests
         CLIENT_GET_CACHE.set(cacheKey, {
           data: result,
           expiresAt: Date.now() + ttlMs,

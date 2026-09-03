@@ -1,5 +1,6 @@
 // src/services/locationService.js
 import { apiClient } from "./apiClient";
+import * as Location from "expo-location";
 
 /**
  * Haversine distance between two lat/lng points in kilometers.
@@ -70,8 +71,6 @@ export function cleanCityName(rawName) {
  * Reverse Geocode latitude & longitude to City and State
  */
 export async function reverseGeocode(latitude, longitude) {
-  console.log(`📍 [LOCATION SERVICE] Reverse geocoding coords: lat=${latitude}, lng=${longitude}`);
-
   // 1. Try Direct Reverse Geocoding for instant client-side resolution
   try {
     const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
@@ -100,8 +99,6 @@ export async function reverseGeocode(latitude, longitude) {
         addr.subdistrict ||
         "";
       const areaName = suburb ? `${suburb}, ${city}` : city;
-
-      console.log(`📍 [LOCATION SERVICE] Location resolved: raw="${rawCity}" -> cleaned="${city}", state="${addr.state || ""}"`);
 
       return {
         formattedAddress: osmData.display_name || `${areaName}, ${addr.state || ""}`,
@@ -156,9 +153,28 @@ export async function reverseGeocode(latitude, longitude) {
  * Tries Device Geolocation (Web / Native) first, then falls back to IP-based Location.
  */
 export async function getCurrentLocation() {
-  console.log("📍 [LOCATION SERVICE] Starting location acquisition...");
+  // 1. Try Native Expo Location API (High Accuracy GPS)
+  const getExpoLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        throw new Error("Foreground location permission not granted");
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      if (position?.coords) {
+        return {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
 
-  // 1. Try Device Geolocation
+  // 2. Try Browser / Web Navigator Geolocation
   const getNavLocation = () =>
     new Promise((resolve, reject) => {
       const geo = typeof navigator !== "undefined" ? navigator.geolocation : null;
@@ -168,28 +184,24 @@ export async function getCurrentLocation() {
 
       geo.getCurrentPosition(
         (position) => {
-          console.log("📍 [LOCATION SERVICE] Device GPS acquired:", position.coords);
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
         },
         (err) => {
-          console.warn("📍 [LOCATION SERVICE] Device GPS error:", err.message);
           reject(err);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 2000 }
       );
     });
 
-  // 2. Try IP-based Geolocation as fallback
+  // 3. Try IP-based Geolocation as fallback
   const getIpLocation = async () => {
-    console.log("📍 [LOCATION SERVICE] Attempting IP-based location fallback...");
     try {
       const res = await fetch("https://ipapi.co/json/");
       const data = await res.json();
       if (data && data.latitude && data.longitude) {
-        console.log(`📍 [LOCATION SERVICE] IP Location acquired: ${data.city}, ${data.region} (${data.latitude}, ${data.longitude})`);
         return {
           latitude: data.latitude,
           longitude: data.longitude,
@@ -197,14 +209,12 @@ export async function getCurrentLocation() {
         };
       }
     } catch (ipErr) {
-      console.warn("📍 [LOCATION SERVICE] IP-api lookup failed:", ipErr.message);
     }
 
     try {
       const res2 = await fetch("http://ip-api.com/json/");
       const data2 = await res2.json();
       if (data2 && data2.lat && data2.lon) {
-        console.log(`📍 [LOCATION SERVICE] Secondary IP Location acquired: ${data2.city} (${data2.lat}, ${data2.lon})`);
         return {
           latitude: data2.lat,
           longitude: data2.lon,
@@ -212,7 +222,6 @@ export async function getCurrentLocation() {
         };
       }
     } catch (e2) {
-      console.warn("📍 [LOCATION SERVICE] Secondary IP lookup failed:", e2.message);
     }
 
     throw new Error("Unable to acquire location from GPS or IP network");
@@ -220,13 +229,16 @@ export async function getCurrentLocation() {
 
   let coords;
   try {
-    coords = await getNavLocation();
-  } catch (navError) {
-    coords = await getIpLocation();
+    coords = await getExpoLocation();
+  } catch (expoErr) {
+    try {
+      coords = await getNavLocation();
+    } catch (navError) {
+      coords = await getIpLocation();
+    }
   }
 
   const geoResult = await reverseGeocode(coords.latitude, coords.longitude);
-  console.log("📍 [LOCATION SERVICE] Final Location Result:", geoResult);
   return geoResult;
 }
 

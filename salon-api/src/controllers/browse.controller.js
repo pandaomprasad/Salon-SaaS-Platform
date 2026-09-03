@@ -11,6 +11,20 @@ const dayjs = require('dayjs')
 const { getCache, setCache, delCache, delCachePattern } = require('../services/cache.service')
 const { isBranchOpen } = require('../utils/salonStatus')
 
+function createCityQuery(cleanCity) {
+  if (!cleanCity) return null
+  const escaped = cleanCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const aliasPattern = escaped.replace(/berhampur|brahmapur/gi, '(berhampur|brahmapur)')
+  const regex = new RegExp(`^${aliasPattern}`, 'i')
+  return {
+    $or: [
+      { citySlug: cleanCity },
+      { citySlug: regex },
+      { 'address.city': regex }
+    ]
+  }
+}
+
 // ================================
 // GET /api/v1/browse/initial-load
 // public — consolidated initial dataset for fast startup
@@ -35,8 +49,8 @@ const getInitialLoad = async (req, res, next) => {
     let targetSalonIds = null
     const branchFilter = { isActive: true, deactivatedByAdmin: { $ne: true } }
     if (cleanCity) {
-      branchFilter.citySlug = cleanCity
-      const cityBranches = await Branch.find({ citySlug: cleanCity, isActive: true }).select('salonId').lean()
+      const cityCond = createCityQuery(cleanCity)
+      const cityBranches = await Branch.find({ ...cityCond, isActive: true }).select('salonId').lean()
       targetSalonIds = cityBranches.map((b) => b.salonId)
     }
 
@@ -210,7 +224,7 @@ const browseSalons = async (req, res, next) => {
     let catSalonIds = null
 
     const cityPromise = cacheCity
-      ? Branch.find({ citySlug: cacheCity, isActive: true }).select('salonId').lean()
+      ? Branch.find({ ...createCityQuery(cacheCity), isActive: true }).select('salonId').lean()
       : Promise.resolve(null)
 
     const categoryPromise = (category && category.toLowerCase() !== 'all')
