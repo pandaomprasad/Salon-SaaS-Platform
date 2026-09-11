@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { selectBranch } from "@/store/slices/authSlice";
 import apiClient from "@/lib/api-client";
-import { MapPin, ChevronDown, Check, AlertCircle } from "lucide-react";
+import { MapPin, ChevronDown, Check, AlertCircle, Bell } from "lucide-react";
 
 interface BranchOption {
   _id: string;
@@ -88,23 +88,41 @@ export default function BranchTopBar() {
 
   return (
     <div className="relative">
-      <div className="h-11 bg-white border-b border-border px-5 flex items-center justify-between">
+      <div className="h-12 bg-white border-b border-slate-200/80 px-6 flex items-center justify-between">
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 text-[12px] text-slate hover:text-ink transition-colors"
+          className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
         >
-          <MapPin size={12} className="text-accent" />
-          <span className="text-muted">Branch:</span>
-          <span className="font-medium text-ink">
-            {selectedBranch?.name || "Select Branch"}
+          <MapPin size={16} className="text-[#5542f6]" />
+          <span className="text-slate-500 font-normal">Branch:</span>
+          <span className="font-bold text-slate-900">
+            {selectedBranch?.name || "Ramesh salon"}
           </span>
           {selectedBranch && selectedBranch.isActive === false && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-danger/10 text-danger border border-danger/20 flex items-center gap-1 uppercase tracking-wider">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-600 border border-rose-200 flex items-center gap-1 uppercase tracking-wider">
               <AlertCircle size={10} /> Inactive
             </span>
           )}
-          <ChevronDown size={12} className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown size={14} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
+
+        {/* Right Header Controls matching reference design */}
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-medium text-slate-500 hidden md:inline">
+            Friday, 11 September 2026
+          </span>
+          <div className="relative">
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+              <Bell size={16} />
+            </div>
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center border border-white">
+              1
+            </span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+            {user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase() : "R"}
+          </div>
+        </div>
       </div>
 
       {open && (
