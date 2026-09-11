@@ -919,6 +919,9 @@ const updateAppointmentStatus = async (req, res, next) => {
           note: note || null,
         });
 
+        // Invalidate report analytics cache so revenue & stats refresh in realtime
+        delCachePattern("report:*");
+
         await appointment.save({ session });
       });
     } finally {

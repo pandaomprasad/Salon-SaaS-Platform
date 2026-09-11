@@ -11,6 +11,23 @@ const { getCache, setCache } = require('../services/cache.service')
 // owner → entire salon
 // manager → their branch only
 // ================================
+function calculatePercentChange(curr, prev) {
+  if (prev === 0) {
+    if (curr === 0) return { pct: 0, text: "0%", direction: "neutral" };
+    return { pct: 100, text: "+100%", direction: "up" };
+  }
+  const diff = ((curr - prev) / prev) * 100;
+  const rounded = Math.round(diff);
+  if (rounded === 0) return { pct: 0, text: "0%", direction: "neutral" };
+  if (rounded > 0) return { pct: rounded, text: `+${rounded}%`, direction: "up" };
+  return { pct: rounded, text: `${rounded}%`, direction: "down" };
+}
+
+// ================================
+// GET /api/v1/reports/overview
+// owner → entire salon
+// manager → their branch only
+// ================================
 const getOverview = async (req, res, next) => {
   try {
     const { role, branchId, salonId } = req.user
@@ -34,21 +51,48 @@ const getOverview = async (req, res, next) => {
     if (role === 'manager') filter.branchId = branchId;
     if (role === 'owner') filter.salonId = salonId;
 
-    // Single aggregation query replacing 7 separate database round-trips
-    const [stats] = await Appointment.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] } },
-          pending: { $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] } },
-          confirmed: { $sum: { $cond: [{ $eq: ["$status", "CONFIRMED"] }, 1, 0] } },
-          noShow: { $sum: { $cond: [{ $eq: ["$status", "NO_SHOW"] }, 1, 0] } },
-          totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, { $ifNull: ["$pricePaid", 0] }, 0] } },
+    // Previous period calculation for accurate percentage change
+    const diffDays = Math.max(1, dayjs(end).diff(dayjs(start), 'day') + 1);
+    const prevStart = dayjs(start).subtract(diffDays, 'day').format('YYYY-MM-DD');
+    const prevEnd = dayjs(start).subtract(1, 'day').format('YYYY-MM-DD');
+
+    const prevFilter = {
+      date: { $gte: prevStart, $lte: prevEnd }
+    };
+    if (role === 'manager') prevFilter.branchId = branchId;
+    if (role === 'owner') prevFilter.salonId = salonId;
+
+    const [[stats], [prevStats]] = await Promise.all([
+      Appointment.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } },
+            cancelled: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] } },
+            confirmed: { $sum: { $cond: [{ $eq: ["$status", "CONFIRMED"] }, 1, 0] } },
+            noShow: { $sum: { $cond: [{ $eq: ["$status", "NO_SHOW"] }, 1, 0] } },
+            totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, { $ifNull: ["$pricePaid", 0] }, 0] } },
+          },
         },
-      },
+      ]),
+      Appointment.aggregate([
+        { $match: prevFilter },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } },
+            cancelled: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] } },
+            confirmed: { $sum: { $cond: [{ $eq: ["$status", "CONFIRMED"] }, 1, 0] } },
+            noShow: { $sum: { $cond: [{ $eq: ["$status", "NO_SHOW"] }, 1, 0] } },
+            totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, { $ifNull: ["$pricePaid", 0] }, 0] } },
+          },
+        },
+      ])
     ]);
 
     const totalAppointments = stats?.total || 0;
@@ -59,22 +103,35 @@ const getOverview = async (req, res, next) => {
     const noShowAppointments = stats?.noShow || 0;
     const totalRevenue = stats?.totalRevenue || 0;
 
+    const prevTotalRevenue = prevStats?.totalRevenue || 0;
+    const prevTotalAppointments = prevStats?.total || 0;
+    const prevCompletedAppointments = prevStats?.completed || 0;
+    const prevCancelledAppointments = prevStats?.cancelled || 0;
+    const prevPendingAppointments = (prevStats?.pending || 0) + (prevStats?.confirmed || 0);
+    const prevNoShowAppointments = prevStats?.noShow || 0;
+
     const responseData = {
       period: { startDate: start, endDate: end },
       appointments: {
         total: totalAppointments,
+        totalChange: calculatePercentChange(totalAppointments, prevTotalAppointments),
         completed: completedAppointments,
+        completedChange: calculatePercentChange(completedAppointments, prevCompletedAppointments),
         cancelled: cancelledAppointments,
+        cancelledChange: calculatePercentChange(cancelledAppointments, prevCancelledAppointments),
         pending: pendingAppointments,
         confirmed: confirmedAppointments,
+        pendingChange: calculatePercentChange(pendingAppointments + confirmedAppointments, prevPendingAppointments),
         noShow: noShowAppointments,
+        noShowChange: calculatePercentChange(noShowAppointments, prevNoShowAppointments),
         completionRate: totalAppointments > 0
           ? ((completedAppointments / totalAppointments) * 100).toFixed(1) + '%'
           : '0%'
       },
       revenue: {
         total: totalRevenue,
-        display: `₹${(totalRevenue / 100).toFixed(2)}`
+        display: `₹${(totalRevenue / 100).toFixed(2)}`,
+        change: calculatePercentChange(totalRevenue, prevTotalRevenue)
       }
     }
 
