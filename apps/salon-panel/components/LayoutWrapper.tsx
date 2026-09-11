@@ -34,6 +34,24 @@ export default function LayoutWrapper({
 
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sidebar_collapsed");
+      if (saved === "true") setCollapsed(true);
+    } catch {}
+  }, []);
+
+  const handleToggleCollapse = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const currentPage = pathnameToPage(pathname);
   const hideSidebar = PUBLIC_PATHS.has(pathname);
@@ -110,6 +128,8 @@ export default function LayoutWrapper({
           userId={user.id}
           salonName={salon?.name || "Salon"}
           isOpen={sidebarOpen}
+          collapsed={collapsed}
+          onToggleCollapse={handleToggleCollapse}
           onNavigate={(page) => {
             router.push(`/${page}`);
             setSidebarOpen(false);
@@ -125,7 +145,7 @@ export default function LayoutWrapper({
       )}
 
       {!hideSidebar && user ? (
-        <div className="lg:ml-60 flex flex-col min-h-screen transition-all duration-300">
+        <div className={`${collapsed ? "lg:ml-[72px]" : "lg:ml-64"} flex flex-col min-h-screen transition-all duration-300 ease-in-out`}>
           <BranchTopBar />
           {adminBlock.blocked && (
             <div className="bg-danger/5 border-b border-danger/20 px-6 py-4">

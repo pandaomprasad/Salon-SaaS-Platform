@@ -53,10 +53,12 @@ interface SidebarProps {
   initials: string;
   userId?: string | null;
   isOpen: boolean;
+  collapsed: boolean;
   salonName: string;
   onNavigate: (page: AppPage) => void;
   onLogout: () => void;
   onClose: () => void;
+  onToggleCollapse: () => void;
 }
 
 export default function Sidebar({
@@ -67,12 +69,13 @@ export default function Sidebar({
   initials,
   userId,
   isOpen,
+  collapsed,
   salonName,
   onNavigate,
   onLogout,
   onClose,
+  onToggleCollapse,
 }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [unread, setUnread] = useState(1); // default 1 matching reference design
   const UNREAD_POLL_MS = 120000;
 
@@ -167,7 +170,7 @@ export default function Sidebar({
             </div>
           )}
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={onToggleCollapse}
             className="hidden lg:flex text-slate-400 hover:text-slate-700 transition-colors p-1"
           >
             {collapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
