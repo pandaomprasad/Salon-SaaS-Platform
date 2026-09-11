@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
-import Button from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
 import { AlertCircle, Info } from "lucide-react";
 import {
   createLeave,
@@ -203,67 +201,80 @@ export default function LeaveFormModal({
     <Modal
       title={isEdit ? "Edit Leave" : selfMode ? "Request Leave" : "Add Leave"}
       onClose={onClose}
-      width="max-w-xl"
     >
-      <div className="space-y-4">
+      <div className="space-y-4 pt-1">
         {!selfMode && (
-          <Select
-            label="Staff Member"
-            value={form.staffId}
-            onChange={(e) => set("staffId", e.target.value)}
-            options={staffList.map((s) => ({
-              value: s._id,
-              label: `${s.name} (${s.role.name})`,
-            }))}
-            error={getError("staffId")}
-          />
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Staff Member</label>
+            <select
+              value={form.staffId}
+              onChange={(e) => set("staffId", e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs cursor-pointer"
+            >
+              {staffList.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name} ({s.role?.name || "staff"})
+                </option>
+              ))}
+            </select>
+            {getError("staffId") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("staffId")}</p>}
+          </div>
         )}
 
-        <Select
-          label="Leave Type"
-          value={form.type}
-          onChange={(e) => set("type", e.target.value as LeaveType)}
-          options={[
-            { value: "SINGLE", label: "Single Day" },
-            { value: "RANGE", label: "Date Range" },
-            { value: "RECURRING", label: "Recurring (weekly)" },
-          ]}
-          error={getError("type")}
-        />
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Leave Type</label>
+          <select
+            value={form.type}
+            onChange={(e) => set("type", e.target.value as LeaveType)}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs cursor-pointer"
+          >
+            <option value="SINGLE">Single Day</option>
+            <option value="RANGE">Date Range</option>
+            <option value="RECURRING">Recurring (weekly)</option>
+          </select>
+          {getError("type") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("type")}</p>}
+        </div>
 
         {form.type === "SINGLE" ? (
-          <Input
-            label="Date"
-            type="date"
-            value={form.date}
-            onChange={(e) => set("date", e.target.value)}
-            error={getError("date")}
-          />
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => set("date", e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs cursor-pointer"
+            />
+            {getError("date") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("date")}</p>}
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Start Date"
-              type="date"
-              value={form.startDate}
-              onChange={(e) => set("startDate", e.target.value)}
-              error={getError("startDate")}
-            />
-            <Input
-              label="End Date"
-              type="date"
-              value={form.endDate}
-              onChange={(e) => set("endDate", e.target.value)}
-              error={getError("endDate")}
-            />
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => set("startDate", e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs cursor-pointer"
+              />
+              {getError("startDate") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("startDate")}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => set("endDate", e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs cursor-pointer"
+              />
+              {getError("endDate") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("endDate")}</p>}
+            </div>
           </div>
         )}
 
         {form.type === "RECURRING" && (
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium text-slate">
-              Weekly On
-            </label>
-            <div className="flex flex-wrap gap-2">
+            <label className="text-xs font-bold text-slate-700">Weekly On</label>
+            <div className="flex flex-wrap gap-1.5">
               {WEEKDAYS.map((d) => {
                 const active = form.weekdays.includes(d.value);
                 return (
@@ -271,14 +282,11 @@ export default function LeaveFormModal({
                     key={d.value}
                     type="button"
                     onClick={() => toggleWeekday(d.value)}
-                    className={`
-                      px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all
-                      ${
-                        active
-                          ? "bg-accent/10 text-accent border-accent/30"
-                          : "bg-white text-slate border-border hover:border-silver"
-                      }
-                    `}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                      active
+                        ? "bg-[#5542f6] text-white border-[#5542f6] shadow-xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    }`}
                   >
                     {d.label}
                   </button>
@@ -286,98 +294,107 @@ export default function LeaveFormModal({
               })}
             </div>
             {getError("weekdays") && (
-              <p className="text-[11px] text-danger">{getError("weekdays")}</p>
+              <p className="text-[11px] text-rose-600 font-medium">{getError("weekdays")}</p>
             )}
           </div>
         )}
 
-        <div className="flex items-center justify-between bg-subtle rounded-lg px-3 py-2.5">
+        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
           <div>
-            <p className="text-[13px] font-medium text-ink">
-              {form.allDay ? "Full Day" : "Time Window"}
+            <p className="text-xs font-extrabold text-slate-900">
+              {form.allDay ? "Full Day Leave" : "Time Window"}
             </p>
-            <p className="text-[11px] text-muted">
+            <p className="text-[11px] font-medium text-slate-500">
               {form.allDay
-                ? "Staff is unavailable the entire day"
-                : "Staff is unavailable only within this window"}
+                ? "Staff member is unavailable the entire day"
+                : "Staff member is unavailable only within this time window"}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => {
-              set("allDay", !form.allDay);
-            }}
-            className={`
-              w-10 h-5.5 rounded-full transition-colors relative shrink-0
-              ${form.allDay ? "bg-accent" : "bg-border"}
-            `}
-            style={{ width: 40, height: 22 }}
+            onClick={() => set("allDay", !form.allDay)}
+            className={`w-10 h-6 rounded-full transition-all relative shrink-0 ${
+              form.allDay ? "bg-[#5542f6]" : "bg-slate-300"
+            }`}
             aria-label="Toggle all day"
           >
             <span
-              className="absolute top-0.5 bg-white rounded-full shadow transition-all"
-              style={{
-                width: 18,
-                height: 18,
-                left: form.allDay ? 20 : 2,
-              }}
+              className={`absolute top-1 bg-white rounded-full shadow-xs transition-all w-4 h-4 ${
+                form.allDay ? "left-5" : "left-1"
+              }`}
             />
           </button>
         </div>
 
         {!form.allDay && (
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Start Time"
-              type="time"
-              value={form.startTime}
-              onChange={(e) => set("startTime", e.target.value)}
-              error={getError("startTime")}
-            />
-            <Input
-              label="End Time"
-              type="time"
-              value={form.endTime}
-              onChange={(e) => set("endTime", e.target.value)}
-              error={getError("endTime")}
-            />
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Start Time</label>
+              <input
+                type="time"
+                value={form.startTime}
+                onChange={(e) => set("startTime", e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none shadow-xs"
+              />
+              {getError("startTime") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("startTime")}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">End Time</label>
+              <input
+                type="time"
+                value={form.endTime}
+                onChange={(e) => set("endTime", e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none shadow-xs"
+              />
+              {getError("endTime") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("endTime")}</p>}
+            </div>
           </div>
         )}
 
-        <Input
-          label="Reason (optional)"
-          placeholder="e.g. Doctor appointment, vacation…"
-          value={form.reason}
-          onChange={(e) => set("reason", e.target.value)}
-          error={getError("reason")}
-          maxLength={200}
-        />
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Reason (optional)</label>
+          <input
+            type="text"
+            placeholder="e.g. Doctor appointment, vacation…"
+            value={form.reason}
+            onChange={(e) => set("reason", e.target.value)}
+            maxLength={200}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs"
+          />
+          {getError("reason") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("reason")}</p>}
+        </div>
 
         {serverError && (
-          <div className="flex items-center gap-2 text-danger bg-danger/5 rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-2 text-rose-600 bg-rose-50 border border-rose-200/80 rounded-xl px-3 py-2.5 text-xs font-medium">
             <AlertCircle size={14} className="shrink-0" />
-            <p className="text-xs">{serverError}</p>
+            <p>{serverError}</p>
           </div>
         )}
 
         {selfMode && !serverError && (
-          <div className="flex items-center gap-2 text-slate bg-accent/5 border border-accent/15 rounded-xl px-3 py-2.5">
-            <Info size={14} className="text-accent shrink-0" />
-            <p className="text-xs">
-              This request will be sent to the manager for approval. Slots are
-              blocked only after it is approved.
+          <div className="flex items-center gap-2.5 text-blue-700 bg-blue-50/80 border border-blue-200/80 rounded-xl px-3.5 py-2.5 text-xs font-medium">
+            <Info size={15} className="text-blue-600 shrink-0" />
+            <p>
+              This request will be sent to the manager for approval. Slots are blocked only after it is approved.
             </p>
           </div>
         )}
       </div>
 
-      <div className="flex gap-3 mt-6">
-        <Button variant="secondary" className="flex-1" onClick={onClose}>
+      <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
+        <button
+          onClick={onClose}
+          className="flex-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs"
+        >
           Cancel
-        </Button>
-        <Button className="flex-1" onClick={handleSubmit} loading={saving}>
-          {isEdit ? "Save Changes" : selfMode ? "Request Leave" : "Add Leave"}
-        </Button>
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="flex-1 bg-[#5542f6] hover:bg-[#4332e0] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs disabled:opacity-50"
+        >
+          {saving ? "Saving..." : isEdit ? "Save Changes" : selfMode ? "Request Leave" : "Add Leave"}
+        </button>
       </div>
     </Modal>
   );
