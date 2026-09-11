@@ -151,7 +151,7 @@ const getSlots = async (req, res, next) => {
     if (staffId) baseFilter.staffId = staffId;
 
     // Run both queries in parallel
-    const [activeAppointments, slots] = await Promise.all([
+    const [activeAppointments, fetchedSlots] = await Promise.all([
       Appointment.find(apptFilter).lean(),
       Slot.find(baseFilter)
         .populate("staffId", "name")
@@ -159,10 +159,31 @@ const getSlots = async (req, res, next) => {
         .lean(),
     ]);
 
+    // Build lookup maps for active appointments
+    const bookedSlotIdMap = new Map();
+    const bookedStaffTimeMap = [];
+
+    activeAppointments.forEach((appt) => {
+      if (appt.slotId) {
+        bookedSlotIdMap.set(String(appt.slotId), appt._id);
+      }
+      if (appt.staffId && appt.startTime) {
+        const apptStaffId = String(
+          typeof appt.staffId === "object" && appt.staffId ? appt.staffId._id : appt.staffId
+        );
+        bookedStaffTimeMap.push({
+          staffId: apptStaffId,
+          startTime: padTime(appt.startTime),
+          endTime: padTime(appt.endTime || appt.startTime),
+          apptId: appt._id,
+        });
+      }
+    });
+
     // 3. Sync slot statuses with active appointments
     const slotsToMarkBookedInDb = [];
 
-    slots = slots.map((slot) => {
+    let slots = fetchedSlots.map((slot) => {
       const slotStaffId = String(
         typeof slot.staffId === "object" && slot.staffId ? slot.staffId._id : slot.staffId
       );

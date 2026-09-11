@@ -39,6 +39,13 @@ export default function RescheduleModal({ visible, onClose, onConfirm, booking }
     booking?.staff?.id ||
     (typeof booking?.staffId === "object" ? booking?.staffId?._id : booking?.staffId);
 
+  const serviceDuration =
+    booking?.service?.durationMinutes ||
+    booking?.service?.duration ||
+    (booking?.services && Array.isArray(booking.services)
+      ? booking.services.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0)
+      : 30);
+
   useEffect(() => {
     if (!visible || !branchId) return;
 
@@ -147,6 +154,8 @@ export default function RescheduleModal({ visible, onClose, onConfirm, booking }
             <SlotPicker
               slots={slots}
               selectedSlotId={selectedSlot?._id || selectedSlot?.id}
+              selectedSlot={selectedSlot}
+              serviceDurationMinutes={serviceDuration}
               onSelectSlot={setSelectedSlot}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}

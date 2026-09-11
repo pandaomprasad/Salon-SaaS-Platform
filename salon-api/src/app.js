@@ -111,10 +111,10 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// rate limiting — max 500 requests per 15 minutes per IP
+// rate limiting — max 500 requests per 15 minutes per IP (10000 in dev)
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 500,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || (process.env.NODE_ENV === "development" || !process.env.NODE_ENV ? 10000 : 500),
   message: {
     success: false,
     message: "Too many requests, please try again later.",
@@ -189,6 +189,8 @@ app.get("/health", async (req, res) => {
     redisStatus = `OFFLINE (${e.message})`;
   }
 
+  const { isConfigured: isR2Configured, bucketName: r2Bucket } = require("./config/r2.config");
+
   const isHealthy = isDbHealthy;
   const statusCode = isHealthy ? 200 : 503;
 
@@ -204,6 +206,13 @@ app.get("/health", async (req, res) => {
     redisDiagnostics: {
       status: redisStatus,
       keysStored: totalKeys,
+    },
+    r2Diagnostics: {
+      configured: isR2Configured,
+      bucket: r2Bucket,
+      status: isR2Configured
+        ? "CONNECTED (Cloud Storage Ready)"
+        : "DEVELOPMENT FALLBACK MODE (Set R2 credentials in .env for production cloud storage)",
     },
   });
 });
@@ -230,6 +239,7 @@ app.use("/api/v1/notifications", require("./routes/notification.routes"));
 app.use("/api/v1/reports", require("./routes/report.routes"));
 app.use("/api/v1/location", require("./routes/location.routes"));
 app.use("/api/v1/banners", require("./routes/banner.routes"));
+app.use("/api/v1/upload", require("./routes/upload.routes"));
 app.get('/api/v1/salon-status/:salonId', require('./middleware/authenticate'), adminController.getSalonStatus);
 
 // ================================
@@ -247,6 +257,17 @@ app.use((req, res) => {
 // ================================
 app.use((err, req, res, next) => {
   logger.error(`${err.message} — ${req.method} ${req.originalUrl}`);
+
+  // Handle Mongoose CastError (invalid ObjectId format)
+  if (err.name === "CastError") {
+    err.statusCode = 400;
+    err.message = `Invalid ID format for ${err.path || "parameter"}: ${err.value}`;
+  }
+
+  // Handle Mongoose ValidationError
+  if (err.name === "ValidationError") {
+    err.statusCode = 400;
+  }
 
   const statusCode = err.statusCode || err.status || 500;
 

@@ -190,13 +190,11 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
           </View>
         ) : null}
 
-        {/* Lowest Service Price Badge Pill */}
-        {lowestServicePrice !== null ? (
-          <View style={styles.mainCardPricePill}>
-            <Text style={styles.pricePillIcon}>✦</Text>
-            <Text style={styles.pricePillText}>₹{lowestServicePrice}</Text>
-          </View>
-        ) : null}
+        {/* Rating Badge Pill at 500 position (bottom-right image overlay) */}
+        <View style={styles.mainCardRatingPill}>
+          <Ionicons name="star" size={12} color="#FFD700" style={{ marginRight: 3 }} />
+          <Text style={styles.ratingPillText}>{ratingStr}</Text>
+        </View>
       </View>
 
       {/* Info Content */}
@@ -204,31 +202,11 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
         <View style={styles.titleRow}>
           <Text style={styles.name} numberOfLines={1}>{salon.name}</Text>
           <VerifiedBadge size={16} color={C.verified} />
-
-          {/* Open / Closed Status Badge */}
-          <View style={[styles.cardStatusBadge, isOpen ? styles.cardStatusOpen : styles.cardStatusClosed]}>
-            <View style={[styles.cardStatusDot, isOpen ? styles.cardDotOpen : styles.cardDotClosed]} />
-            <Text style={[styles.cardStatusText, isOpen ? styles.cardTextOpen : styles.cardTextClosed]}>
-              {isOpen ? "Open" : "Closed"}
-            </Text>
-          </View>
         </View>
 
         <Text style={styles.description} numberOfLines={1}>
           {salon.description || "Hair · Skin · Spa · Grooming"}
         </Text>
-
-        <View style={styles.footerRow}>
-          <View style={styles.ratingBox}>
-            <Ionicons name="star" size={12} color={C.main} />
-            <Text style={styles.ratingText}>{ratingStr}</Text>
-            <Text style={styles.branchCount}>({branchCount} loc)</Text>
-          </View>
-
-          <View style={styles.bookBtn}>
-            <Text style={styles.bookBtnText}>Book</Text>
-          </View>
-        </View>
       </View>
     </BouncyButton>
   );
@@ -241,13 +219,13 @@ function getStyles() {
     card: {
       backgroundColor: C.surface,
       borderRadius: R.lg,
-      marginBottom: S.md,
+      marginBottom: S.sm,
       borderWidth: 1,
       borderColor: C.border,
       ...SHADOWS.md,
     },
     horizontal: {
-      width: SCREEN_WIDTH * 0.72,
+      width: SCREEN_WIDTH * 0.62,
       marginRight: S.md,
     },
     full: {
@@ -302,12 +280,33 @@ function getStyles() {
       borderColor: "rgba(255, 255, 255, 0.22)",
       zIndex: 10,
     },
+    mainCardRatingPill: {
+      position: "absolute",
+      right: 8,
+      bottom: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(15, 15, 13, 0.84)",
+      paddingHorizontal: 8,
+      paddingVertical: 3.5,
+      borderRadius: R.pill,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.22)",
+      zIndex: 10,
+    },
     pricePillIcon: {
       color: C.main || "#C48B36",
       fontSize: 10,
       lineHeight: 12,
     },
     pricePillText: {
+      color: "#FFFFFF",
+      fontFamily: FONT_FAMILY.bodyBold,
+      fontSize: 12,
+      fontWeight: FW.bold,
+      lineHeight: 14,
+    },
+    ratingPillText: {
       color: "#FFFFFF",
       fontFamily: FONT_FAMILY.bodyBold,
       fontSize: 12,
@@ -356,7 +355,7 @@ function getStyles() {
       fontSize: 10,
     },
     imageFrame: {
-      height: 160,
+      height: 125,
       backgroundColor: C.lifted,
       position: "relative",
       borderTopLeftRadius: R.lg,
@@ -369,10 +368,10 @@ function getStyles() {
     },
     favBtn: {
       position: "absolute",
-      top: 10,
-      left: 10,
-      width: 36,
-      height: 36,
+      top: 8,
+      left: 8,
+      width: 32,
+      height: 32,
       borderRadius: R.md,
       backgroundColor: C.surface,
       alignItems: "center",
@@ -383,35 +382,36 @@ function getStyles() {
     },
     topRatedBadge: {
       position: "absolute",
-      top: 10,
-      right: 10,
+      top: 8,
+      right: 8,
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: "rgba(18, 18, 18, 0.72)",
-      paddingHorizontal: 9,
-      paddingVertical: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3.5,
       borderRadius: R.pill,
       borderWidth: 1,
       borderColor: "rgba(255, 255, 255, 0.2)",
     },
     topRatedText: {
       color: "#FFFFFF",
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: FW.bold,
       letterSpacing: 0.2,
     },
     info: {
-      padding: S.md,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
     },
     titleRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      marginBottom: 2,
+      gap: 5,
+      marginBottom: 1,
     },
     name: {
       fontFamily: FONT_FAMILY.serif,
-      fontSize: 18,
+      fontSize: 15,
       fontWeight: FW.bold,
       color: C.ink,
       flexShrink: 1,
@@ -457,14 +457,22 @@ function getStyles() {
       color: "#B91C1C",
     },
     description: {
-      fontSize: FS.xs + 1,
-      color: C.body,
-      marginBottom: S.sm,
+      fontSize: 11.5,
+      fontFamily: FONT_FAMILY.body,
+      color: C.muted,
+      marginTop: 2,
+      marginBottom: 2,
     },
     footerRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
+      marginTop: 2,
+    },
+    locationBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
     },
     ratingBox: {
       flexDirection: "row",
@@ -478,7 +486,14 @@ function getStyles() {
     },
     branchCount: {
       fontSize: 11,
+      fontFamily: FONT_FAMILY.bodyMedium,
       color: C.muted,
+    },
+    priceFooterText: {
+      fontSize: 11.5,
+      fontFamily: FONT_FAMILY.bodyMedium,
+      fontWeight: FW.medium,
+      color: C.main || "#C48B36",
     },
     bookBtn: {
       backgroundColor: C.blue,

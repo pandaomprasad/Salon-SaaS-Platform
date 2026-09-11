@@ -747,7 +747,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         </View>
 
         {/* Address & Interactive Map Component */}
-        <View style={styles.sectionBlock}>
+        {/* <View style={styles.sectionBlock}>
           <Text style={styles.addressHeaderTitle}>Address</Text>
           <Text style={styles.addressBodyText}>
             {selectedBranch?.address?.street ||
@@ -769,7 +769,6 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             />
             <View style={styles.addressMapOverlay} />
 
-            {/* Center Salon Pin Marker */}
             <View style={styles.addressMapPinCenter}>
               <View style={styles.addressPinBadge}>
                 <Ionicons name="location-sharp" size={20} color="#FFFFFF" />
@@ -781,7 +780,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               <Text style={styles.tapToNavigateText}>Tap for Directions</Text>
             </View>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionLabel}>Amenities</Text>
@@ -958,9 +957,9 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         isSelected={
           activeComboService
             ? selectedServices.some(
-                (s) =>
-                  (s._id || s.id) === (activeComboService._id || activeComboService.id)
-              )
+              (s) =>
+                (s._id || s.id) === (activeComboService._id || activeComboService.id)
+            )
             : false
         }
         onClose={() => setActiveComboService(null)}

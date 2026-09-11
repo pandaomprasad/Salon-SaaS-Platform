@@ -224,6 +224,55 @@ const bookAppointment = async (req, res, next) => {
       return next(err);
     }
 
+    // Calculate total service duration in minutes
+    let totalServiceDurationMinutes = 0;
+    for (const svc of services) {
+      totalServiceDurationMinutes += (svc.durationMinutes || svc.duration || 30);
+    }
+    if (totalServiceDurationMinutes < 30) totalServiceDurationMinutes = 30;
+
+    // Calculate start time in minutes & target end time
+    const startMins = (() => {
+      const [h, m] = slot.startTime.split(":").map(Number);
+      return h * 60 + m;
+    })();
+    const targetEndMins = startMins + totalServiceDurationMinutes;
+    const computedEndTime = `${String(Math.floor(targetEndMins / 60) % 24).padStart(2, "0")}:${String(targetEndMins % 60).padStart(2, "0")}`;
+
+    // Find all consecutive slots required to cover totalServiceDurationMinutes
+    const consecutiveStaffSlots = await Slot.find({
+      staffId: slot.staffId,
+      date: slot.date,
+    }).sort({ startTime: 1 });
+
+    const requiredSlots = consecutiveStaffSlots.filter((s) => {
+      const [sh, sm] = s.startTime.split(":").map(Number);
+      const sMins = sh * 60 + sm;
+      return sMins >= startMins && sMins < targetEndMins;
+    });
+
+    const requiredSlotIds = requiredSlots.map((s) => s._id);
+    if (requiredSlotIds.length === 0) {
+      requiredSlotIds.push(slot._id);
+    }
+
+    // Verify all required slots are available (or reserved by this user)
+    for (const reqSlot of requiredSlots) {
+      const isAvailable =
+        reqSlot.status === "AVAILABLE" ||
+        (reqSlot.reservedBy && reqSlot.reservedBy.toString() === userId.toString() && ["RESERVED", "BOOKED"].includes(reqSlot.status)) ||
+        (reqSlot.status === "RESERVED" && reqSlot.reservedAt && reqSlot.reservedAt < tenMinsAgo && !reqSlot.appointmentId);
+
+      if (!isAvailable) {
+        return next(
+          new AppError(
+            `The required consecutive time slots for a ${totalServiceDurationMinutes}-minute service are no longer available.`,
+            409,
+          ),
+        );
+      }
+    }
+
     // --------------------------------
     // Step 4 — atomic slot acquisition
     // Uses findOneAndUpdate condition on status: AVAILABLE or expired RESERVED
@@ -258,6 +307,13 @@ const bookAppointment = async (req, res, next) => {
             throw new AppError("Slot was just booked by another customer", 409);
           }
 
+          // Mark all consecutive slots as booked
+          await Slot.updateMany(
+            { _id: { $in: requiredSlotIds } },
+            { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
+            { session },
+          );
+
           const created = await Appointment.create(
             [
               {
@@ -270,7 +326,7 @@ const bookAppointment = async (req, res, next) => {
                 slotId,
                 date: slot.date,
                 startTime: slot.startTime,
-                endTime: slot.endTime,
+                endTime: computedEndTime,
                 pricePaid: totalPricePaid,
                 currency: primaryService.currency || "INR",
                 customerNotes,
@@ -291,8 +347,8 @@ const bookAppointment = async (req, res, next) => {
 
           appointment = created[0];
 
-          await Slot.findByIdAndUpdate(
-            slotId,
+          await Slot.updateMany(
+            { _id: { $in: requiredSlotIds } },
             { appointmentId: appointment._id },
             { session },
           );
@@ -301,7 +357,6 @@ const bookAppointment = async (req, res, next) => {
         if (txError.status === 409 || txError.message?.includes("booked by another customer")) {
           return next(new AppError("Slot was just booked by another customer", 409));
         }
-        // If session transactions fail (e.g. standalone Mongo during dev/test), fallback to atomic findOneAndUpdate
         session = null;
       } finally {
         if (session) session.endSession();
@@ -320,6 +375,11 @@ const bookAppointment = async (req, res, next) => {
         return next(new AppError("Slot was just booked by another customer", 409));
       }
 
+      await Slot.updateMany(
+        { _id: { $in: requiredSlotIds } },
+        { status: "BOOKED", reservedBy: userId, reservedAt: new Date() }
+      );
+
       try {
         appointment = await Appointment.create({
           salonId: slot.salonId,
@@ -331,7 +391,7 @@ const bookAppointment = async (req, res, next) => {
           slotId,
           date: slot.date,
           startTime: slot.startTime,
-          endTime: slot.endTime,
+          endTime: computedEndTime,
           pricePaid: totalPricePaid,
           currency: primaryService.currency || "INR",
           customerNotes,
@@ -347,15 +407,21 @@ const bookAppointment = async (req, res, next) => {
           ],
         });
 
-        await Slot.findByIdAndUpdate(slotId, { appointmentId: appointment._id });
+        await Slot.updateMany(
+          { _id: { $in: requiredSlotIds } },
+          { appointmentId: appointment._id }
+        );
       } catch (createErr) {
-        // Rollback atomic slot reservation on appointment creation failure
-        await Slot.findByIdAndUpdate(slotId, {
-          status: "AVAILABLE",
-          reservedBy: null,
-          reservedAt: null,
-          appointmentId: null,
-        });
+        // Rollback atomic slot reservations on appointment creation failure
+        await Slot.updateMany(
+          { _id: { $in: requiredSlotIds } },
+          {
+            status: "AVAILABLE",
+            reservedBy: null,
+            reservedAt: null,
+            appointmentId: null,
+          }
+        );
         throw createErr;
       }
     }

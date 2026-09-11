@@ -175,7 +175,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-xl relative animate-slide-up">
         {/* Branding */}
         <div className="text-center mb-10">
-          <Link href="/" className="inline-flex items-center justify-center gap-2">
+          <Link href="/login" className="inline-flex items-center justify-center gap-2">
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
               <Sparkles size={16} className="text-white" />
             </div>

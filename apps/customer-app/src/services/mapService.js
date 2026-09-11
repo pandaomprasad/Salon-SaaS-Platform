@@ -8,13 +8,13 @@ import { Platform } from "react-native";
 export function getTileUrl(isDark = false) {
   const olaApiKey = process.env.EXPO_PUBLIC_OLA_MAPS_API_KEY;
 
-  if (olaApiKey && olaApiKey.trim()) {
+  if (olaApiKey && olaApiKey.trim() && !olaApiKey.includes("placeholder")) {
     return `https://api.olakrutrim.com/tiles/v1/styles/${
       isDark ? "ola-dark" : "ola-light"
     }/{z}/{x}/{y}.png?api_key=${olaApiKey.trim()}`;
   }
 
-  // Standard clean OpenStreetMap tile URL (No watermarks)
+  // Standard clean OpenStreetMap tile URL
   return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 }
 
@@ -23,26 +23,34 @@ export function getTileUrl(isDark = false) {
  */
 export function generateMapHtml({
   salons = [],
-  centerLat,
-  centerLng,
+  centerLat = 19.3150,
+  centerLng = 84.7941,
   selectedSalonId,
   isDark = false,
-  userLat,
-  userLng,
+  userLat = 19.3150,
+  userLng = 84.7941,
 }) {
   const tileUrl = getTileUrl(isDark);
   const bgColor = isDark ? "#121216" : "#EAEAEA";
 
-  const markersJson = JSON.stringify(
-    salons.map((s) => ({
+  // Sanitize coordinates to guarantee valid finite numbers for Leaflet
+  const validLat = Number.isFinite(Number(centerLat)) ? Number(centerLat) : 19.3150;
+  const validLng = Number.isFinite(Number(centerLng)) ? Number(centerLng) : 84.7941;
+  const validUserLat = Number.isFinite(Number(userLat)) ? Number(userLat) : validLat;
+  const validUserLng = Number.isFinite(Number(userLng)) ? Number(userLng) : validLng;
+
+  const sanitizedSalons = salons
+    .filter((s) => s && Number.isFinite(Number(s.latitude)) && Number.isFinite(Number(s.longitude)))
+    .map((s) => ({
       id: s.id,
-      name: s.name,
-      lat: s.latitude,
-      lng: s.longitude,
-      image: s.image,
+      name: s.name || "Salon",
+      lat: Number(s.latitude),
+      lng: Number(s.longitude),
+      image: s.image || "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=500&q=80",
       isSelected: s.id === selectedSalonId,
-    }))
-  );
+    }));
+
+  const markersJson = JSON.stringify(sanitizedSalons);
 
   return `
     <!DOCTYPE html>
@@ -117,21 +125,31 @@ export function generateMapHtml({
     <body>
       <div id="map"></div>
       <script>
-        var map = L.map('map', { zoomControl: false }).setView([${centerLat}, ${centerLng}], 14);
-        L.tileLayer('${tileUrl}', { maxZoom: 19 }).addTo(map);
+        var map = L.map('map', { zoomControl: false }).setView([${validLat}, ${validLng}], 14);
+        var tileLayer = L.tileLayer('${tileUrl}', {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c'],
+          errorTileUrl: 'https://tile.openstreetmap.org/14/8395/7093.png'
+        }).addTo(map);
+
+        tileLayer.on('tileerror', function(error) {
+          if (error.tile && error.coords) {
+            error.tile.src = 'https://tile.openstreetmap.org/' + error.coords.z + '/' + error.coords.x + '/' + error.coords.y + '.png';
+          }
+        });
 
         var markersData = ${markersJson};
         var currentCircle = null;
 
         // Render User Location Dot
-        if (${Boolean(userLat && userLng)}) {
+        if (${Boolean(validUserLat && validUserLng)}) {
           var userIcon = L.divIcon({
             className: 'user-pin-container',
             html: '<div class="user-gps-dot"></div>',
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           });
-          L.marker([${userLat || centerLat}, ${userLng || centerLng}], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+          L.marker([${validUserLat}, ${validUserLng}], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
         }
 
         // Render Salon Teardrop Markers

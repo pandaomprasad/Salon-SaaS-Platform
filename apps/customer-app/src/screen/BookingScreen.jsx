@@ -483,6 +483,7 @@ export default function BookingScreen({ salon, branch, service, selectedServices
           <SlotPicker
             slots={slots}
             selectedSlot={selectedSlot}
+            serviceDurationMinutes={totalDurationMinutes}
             onSelectSlot={setSelectedSlot}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}

@@ -174,6 +174,7 @@ const seed = async () => {
       email: 'owner@salon.com',
       phone: '+91-9000000001',
       password: 'Password@123',
+      gender: 'male',
       role: roleMap['owner'],
       isActive: true
     })
@@ -232,6 +233,7 @@ const seed = async () => {
       email: 'manager@salon.com',
       phone: '+91-9000000003',
       password: 'Password@123',
+      gender: 'male',
       role: roleMap['manager'],
       salonId: salon._id,
       branchId: branch._id,
@@ -250,6 +252,7 @@ const seed = async () => {
       email: 'staff@salon.com',
       phone: '+91-9000000004',
       password: 'Password@123',
+      gender: 'male',
       role: roleMap['staff'],
       salonId: salon._id,
       branchId: branch._id,
@@ -265,6 +268,7 @@ const seed = async () => {
       email: 'customer@salon.com',
       phone: '+91-9000000005',
       password: 'Password@123',
+      gender: 'female',
       role: roleMap['customer'],
       isActive: true
     })
@@ -278,6 +282,7 @@ const seed = async () => {
       email: 'admin@salonhq.com',
       phone: '+91-9000000099',
       password: 'Admin@123',
+      gender: 'male',
       role: roleMap['superadmin'],
       isActive: true
     })

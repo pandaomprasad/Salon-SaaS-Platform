@@ -155,6 +155,7 @@ async function seedMasterData() {
       email: "admin@salonhq.com",
       phone: "+91-9999900000",
       password: "Admin@123",
+      gender: "male",
       role: roleMap["superadmin"],
       isActive: true,
     });
@@ -166,6 +167,7 @@ async function seedMasterData() {
       email: "customer@salon.com",
       phone: "+91-9876543001",
       password: "Password@123",
+      gender: "female",
       role: roleMap["customer"],
       isActive: true,
     });
@@ -174,6 +176,7 @@ async function seedMasterData() {
       email: "rahul@gmail.com",
       phone: "+91-9876543002",
       password: "Password@123",
+      gender: "male",
       role: roleMap["customer"],
       isActive: true,
     });
@@ -187,6 +190,7 @@ async function seedMasterData() {
       email: "owner@salon.com",
       phone: "+91-9820011111",
       password: "Password@123",
+      gender: "male",
       role: roleMap["owner"],
       isActive: true,
     });
@@ -208,6 +212,7 @@ async function seedMasterData() {
       email: "manager@salon.com",
       phone: "+91-9820022221",
       password: "Password@123",
+      gender: "male",
       role: roleMap["manager"],
       salonId: salon1._id,
       isActive: true,
@@ -255,6 +260,7 @@ async function seedMasterData() {
       email: "staff@salon.com",
       phone: "+91-9820033331",
       password: "Password@123",
+      gender: "male",
       role: roleMap["staff"],
       salonId: salon1._id,
       branchId: branch1_1._id,
@@ -265,6 +271,7 @@ async function seedMasterData() {
       email: "priya.staff@glamour.com",
       phone: "+91-9820033332",
       password: "Password@123",
+      gender: "female",
       role: roleMap["staff"],
       salonId: salon1._id,
       branchId: branch1_1._id,

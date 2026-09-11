@@ -124,6 +124,7 @@ export default function SchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [selectedStaffForGenerate, setSelectedStaffForGenerate] = useState<string | null>(null);
 
   // Auto-fetch branches if branchId is not yet initialized
   useEffect(() => {
@@ -176,8 +177,9 @@ export default function SchedulePage() {
         ? resData
         : (resData?.slots || data?.slots || []);
       setSlots(list);
-    } catch {
-      setError("Failed to load slots");
+    } catch (err: any) {
+      console.error("Failed to fetch day slots:", err);
+      setError(err.response?.data?.message || err.message || "Failed to load slots");
     } finally {
       setLoading(false);
     }
@@ -205,8 +207,9 @@ export default function SchedulePage() {
           : (resData?.slots || d?.slots || []);
       });
       setWeekSlots(map);
-    } catch {
-      setError("Failed to load weekly slots");
+    } catch (err: any) {
+      console.error("Failed to fetch week slots:", err);
+      setError(err.response?.data?.message || err.message || "Failed to load weekly slots");
     } finally {
       setLoading(false);
     }
@@ -470,7 +473,10 @@ export default function SchedulePage() {
                           size="sm"
                           variant="ghost"
                           icon={<Plus size={13} />}
-                          onClick={() => setShowGenerateModal(true)}
+                          onClick={() => {
+                            setSelectedStaffForGenerate(staffId);
+                            setShowGenerateModal(true);
+                          }}
                         >
                           Generate Slots
                         </Button>
@@ -613,13 +619,19 @@ export default function SchedulePage() {
           <GenerateSlotsModal
             branchId={branchId}
             staffList={staffList}
+            initialStaffId={selectedStaffForGenerate}
+            defaultDate={selectedDate}
             onSuccess={() => {
               setShowGenerateModal(false);
+              setSelectedStaffForGenerate(null);
               invalidateCache("slots_");
               if (viewMode === "day") fetchDaySlots();
               else fetchWeekSlots();
             }}
-            onClose={() => setShowGenerateModal(false)}
+            onClose={() => {
+              setShowGenerateModal(false);
+              setSelectedStaffForGenerate(null);
+            }}
           />
         )}
       </div>
@@ -632,19 +644,23 @@ export default function SchedulePage() {
 function GenerateSlotsModal({
   branchId,
   staffList,
+  initialStaffId,
+  defaultDate,
   onSuccess,
   onClose,
 }: {
   branchId: string;
   staffList: StaffOption[];
+  initialStaffId?: string | null;
+  defaultDate?: string;
   onSuccess: () => void;
   onClose: () => void;
 }) {
-  const today = getToday();
+  const baseDate = defaultDate || getToday();
   const [form, setForm] = useState({
-    staffId: staffList[0]?._id || "",
-    startDate: today,
-    endDate: addDays(today, 6),
+    staffId: initialStaffId || staffList[0]?._id || "",
+    startDate: baseDate,
+    endDate: addDays(baseDate, 6),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

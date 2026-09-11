@@ -34,7 +34,13 @@ function getPersistedBranch(): SelectedBranch | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem("selectedBranch");
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed._id === "string" && /^[0-9a-fA-F]{24}$/.test(parsed._id)) {
+        return parsed;
+      }
+      localStorage.removeItem("selectedBranch");
+    }
   } catch { }
   return null;
 }

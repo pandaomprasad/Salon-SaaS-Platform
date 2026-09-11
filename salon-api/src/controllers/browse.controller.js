@@ -152,9 +152,14 @@ const getInitialLoad = async (req, res, next) => {
       }
     })
 
+    const branchesBySalon = {}
     branches.forEach((b) => {
       const bId = b._id.toString()
       const sId = b.salonId ? (b.salonId._id || b.salonId).toString() : null
+      if (sId) {
+        if (!branchesBySalon[sId]) branchesBySalon[sId] = []
+        branchesBySalon[sId].push(b)
+      }
       const bMin = minPriceByBranch[bId]
       if (sId && bMin) {
         if (!minPriceBySalon[sId] || bMin < minPriceBySalon[sId]) {

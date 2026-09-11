@@ -21,15 +21,18 @@ const createRedisStore = (prefix) => {
   }
 };
 
-const userKeyGenerator = (req) => req.user?.userId || req.headers['x-forwarded-for'] || req.ip;
+const userKeyGenerator = (req) => req.user?.userId || req.ip || req.headers['x-forwarded-for'];
 
-// General API rate limiter (200 requests per 15 mins)
+const isDev = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+
+// General API rate limiter (200 requests per 15 mins in prod, 10000 in dev)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isDev ? 10000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   store: createRedisStore("api"),
   message: {
     success: false,
@@ -37,13 +40,14 @@ const apiLimiter = rateLimit({
   },
 });
 
-// Strict auth rate limiter for login / register / OTP endpoints (10 requests per 15 mins)
+// Strict auth rate limiter for login / register / OTP endpoints (10 requests per 15 mins in prod, 10000 in dev)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isDev ? 10000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   store: createRedisStore("auth"),
   message: {
     success: false,
@@ -51,13 +55,14 @@ const authLimiter = rateLimit({
   },
 });
 
-// Booking rate limiter for appointment creation (30 requests per 15 mins)
+// Booking rate limiter for appointment creation (30 requests per 15 mins in prod, 10000 in dev)
 const bookingLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: isDev ? 10000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   store: createRedisStore("booking"),
   message: {
     success: false,

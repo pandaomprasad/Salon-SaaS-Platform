@@ -397,8 +397,8 @@ export default function MapScreen({ navigate, onScroll }) {
           <WebView
             ref={webViewRef}
             originWhitelist={["*"]}
-            source={{ html: mapHtml }}
-            style={{ flex: 1, backgroundColor: isDark ? "#121216" : "#EAEAEA" }}
+            source={{ html: mapHtml, baseUrl: "https://localhost" }}
+            style={{ flex: 1, width: "100%", height: "100%", backgroundColor: isDark ? "#121216" : "#EAEAEA" }}
             onMessage={(event) => {
               const data = mapService.parseMapMessage(event);
               if (data?.type === "SELECT_SALON" && data?.id) {
@@ -408,6 +408,7 @@ export default function MapScreen({ navigate, onScroll }) {
             javaScriptEnabled={true}
             domStorageEnabled={true}
             scalesPageToFit={false}
+            mixedContentMode="always"
           />
         )}
 

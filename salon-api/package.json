@@ -16,6 +16,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1128.0",
+    "@aws-sdk/s3-request-presigner": "^3.1128.0",
     "@getbrevo/brevo": "^6.0.3",
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.1.0",
@@ -32,6 +34,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.2",
     "morgan": "^1.10.1",
+    "multer": "^2.3.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^9.0.5",
     "opossum": "^10.0.0",

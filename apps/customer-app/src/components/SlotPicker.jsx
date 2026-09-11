@@ -6,7 +6,27 @@ import { toLocalDateStr } from "../services/apiClient";
 
 import AppleTouchable from "./AppleTouchable";
 
-export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSelectSlot, selectedDate, onSelectDate }) {
+function timeToMinutes(timeStr) {
+  if (!timeStr) return 0;
+  const [h, m] = String(timeStr).trim().split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function minutesToTime(totalMins) {
+  const h = Math.floor(totalMins / 60) % 24;
+  const m = totalMins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export default function SlotPicker({
+  slots,
+  selectedSlotId,
+  selectedSlot,
+  serviceDurationMinutes = 30,
+  onSelectSlot,
+  selectedDate,
+  onSelectDate,
+}) {
   const styles = getStyles();
   const currentSlotId = selectedSlotId || selectedSlot?._id || selectedSlot?.id || (typeof selectedSlot === "string" ? selectedSlot : null);
 
@@ -30,8 +50,76 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
         }
       }
     });
-    return Array.from(map.values());
+
+    const list = Array.from(map.values());
+    list.sort((a, b) => timeToMinutes(a.startTime || a.time) - timeToMinutes(b.startTime || b.time));
+    return list;
   }, [slots]);
+
+  // Calculate slot availability & consecutive slot coverage for multi-hour services
+  const slotAvailabilityMap = useMemo(() => {
+    const map = new Map();
+    const duration = serviceDurationMinutes > 0 ? serviceDurationMinutes : 30;
+
+    uniqueSlots.forEach((slot) => {
+      const slotId = slot._id || slot.id;
+      const startMins = timeToMinutes(slot.startTime || slot.time);
+      const targetEndMins = startMins + duration;
+      const targetEndTimeStr = minutesToTime(targetEndMins);
+
+      // Check single slot status first
+      const rawStatus = (slot.status || "").toUpperCase();
+      const singleIsBooked =
+        rawStatus === "BOOKED" ||
+        rawStatus === "BLOCKED" ||
+        rawStatus === "RESERVED" ||
+        rawStatus === "UNAVAILABLE" ||
+        (rawStatus !== "" && rawStatus !== "AVAILABLE") ||
+        slot.isAvailable === false;
+
+      if (singleIsBooked) {
+        map.set(slotId, { isBooked: true, calculatedEndTime: slot.endTime });
+        return;
+      }
+
+      // Find all slots required to cover full service duration
+      const rangeSlots = uniqueSlots.filter((other) => {
+        const otherMins = timeToMinutes(other.startTime || other.time);
+        return otherMins >= startMins && otherMins < targetEndMins;
+      });
+
+      // Are all slots in the duration range available?
+      const allAvailable = rangeSlots.every((other) => {
+        const st = (other.status || "").toUpperCase();
+        return st === "AVAILABLE" || st === "" || other.isAvailable !== false;
+      });
+
+      // Check if slots cover up to targetEndMins
+      let maxEndMins = 0;
+      rangeSlots.forEach((other) => {
+        const endStr = other.endTime;
+        if (endStr) {
+          const endMins = timeToMinutes(endStr);
+          if (endMins > maxEndMins) maxEndMins = endMins;
+        }
+      });
+
+      const coversDuration = rangeSlots.length > 0 && (
+        maxEndMins >= targetEndMins ||
+        (rangeSlots.length * 30 >= duration)
+      );
+
+      const isValid = allAvailable && coversDuration;
+
+      map.set(slotId, {
+        isBooked: !isValid,
+        calculatedEndTime: targetEndTimeStr,
+        consecutiveSlots: rangeSlots,
+      });
+    });
+
+    return map;
+  }, [uniqueSlots, serviceDurationMinutes]);
 
   // Generate next 7 dates
   const dates = Array.from({ length: 7 }, (_, i) => {
@@ -104,30 +192,34 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
       ) : (
         <View style={styles.slotGrid}>
           {uniqueSlots.map((slot) => {
-            const rawStatus = (slot.status || "").toUpperCase();
-            const isBooked =
-              rawStatus === "BOOKED" ||
-              rawStatus === "BLOCKED" ||
-              rawStatus === "RESERVED" ||
-              rawStatus === "UNAVAILABLE" ||
-              (rawStatus !== "" && rawStatus !== "AVAILABLE") ||
-              slot.isAvailable === false;
-
             const slotId = slot._id || slot.id;
+            const availability = slotAvailabilityMap.get(slotId);
+            const isBooked = availability ? availability.isBooked : false;
+            const displayEndTime = availability?.calculatedEndTime || slot.endTime;
+
             const isSelected =
               (currentSlotId && currentSlotId === slotId) ||
               (selectedSlot && selectedSlot.startTime && selectedSlot.startTime === slot.startTime);
 
+            const handlePress = () => {
+              if (isBooked) return;
+              const slotToSelect = {
+                ...slot,
+                endTime: displayEndTime,
+              };
+              onSelectSlot(slotToSelect);
+            };
+
             return (
               <AppleTouchable
-                key={slot._id || slot.id}
+                key={slotId}
                 disabled={isBooked}
                 style={[
                   styles.slotChip,
                   isBooked && styles.slotChipBooked,
                   isSelected && styles.slotChipSelected,
                 ]}
-                onPress={() => !isBooked && onSelectSlot(slot)}
+                onPress={handlePress}
                 scaleTo={isBooked ? 1 : 0.94}
                 hapticType={isBooked ? "none" : "selection"}
               >
@@ -142,18 +234,18 @@ export default function SlotPicker({ slots, selectedSlotId, selectedSlot, onSele
                   >
                     {slot.startTime || slot.time}
                   </Text>
-                  {!isBooked && slot.endTime && (
+                  {!isBooked && displayEndTime && (
                     <Text
                       numberOfLines={1}
                       style={[styles.slotEnd, isSelected && styles.slotEndSelected]}
                     >
-                      {slot.endTime}
+                      {displayEndTime}
                     </Text>
                   )}
                   {isBooked && (
                     <View style={styles.slotBookedRow}>
                       <Ionicons name="lock-closed" size={9} color={C.muted} />
-                      <Text style={styles.slotEndBooked}>Booked</Text>
+                      <Text style={styles.slotEndBooked}>Unavailable</Text>
                     </View>
                   )}
                 </View>
