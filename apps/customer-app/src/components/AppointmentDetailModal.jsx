@@ -149,15 +149,17 @@ export default function AppointmentDetailModal({
     (typeof appointment.branch === "object" ? appointment.branch?.address : null);
   const branchAddress = formatAddress(rawAddress);
 
-  const serviceName =
-    appointment.service?.name ||
-    (typeof appointment.serviceId === "object" ? appointment.serviceId?.name : null) ||
-    "Salon Service";
+  const rawServices = Array.isArray(appointment.services) && appointment.services.length > 0
+    ? appointment.services
+    : (typeof appointment.serviceId === "object" && appointment.serviceId ? [appointment.serviceId] : []);
 
-  const durationMinutes =
-    (typeof appointment.serviceId === "object" ? appointment.serviceId?.durationMinutes : null) ||
-    appointment.service?.duration ||
-    30;
+  const serviceName = rawServices.length > 0
+    ? rawServices.map((s) => (typeof s === "object" ? s.name : s)).join(", ")
+    : appointment.service?.name || "Salon Service";
+
+  const durationMinutes = rawServices.length > 0
+    ? rawServices.reduce((sum, s) => sum + (typeof s === "object" ? (s.durationMinutes || s.duration || 30) : 30), 0)
+    : (typeof appointment.serviceId === "object" ? appointment.serviceId?.durationMinutes : null) || 30;
 
   const price =
     appointment.pricePaid ??

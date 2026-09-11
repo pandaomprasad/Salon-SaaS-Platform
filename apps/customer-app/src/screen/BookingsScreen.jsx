@@ -457,10 +457,13 @@ export default function BookingsScreen({ navigate, onScroll, onBack }) {
               appt.salon?.address ||
               "6391 Elgin St. Celina, Delaware";
 
-            const serviceName =
-              appt.service?.name ||
-              (typeof appt.serviceId === "object" ? appt.serviceId?.name : null) ||
-              "Regular haircut, Classic shaving";
+            const rawSvcs = Array.isArray(appt.services) && appt.services.length > 0
+              ? appt.services
+              : (typeof appt.serviceId === "object" && appt.serviceId ? [appt.serviceId] : []);
+
+            const serviceName = rawSvcs.length > 0
+              ? rawSvcs.map((s) => (typeof s === "object" ? s.name : s)).join(", ")
+              : appt.service?.name || "Salon Service";
 
             const coverImage =
               appt.salon?.coverImage ||

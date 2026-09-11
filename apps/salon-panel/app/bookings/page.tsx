@@ -29,6 +29,9 @@ import {
   Check,
   X,
   Mail,
+  CheckCircle2,
+  XCircle,
+  CalendarCheck,
 } from "lucide-react";
 import type { Appointment, AppointmentStatus, UserRole } from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -69,7 +72,23 @@ function formatDuration(mins: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function getServicesName(a: any): string {
+  const formatSingle = (s: any) => {
+    const sName = getName(s, "Service");
+    const cat = typeof s === "object" && s?.category ? s.category : null;
+    return cat ? `${sName} (${cat.charAt(0).toUpperCase() + cat.slice(1)})` : sName;
+  };
+
+  if (Array.isArray(a.services) && a.services.length > 0) {
+    return a.services.map((s: any) => formatSingle(s)).join(", ");
+  }
+  return formatSingle(a.serviceId);
+}
+
 function getDurationMins(a: any): number {
+  if (Array.isArray(a.services) && a.services.length > 0) {
+    return a.services.reduce((sum: number, s: any) => sum + (s.durationMinutes || s.duration || 30), 0);
+  }
   return a.serviceId?.durationMinutes || a.serviceId?.duration || 30;
 }
 
@@ -535,7 +554,7 @@ export default function BookingsPage() {
 
                         {/* SERVICE */}
                         <td className="py-4 px-4 font-medium text-slate-700 whitespace-nowrap">
-                          {getName(a.serviceId, "Facial")}
+                          {getServicesName(a)}
                         </td>
 
                         {/* STAFF */}
@@ -575,20 +594,28 @@ export default function BookingsPage() {
                         <td className="py-4 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {a.status === "CANCELLED" ? (
-                              <span className="bg-rose-100 text-rose-600 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                                <X size={12} strokeWidth={3} /> Cancelled
+                              <span className="bg-rose-50 text-rose-600 border border-rose-200/80 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                <X size={12} strokeWidth={2.5} /> Cancelled
                               </span>
-                            ) : a.status === "COMPLETED" || (a as any).emailSent ? (
-                              <span className="bg-emerald-100 text-emerald-700 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                                <Mail size={12} strokeWidth={2.5} /> Mail Sent
+                            ) : a.status === "COMPLETED" ? (
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                <CheckCircle2 size={12} strokeWidth={2.5} /> Completed
+                              </span>
+                            ) : a.status === "IN_PROGRESS" ? (
+                              <span className="bg-blue-50 text-blue-700 border border-blue-200/80 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                <Clock size={12} strokeWidth={2.5} /> In Progress
                               </span>
                             ) : a.status === "PENDING" ? (
-                              <span className="bg-amber-100 text-amber-700 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                                Pending
+                              <span className="bg-amber-50 text-amber-700 border border-amber-200/80 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                <Clock size={12} strokeWidth={2.5} /> Pending
+                              </span>
+                            ) : a.status === "NO_SHOW" ? (
+                              <span className="bg-purple-50 text-purple-700 border border-purple-200/80 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                <XCircle size={12} strokeWidth={2.5} /> No Show
                               </span>
                             ) : (
-                              <span className="bg-[#efeefd] text-[#5542f6] font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                                Upcoming
+                              <span className="bg-indigo-50 text-[#5542f6] border border-indigo-200/80 font-extrabold text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                                <CalendarCheck size={12} strokeWidth={2.5} /> Confirmed
                               </span>
                             )}
                           </div>

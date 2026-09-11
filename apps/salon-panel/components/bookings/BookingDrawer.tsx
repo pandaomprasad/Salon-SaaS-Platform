@@ -23,6 +23,15 @@ function getName(field: unknown, fallback = "—"): string {
   return fallback;
 }
 
+const CATEGORY_CAPSULE_COLORS: Record<string, string> = {
+  hair: "bg-purple-100 text-purple-700 border-purple-200/80",
+  skin: "bg-rose-100 text-rose-700 border-rose-200/80",
+  nails: "bg-pink-100 text-pink-700 border-pink-200/80",
+  makeup: "bg-amber-100 text-amber-700 border-amber-200/80",
+  spa: "bg-teal-100 text-teal-700 border-teal-200/80",
+  other: "bg-slate-100 text-slate-700 border-slate-200/80",
+};
+
 function getPhone(field: unknown, fallback = "9692358823"): string {
   if (typeof field === "object" && field !== null && "phone" in field) {
     return (field as { phone?: string }).phone || fallback;
@@ -65,8 +74,14 @@ export default function BookingDrawer({
   const clientName = getName(a2.customerId, "om prasad");
   const clientEmail = getEmail(a2.customerId, "cv33om@gmail.com");
   const clientPhone = getPhone(a2.customerId, "9692358823");
+  const servicesList: any[] =
+    Array.isArray(a2.services) && a2.services.length > 0
+      ? a2.services
+      : a2.serviceId ? [a2.serviceId] : [];
 
-  const serviceName = getName(a2.serviceId, "Facial");
+  const serviceName = servicesList.length > 0
+    ? servicesList.map((s) => getName(s, "Service")).join(", ")
+    : getName(a2.serviceId, "Facial");
   const staffName = getName(a2.staffId, "Rajesh Patro");
   const branchName = getName(a2.branchId, "Ramesh salon");
 
@@ -75,7 +90,9 @@ export default function BookingDrawer({
   const endTime = a2.endTime || "10:00 AM";
   const timeRange = `${startTime} — ${endTime}`;
 
-  const durationMins = a2.serviceId?.durationMinutes || a2.serviceId?.duration || 30;
+  const durationMins = servicesList.length > 0
+    ? servicesList.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0)
+    : a2.serviceId?.durationMinutes || a2.serviceId?.duration || 30;
   const priceStr = formatPriceDisplay(a2.pricePaid || a2.serviceId?.price);
 
   const status = a.status;
@@ -223,8 +240,26 @@ export default function BookingDrawer({
 
             <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3.5 mt-3">
               <div>
-                <p className="text-[11px] font-medium text-slate-400">Service</p>
-                <p className="text-xs font-bold text-slate-900 mt-0.5">{serviceName}</p>
+                <p className="text-[11px] font-medium text-slate-400">Service{servicesList.length > 1 ? "s" : ""}</p>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  {servicesList.map((s: any, idx: number) => {
+                    const sName = getName(s, "Service");
+                    const catRaw = typeof s === "object" && s?.category ? String(s.category).toLowerCase() : "";
+                    const catLabel = catRaw ? catRaw.charAt(0).toUpperCase() + catRaw.slice(1) : null;
+                    const catClass = CATEGORY_CAPSULE_COLORS[catRaw] || CATEGORY_CAPSULE_COLORS.other;
+
+                    return (
+                      <div key={idx} className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-slate-900">{sName}</span>
+                        {catLabel && (
+                          <span className={`border px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold shadow-2xs ${catClass}`}>
+                            {catLabel}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
 
                 <p className="text-[11px] font-medium text-slate-400 mt-3">Staff</p>
                 <p className="text-xs font-bold text-slate-900 mt-0.5">{staffName}</p>
