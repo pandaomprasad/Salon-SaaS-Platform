@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSelector } from "react-redux";
-import { useDispatch } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { selectBranch } from "@/store/slices/authSlice";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Button from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import apiClient from "@/lib/api-client";
 import {
@@ -16,13 +13,15 @@ import {
   RefreshCw,
   AlertCircle,
   Plus,
-  Lock,
-  Unlock,
   Calendar,
+  User,
+  MoreVertical,
+  CalendarDays,
 } from "lucide-react";
-import type { UserRole } from "@/lib/api";
 import { useBranch } from "@/hooks/useBranch";
-import { getCached, setCache, invalidateCache } from "@/lib/cache";
+import { invalidateCache } from "@/lib/cache";
+import { toLocalDateStr } from "@/lib/utils";
+
 // ── Types ──
 
 interface SlotItem {
@@ -34,11 +33,6 @@ interface SlotItem {
   status: "AVAILABLE" | "BOOKED" | "BLOCKED" | "COMPLETED";
   appointmentId: string | null;
   blockReason: string | null;
-}
-
-interface BranchOption {
-  _id: string;
-  name: string;
 }
 
 interface StaffOption {
@@ -61,8 +55,6 @@ function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 }
-
-import { toLocalDateStr } from "@/lib/utils";
 
 function getToday(): string {
   return toLocalDateStr();
@@ -96,11 +88,39 @@ function getStaffId(staffId: SlotItem["staffId"]): string {
   return String(staffId);
 }
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  AVAILABLE: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", label: "Available" },
-  BOOKED: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", label: "Booked" },
-  BLOCKED: { bg: "bg-red-50 border-red-200", text: "text-red-400", label: "Blocked" },
-  COMPLETED: { bg: "bg-gray-50 border-gray-200", text: "text-gray-400", label: "Done" },
+function getInitials(name: string): string {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase();
+}
+
+const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; subtext: string; label: string }> = {
+  AVAILABLE: {
+    bg: "bg-[#f0fdf4]",
+    border: "border-[#dcfce7]",
+    text: "text-[#15803d]",
+    subtext: "text-[#16a34a]",
+    label: "Available",
+  },
+  BOOKED: {
+    bg: "bg-[#eff6ff]",
+    border: "border-[#dbeafe]",
+    text: "text-[#1d4ed8]",
+    subtext: "text-[#2563eb]",
+    label: "Booked",
+  },
+  BLOCKED: {
+    bg: "bg-[#fff1f2]",
+    border: "border-[#ffe4e6]",
+    text: "text-[#be123c]",
+    subtext: "text-[#e11d48]",
+    label: "Blocked",
+  },
+  COMPLETED: {
+    bg: "bg-slate-50",
+    border: "border-slate-200",
+    text: "text-slate-500",
+    subtext: "text-slate-400",
+    label: "Done",
+  },
 };
 
 // ── Page ──
@@ -230,7 +250,6 @@ export default function SchedulePage() {
   function groupByStaff(slotList: SlotItem[]): Record<string, { name: string; slots: SlotItem[] }> {
     const groups: Record<string, { name: string; slots: SlotItem[] }> = {};
 
-    // Pre-fill groups with staff members so staff with 0 slots are still visible
     const relevantStaff =
       staffFilter === "all"
         ? staffList
@@ -247,7 +266,6 @@ export default function SchedulePage() {
       groups[id].slots.push(s);
     });
 
-    // Sort slots by time within each group
     Object.values(groups).forEach((g) =>
       g.slots.sort((a, b) => a.startTime.localeCompare(b.startTime)),
     );
@@ -280,158 +298,199 @@ export default function SchedulePage() {
 
   return (
     <ProtectedRoute page="schedule">
-      <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 animate-fade-in pb-10">
+        
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="font-display text-4xl text-ink">Schedule</h2>
-            <div className="w-8 h-px bg-gold mt-3" />
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Schedule</h1>
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
+              Manage staff availability and time slots for appointments.
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<RefreshCw size={13} />}
+
+          {/* Top Right Action Buttons */}
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <button
               onClick={viewMode === "day" ? fetchDaySlots : fetchWeekSlots}
-              loading={loading}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-50 rounded-2xl transition-all shadow-xs disabled:opacity-50"
             >
-              Refresh
-            </Button>
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              <span>Refresh</span>
+            </button>
+
             {canManage && (
-              <Button size="sm" icon={<Plus size={13} />} onClick={() => setShowGenerateModal(true)}>
-                Generate Slots
-              </Button>
+              <button
+                onClick={() => setShowGenerateModal(true)}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold bg-[#5542f6] hover:bg-[#4332e0] text-white rounded-2xl transition-all shadow-xs"
+              >
+                <Plus size={15} strokeWidth={2.5} />
+                <span>Generate Slots</span>
+              </button>
             )}
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* View toggle */}
-          <div className="flex bg-white border border-smoke rounded-xl overflow-hidden">
-            <button
-              onClick={() => setViewMode("day")}
-              className={`px-4 py-2 text-[11px] font-medium uppercase tracking-wider transition-all ${viewMode === "day" ? "bg-ink text-white" : "text-ash hover:text-ink"
+        {/* Filter & Control Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* View Mode Switcher */}
+            <div className="bg-slate-100/90 p-1 rounded-2xl flex items-center gap-1 border border-slate-200/60 shadow-2xs">
+              <button
+                onClick={() => setViewMode("day")}
+                className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${
+                  viewMode === "day"
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
-            >
-              Day
-            </button>
-            <button
-              onClick={() => setViewMode("week")}
-              className={`px-4 py-2 text-[11px] font-medium uppercase tracking-wider transition-all ${viewMode === "week" ? "bg-ink text-white" : "text-ash hover:text-ink"
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${
+                  viewMode === "week"
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
-            >
-              Week
-            </button>
+              >
+                Week
+              </button>
+            </div>
+
+            {/* Date Navigation Picker */}
+            {viewMode === "day" ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-white transition-colors border border-transparent hover:border-slate-200/60"
+                  title="Previous day"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="bg-white border border-slate-200/90 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none shadow-xs cursor-pointer"
+                  />
+                </div>
+                <button
+                  onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-white transition-colors border border-transparent hover:border-slate-200/60"
+                  title="Next day"
+                >
+                  <ChevronRight size={16} />
+                </button>
+
+                <button
+                  onClick={() => setSelectedDate(getToday())}
+                  className="bg-[#f0f7ff] text-[#5542f6] border border-[#e0f2fe] hover:bg-[#e0f2fe] rounded-xl px-4 py-2 text-xs font-extrabold transition-all shadow-2xs ml-1"
+                >
+                  Today
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setWeekStart(addDays(weekStart, -7))}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-white transition-colors border border-transparent hover:border-slate-200/60"
+                  title="Previous week"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs font-bold px-3 py-2 bg-white border border-slate-200/90 rounded-xl shadow-xs text-slate-800">
+                  {formatDateShort(weekStart)} — {formatDateShort(addDays(weekStart, 6))}
+                </span>
+                <button
+                  onClick={() => setWeekStart(addDays(weekStart, 7))}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-white transition-colors border border-transparent hover:border-slate-200/60"
+                  title="Next week"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                <button
+                  onClick={() => setWeekStart(getMonday(getToday()))}
+                  className="bg-[#f0f7ff] text-[#5542f6] border border-[#e0f2fe] hover:bg-[#e0f2fe] rounded-xl px-4 py-2 text-xs font-extrabold transition-all shadow-2xs ml-1"
+                >
+                  This Week
+                </button>
+              </div>
+            )}
+
+            {/* Staff Filter Dropdown */}
+            {staffList.length > 0 && (
+              <div className="relative w-48">
+                <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <select
+                  value={staffFilter}
+                  onChange={(e) => setStaffFilter(e.target.value)}
+                  className="w-full bg-white border border-slate-200/90 rounded-xl pl-9 pr-8 py-2 text-xs font-bold text-slate-800 appearance-none focus:outline-none shadow-xs cursor-pointer"
+                >
+                  <option value="all">All Staff</option>
+                  {staffList.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
+                  ▼
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Date navigation */}
-          {viewMode === "day" ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-                className="p-1.5 rounded-lg hover:bg-smoke transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-              <button
-                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-                className="p-1.5 rounded-lg hover:bg-smoke transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                onClick={() => setSelectedDate(getToday())}
-                className="text-[11px] font-medium text-gold hover:text-gold/80 ml-1"
-              >
-                Today
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setWeekStart(addDays(weekStart, -7))}
-                className="p-1.5 rounded-lg hover:bg-smoke transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-xs font-medium px-2">
-                {formatDateShort(weekStart)} — {formatDateShort(addDays(weekStart, 6))}
-              </span>
-              <button
-                onClick={() => setWeekStart(addDays(weekStart, 7))}
-                className="p-1.5 rounded-lg hover:bg-smoke transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                onClick={() => setWeekStart(getMonday(getToday()))}
-                className="text-[11px] font-medium text-gold hover:text-gold/80 ml-1"
-              >
-                This Week
-              </button>
-            </div>
-          )}
-
-          {/* Branch selector */}
-          {/* {role === "owner" && branches.length > 1 && (
-            <Select
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              options={branches.map((b) => ({ value: b._id, label: b.name }))}
-            />
-          )} */}
-
-          {/* Staff filter */}
-          {staffList.length > 0 && (
-            <Select
-              value={staffFilter}
-              onChange={(e) => setStaffFilter(e.target.value)}
-              options={[
-                { value: "all", label: "All Staff" },
-                ...staffList.map((s) => ({ value: s._id, label: s.name })),
-              ]}
-            />
-          )}
+          <div className="text-xs font-bold text-slate-400 hidden lg:block">
+            {formatDateDisplay(selectedDate)}
+          </div>
         </div>
 
-        {/* Error */}
+        {/* Status Legend Row */}
+        <div className="flex items-center gap-6 py-2 px-1 mb-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="text-xs font-bold text-slate-700">Available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" />
+            <span className="text-xs font-bold text-slate-700">Booked</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+            <span className="text-xs font-bold text-slate-700">Blocked</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+            <span className="text-xs font-bold text-slate-700">Done</span>
+          </div>
+        </div>
+
+        {/* Error Alert */}
         {error && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 rounded-xl px-4 py-3">
-            <AlertCircle size={14} />
-            <p className="text-sm">{error}</p>
+          <div className="flex items-center gap-2 text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs font-medium">
+            <AlertCircle size={15} />
+            <p className="flex-1">{error}</p>
           </div>
         )}
 
-        {/* Legend */}
-        <div className="flex gap-4">
-          {Object.entries(STATUS_STYLES).map(([key, style]) => (
-            <div key={key} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded border ${style.bg}`} />
-              <span className="text-[10px] text-ash">{style.label}</span>
-            </div>
-          ))}
-        </div>
-
+        {/* Schedule Grid Body */}
         {loading ? (
           <div className="space-y-6">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="bg-white border border-border rounded-xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-border bg-subtle flex items-center gap-3">
-                  <div className="animate-pulse bg-border/50 rounded-lg w-8 h-8" />
+              <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="animate-pulse bg-slate-200/70 rounded-full w-10 h-10" />
                   <div className="space-y-1.5">
-                    <div className="animate-pulse bg-border/50 rounded h-3.5 w-24" />
-                    <div className="animate-pulse bg-border/50 rounded h-3 w-32" />
+                    <div className="animate-pulse bg-slate-200/70 rounded h-4 w-32" />
+                    <div className="animate-pulse bg-slate-200/70 rounded h-3 w-48" />
                   </div>
                 </div>
-                <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5 p-4">
-                  {Array.from({ length: 12 }).map((_, j) => (
-                    <div key={j} className="animate-pulse bg-border/30 rounded-lg h-14" />
+                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3 pt-2">
+                  {Array.from({ length: 16 }).map((_, j) => (
+                    <div key={j} className="animate-pulse bg-slate-200/50 rounded-xl h-14" />
                   ))}
                 </div>
               </div>
@@ -440,116 +499,147 @@ export default function SchedulePage() {
         ) : viewMode === "day" ? (
           /* ── Day View ── */
           Object.keys(grouped).length === 0 ? (
-            <div className="text-center text-ash py-16 text-sm">
-              <Calendar size={24} className="mx-auto mb-2 text-silver" />
-              <p>No slots for {formatDateDisplay(selectedDate)}</p>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-slate-400 shadow-xs">
+              <Calendar size={32} className="mx-auto mb-3 text-slate-300" />
+              <p className="text-sm font-bold text-slate-600">No staff members or slots found for {formatDateDisplay(selectedDate)}</p>
               {canManage && (
-                <p className="text-xs mt-1">Click "Generate Slots" to create time slots.</p>
+                <p className="text-xs text-slate-400 mt-1">Click "Generate Slots" to create time slots.</p>
               )}
             </div>
           ) : (
             <div className="space-y-6">
-              <p className="text-xs text-ash">{formatDateDisplay(selectedDate)}</p>
-              {Object.entries(grouped).map(([staffId, { name, slots: staffSlots }]) => (
-                <div key={staffId} className="bg-white border border-smoke rounded-2xl overflow-hidden">
-                  <div className="px-5 py-3 border-b border-smoke bg-smoke/30 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-ink text-white flex items-center justify-center text-[10px] font-semibold">
-                      {name.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{name}</p>
-                      <p className="text-[10px] text-ash">
-                        {staffSlots.filter((s) => s.status === "AVAILABLE").length} available ·{" "}
-                        {staffSlots.filter((s) => s.status === "BOOKED").length} booked ·{" "}
-                        {staffSlots.filter((s) => s.status === "BLOCKED").length} blocked
-                      </p>
-                    </div>
-                  </div>
-                  {staffSlots.length === 0 ? (
-                    <div className="p-4 text-xs text-ash flex items-center justify-between bg-smoke/10">
-                      <span>No time slots generated for {name} on {formatDateShort(selectedDate)}</span>
-                      {canManage && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          icon={<Plus size={13} />}
-                          onClick={() => {
-                            setSelectedStaffForGenerate(staffId);
-                            setShowGenerateModal(true);
-                          }}
-                        >
-                          Generate Slots
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-1.5 p-4">
-                      {staffSlots.map((slot) => {
-                        const style = STATUS_STYLES[slot.status] || STATUS_STYLES.AVAILABLE;
-                        const isToggleable =
-                          canManage && (slot.status === "AVAILABLE" || slot.status === "BLOCKED");
-                        return (
+              {Object.entries(grouped).map(([staffId, { name, slots: staffSlots }]) => {
+                const availCount = staffSlots.filter((s) => s.status === "AVAILABLE").length;
+                const bookCount = staffSlots.filter((s) => s.status === "BOOKED").length;
+                const blockCount = staffSlots.filter((s) => s.status === "BLOCKED").length;
+
+                return (
+                  <div key={staffId} className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs">
+                    {/* Staff Header */}
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-xs">
+                          {getInitials(name)}
+                        </div>
+                        <div>
+                          <h2 className="text-base font-black text-slate-900 leading-tight">{name}</h2>
+                          <p className="text-xs font-medium text-slate-400 mt-0.5">
+                            {availCount} available · {bookCount} booked · {blockCount} blocked
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {canManage && staffSlots.length === 0 && (
                           <button
-                            key={slot._id}
-                            onClick={() => isToggleable && toggleSlot(slot)}
-                            disabled={togglingId === slot._id || !isToggleable}
-                            className={`
-                              border rounded-lg px-2 py-2 text-center transition-all
-                              ${style.bg} ${style.text}
-                              ${isToggleable ? "cursor-pointer hover:shadow-md hover:scale-105" : "cursor-default"}
-                              ${togglingId === slot._id ? "opacity-50" : ""}
-                            `}
-                            title={
-                              slot.status === "BLOCKED"
-                                ? `Blocked: ${slot.blockReason || "No reason"}`
-                                : slot.status === "BOOKED"
-                                  ? "Booked — cannot modify"
-                                  : `${slot.startTime} - ${slot.endTime}`
-                            }
+                            onClick={() => {
+                              setSelectedStaffForGenerate(staffId);
+                              setShowGenerateModal(true);
+                            }}
+                            className="bg-white text-[#5542f6] border border-[#5542f6]/30 hover:bg-[#5542f6]/5 font-bold text-xs px-3.5 py-1.5 rounded-xl transition-all shadow-2xs flex items-center gap-1"
                           >
-                            <p className="text-[11px] font-semibold">{slot.startTime}</p>
-                            <p className="text-[8px] uppercase tracking-wider mt-0.5 opacity-70">
-                              {style.label}
-                            </p>
+                            <Plus size={13} strokeWidth={2.5} />
+                            <span>Generate Slots</span>
                           </button>
-                        );
-                      })}
+                        )}
+                        <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
+                          <MoreVertical size={18} />
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Slots Grid / Empty Placeholder */}
+                    {staffSlots.length === 0 ? (
+                      <div className="text-center py-10 px-4 bg-slate-50/40 rounded-2xl border border-dashed border-slate-200/80 mt-3">
+                        <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 mx-auto mb-3 shadow-2xs">
+                          <CalendarDays size={20} />
+                        </div>
+                        <p className="text-xs font-bold text-slate-600">
+                          No time slots generated for {name} on {formatDateShort(selectedDate)}.
+                        </p>
+                        {canManage && (
+                          <button
+                            onClick={() => {
+                              setSelectedStaffForGenerate(staffId);
+                              setShowGenerateModal(true);
+                            }}
+                            className="bg-[#5542f6] hover:bg-[#4332e0] text-white font-bold text-xs px-5 py-2.5 rounded-xl mt-4 shadow-xs transition-all inline-flex items-center gap-1.5"
+                          >
+                            <Plus size={14} strokeWidth={2.5} />
+                            <span>Generate Slots</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+                        {staffSlots.map((slot) => {
+                          const style = STATUS_STYLES[slot.status] || STATUS_STYLES.AVAILABLE;
+                          const isToggleable =
+                            canManage && (slot.status === "AVAILABLE" || slot.status === "BLOCKED");
+                          return (
+                            <button
+                              key={slot._id}
+                              onClick={() => isToggleable && toggleSlot(slot)}
+                              disabled={togglingId === slot._id || !isToggleable}
+                              className={`
+                                border rounded-xl p-3 text-center transition-all
+                                ${style.bg} ${style.border}
+                                ${isToggleable ? "cursor-pointer hover:shadow-xs hover:scale-[1.02]" : "cursor-default"}
+                                ${togglingId === slot._id ? "opacity-50" : ""}
+                              `}
+                              title={
+                                slot.status === "BLOCKED"
+                                  ? `Blocked: ${slot.blockReason || "No reason"}`
+                                  : slot.status === "BOOKED"
+                                    ? "Booked — cannot modify"
+                                    : `${slot.startTime} - ${slot.endTime}`
+                              }
+                            >
+                              <p className={`text-xs font-black ${style.text}`}>{slot.startTime}</p>
+                              <p className={`text-[10px] font-semibold tracking-tight mt-0.5 ${style.subtext}`}>
+                                {style.label}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )
         ) : (
           /* ── Week View ── */
-          <div className="bg-white border border-smoke rounded-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-smoke bg-smoke/30">
-                    <th className="text-left text-xs font-medium text-ash px-4 py-3 w-24">Staff</th>
+                  <tr className="border-b border-slate-100 bg-slate-50/70">
+                    <th className="text-left text-xs font-bold text-slate-400 px-5 py-3.5 w-32 uppercase tracking-wider">Staff</th>
                     {getWeekDates(weekStart).map((date) => (
                       <th
                         key={date}
-                        className={`text-center text-xs font-medium px-2 py-3 ${date === getToday() ? "text-gold" : "text-ash"
-                          }`}
+                        className={`text-center text-xs font-bold px-3 py-3.5 uppercase tracking-wider ${
+                          date === getToday() ? "text-[#5542f6]" : "text-slate-500"
+                        }`}
                       >
                         {formatDateShort(date)}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100/80">
                   {staffList
                     .filter((s) => staffFilter === "all" || s._id === staffFilter)
                     .map((staff) => (
-                      <tr key={staff._id} className="border-b border-smoke/50">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-smoke text-ink flex items-center justify-center text-[9px] font-semibold shrink-0">
-                              {staff.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                      <tr key={staff._id} className="hover:bg-slate-50/40 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">
+                              {getInitials(staff.name)}
                             </div>
-                            <span className="text-xs font-medium truncate">{staff.name}</span>
+                            <span className="text-xs font-bold text-slate-900 truncate">{staff.name}</span>
                           </div>
                         </td>
                         {getWeekDates(weekStart).map((date) => {
@@ -564,11 +654,12 @@ export default function SchedulePage() {
                           return (
                             <td
                               key={date}
-                              className={`text-center px-2 py-3 ${date === getToday() ? "bg-gold/5" : ""
-                                }`}
+                              className={`text-center px-3 py-4 ${
+                                date === getToday() ? "bg-[#efeefd]/30" : ""
+                              }`}
                             >
                               {total === 0 ? (
-                                <span className="text-[10px] text-silver">—</span>
+                                <span className="text-xs font-semibold text-slate-300">—</span>
                               ) : (
                                 <div
                                   className="cursor-pointer"
@@ -582,24 +673,24 @@ export default function SchedulePage() {
                                     {available > 0 && (
                                       <div
                                         className="h-1.5 rounded-full bg-emerald-400"
-                                        style={{ width: `${(available / total) * 40}px` }}
+                                        style={{ width: `${(available / total) * 36}px` }}
                                       />
                                     )}
                                     {booked > 0 && (
                                       <div
-                                        className="h-1.5 rounded-full bg-blue-400"
-                                        style={{ width: `${(booked / total) * 40}px` }}
+                                        className="h-1.5 rounded-full bg-blue-500"
+                                        style={{ width: `${(booked / total) * 36}px` }}
                                       />
                                     )}
                                     {blocked > 0 && (
                                       <div
-                                        className="h-1.5 rounded-full bg-red-300"
-                                        style={{ width: `${(blocked / total) * 40}px` }}
+                                        className="h-1.5 rounded-full bg-rose-400"
+                                        style={{ width: `${(blocked / total) * 36}px` }}
                                       />
                                     )}
                                   </div>
-                                  <p className="text-[10px] text-ash">
-                                    {available}<span className="text-silver">/</span>{total}
+                                  <p className="text-[11px] font-bold text-slate-600">
+                                    {available}<span className="text-slate-300">/</span>{total}
                                   </p>
                                 </div>
                               )}
@@ -692,56 +783,81 @@ function GenerateSlotsModal({
 
   return (
     <Modal title="Generate Time Slots" onClose={onClose}>
-      <div className="space-y-4">
-        <Select
-          label="Staff Member"
-          value={form.staffId}
-          onChange={(e) => setForm((p) => ({ ...p, staffId: e.target.value }))}
-          options={staffList.map((s) => ({ value: s._id, label: s.name }))}
-        />
+      <div className="space-y-4 pt-1">
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Staff Member</label>
+          <select
+            value={form.staffId}
+            onChange={(e) => setForm((p) => ({ ...p, staffId: e.target.value }))}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none shadow-xs"
+          >
+            {staffList.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Start Date"
-            type="date"
-            value={form.startDate}
-            onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
-          />
-          <Input
-            label="End Date"
-            type="date"
-            value={form.endDate}
-            onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-          />
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none shadow-xs"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">End Date</label>
+            <input
+              type="date"
+              value={form.endDate}
+              onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none shadow-xs"
+            />
+          </div>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-2 text-rose-600 bg-rose-50 rounded-xl px-3 py-2.5 text-xs font-medium">
             <AlertCircle size={14} />
-            <p className="text-xs">{error}</p>
+            <p>{error}</p>
           </div>
         )}
 
         {result && (
-          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 rounded-xl px-3 py-2.5">
-            <p className="text-xs font-medium">
+          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 rounded-xl px-3 py-2.5 text-xs font-bold">
+            <p>
               {result.inserted} slots created, {result.skipped} skipped (already exist)
             </p>
           </div>
         )}
       </div>
 
-      <div className="flex gap-3 mt-6">
-        <Button variant="secondary" className="flex-1" onClick={onClose}>
+      <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
+        <button
+          onClick={onClose}
+          className="flex-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs"
+        >
           Cancel
-        </Button>
+        </button>
         {result ? (
-          <Button className="flex-1" onClick={onSuccess}>
+          <button
+            onClick={onSuccess}
+            className="flex-1 bg-[#5542f6] hover:bg-[#4332e0] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs"
+          >
             Done
-          </Button>
+          </button>
         ) : (
-          <Button className="flex-1" onClick={handleSubmit} loading={saving}>
-            Generate
-          </Button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex-1 bg-[#5542f6] hover:bg-[#4332e0] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs disabled:opacity-50"
+          >
+            {saving ? "Generating..." : "Generate"}
+          </button>
         )}
       </div>
     </Modal>
