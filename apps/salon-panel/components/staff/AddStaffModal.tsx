@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
-import Button from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import apiClient from "@/lib/api-client";
 
@@ -95,7 +93,6 @@ export default function AddStaffModal({
 
   function set(key: keyof AddStaffForm, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
-    // Clear field-specific errors on change
     setFieldErrors((prev) => prev.filter((e) => e.field !== key));
     setServerError(null);
   }
@@ -105,7 +102,6 @@ export default function AddStaffModal({
   }
 
   async function handleSubmit() {
-    // Client-side validation
     const errors = validateForm(form);
     if (errors.length > 0) {
       setFieldErrors(errors);
@@ -128,8 +124,6 @@ export default function AddStaffModal({
       onSuccess(data.data);
     } catch (err: any) {
       const res = err.response?.data;
-
-      // Map backend validation errors to field errors
       if (res?.errors && Array.isArray(res.errors)) {
         setFieldErrors(res.errors);
       } else {
@@ -140,67 +134,76 @@ export default function AddStaffModal({
     }
   }
 
-  const roleOptions = allowedRoles.map((r) => ({
-    value: r,
-    label: r.charAt(0).toUpperCase() + r.slice(1),
-  }));
-
   return (
     <Modal
       title={branchName ? `Add Staff — ${branchName}` : "Add Staff Member"}
       onClose={onClose}
     >
-      <div className="space-y-4">
+      <div className="space-y-4 pt-1">
         {/* Name */}
-        <Input
-          label="Full Name"
-          placeholder="e.g. Priya Sharma"
-          value={form.name}
-          onChange={(e) => set("name", e.target.value)}
-          error={getError("name")}
-        />
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+          <input
+            type="text"
+            placeholder="e.g. Priya Sharma"
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs"
+          />
+          {getError("name") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("name")}</p>}
+        </div>
 
         {/* Email */}
-        <Input
-          label="Email"
-          type="email"
-          placeholder="priya@salon.com"
-          value={form.email}
-          onChange={(e) => set("email", e.target.value)}
-          error={getError("email")}
-        />
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+          <input
+            type="email"
+            placeholder="priya@salon.com"
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs"
+          />
+          {getError("email") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("email")}</p>}
+        </div>
 
         {/* Phone */}
-        <Input
-          label="Phone"
-          placeholder="+91-9000000000"
-          value={form.phone}
-          onChange={(e) => set("phone", e.target.value)}
-          error={getError("phone")}
-        />
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Phone</label>
+          <input
+            type="text"
+            placeholder="+91-9000000000"
+            value={form.phone}
+            onChange={(e) => set("phone", e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs"
+          />
+          {getError("phone") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("phone")}</p>}
+        </div>
 
         {/* Password */}
-        <div className="relative">
-          <Input
-            label="Password"
-            type={showPassword ? "text" : "password"}
-            placeholder="Min 8 chars, uppercase, number, special"
-            value={form.password}
-            onChange={(e) => set("password", e.target.value)}
-            error={getError("password")}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-[34px] text-silver hover:text-ash transition-colors"
-          >
-            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Min 8 chars, uppercase, number, special"
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-xl pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+            >
+              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          {getError("password") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("password")}</p>}
         </div>
 
         {/* Password strength hints */}
         {form.password.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
             {[
               { label: "8+ chars", pass: form.password.length >= 8 },
               { label: "Uppercase", pass: /[A-Z]/.test(form.password) },
@@ -209,10 +212,10 @@ export default function AddStaffModal({
             ].map((rule) => (
               <span
                 key={rule.label}
-                className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                   rule.pass
-                    ? "bg-emerald-50 text-emerald-600"
-                    : "bg-smoke text-ash"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                    : "bg-slate-100 text-slate-400 border border-slate-200/60"
                 }`}
               >
                 {rule.pass ? "✓" : "○"} {rule.label}
@@ -222,31 +225,46 @@ export default function AddStaffModal({
         )}
 
         {/* Role */}
-        <Select
-          label="Role"
-          value={form.role}
-          onChange={(e) => set("role", e.target.value as "staff" | "manager")}
-          options={roleOptions}
-          error={getError("role")}
-        />
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Role</label>
+          <select
+            value={form.role}
+            onChange={(e) => set("role", e.target.value as "staff" | "manager")}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5542f6] shadow-xs cursor-pointer capitalize"
+          >
+            {allowedRoles.map((r) => (
+              <option key={r} value={r}>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </option>
+            ))}
+          </select>
+          {getError("role") && <p className="text-[11px] text-rose-600 font-medium mt-1">{getError("role")}</p>}
+        </div>
 
         {/* Server error */}
         {serverError && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-2 text-rose-600 bg-rose-50 border border-rose-200/80 rounded-xl px-3 py-2.5 text-xs font-medium">
             <AlertCircle size={14} className="shrink-0" />
-            <p className="text-xs">{serverError}</p>
+            <p>{serverError}</p>
           </div>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 mt-6">
-        <Button variant="secondary" className="flex-1" onClick={onClose}>
+      <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
+        <button
+          onClick={onClose}
+          className="flex-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs"
+        >
           Cancel
-        </Button>
-        <Button className="flex-1" onClick={handleSubmit} loading={saving}>
-          Add Staff
-        </Button>
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="flex-1 bg-[#5542f6] hover:bg-[#4332e0] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-xs disabled:opacity-50"
+        >
+          {saving ? "Adding..." : "Add Staff"}
+        </button>
       </div>
     </Modal>
   );
