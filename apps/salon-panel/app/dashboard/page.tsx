@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
 import { SkeletonDashboard } from "@/components/ui/Skeleton";
+import { socketClient } from "@/lib/socket-client";
 
 // ── Types ──
 
@@ -86,6 +87,12 @@ function getMonthStart(): string {
   return getToday().substring(0, 8) + "01";
 }
 
+function getMonthEnd(): string {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return toLocalDateStr(lastDay);
+}
+
 // ── Page ──
 
 export default function DashboardPage() {
@@ -96,28 +103,44 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [todayOverview, setTodayOverview] = useState<OverviewData | null>(null);
   const [monthOverview, setMonthOverview] = useState<OverviewData | null>(null);
+  const [yesterdayRevenue, setYesterdayRevenue] = useState<number>(0);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
       const today = getToday();
       const monthStart = getMonthStart();
+      const monthEnd = getMonthEnd();
 
-      const [todayRes, monthRes] = await Promise.all([
+      const yesterdayObj = new Date();
+      yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+      const yesterday = toLocalDateStr(yesterdayObj);
+
+      const [todayRes, monthRes, yesterdayRes, apptRes] = await Promise.all([
         apiClient.get("/reports/overview", { params: { startDate: today, endDate: today } }).catch(() => null),
-        apiClient.get("/reports/overview", { params: { startDate: monthStart, endDate: today } }).catch(() => null),
+        apiClient.get("/reports/overview", { params: { startDate: monthStart, endDate: monthEnd } }).catch(() => null),
+        apiClient.get("/reports/overview", { params: { startDate: yesterday, endDate: yesterday } }).catch(() => null),
+        apiClient.get("/appointments", { params: { limit: 20 } }).catch(() => null),
       ]);
 
       if (todayRes?.data?.data) setTodayOverview(todayRes.data.data);
       if (monthRes?.data?.data) setMonthOverview(monthRes.data.data);
+      if (yesterdayRes?.data?.data) setYesterdayRevenue(yesterdayRes.data.data.revenue?.total || 0);
 
-      const apptRes = await apiClient.get("/appointments", { params: { limit: 20 } }).catch(() => null);
       if (apptRes?.data) {
         const apptData = apptRes.data.data || apptRes.data;
         const list = Array.isArray(apptData) ? apptData : apptData?.appointments || [];
         setAppointments(list);
       }
+
+      const now = new Date();
+      setLastUpdated(
+        now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) +
+          ", " +
+          now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+      );
     } finally {
       setLoading(false);
     }
@@ -127,25 +150,39 @@ export default function DashboardPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // Derived mock data matching screenshot defaults if DB is empty
-  const defaultAppointments: AppointmentItem[] = [
-    {
-      _id: "demo-1",
-      customerId: { name: "Walk-in", phone: "+91 98765 43210" },
-      staffId: "—",
-      serviceId: { name: "Hair Cut", durationMinutes: 30 },
-      date: getToday(),
-      startTime: "07:00 PM",
-      endTime: "07:30 PM",
-      status: "UPCOMING",
-      pricePaid: 0,
-    },
-  ];
+  // Realtime updates via WebSocket
+  useEffect(() => {
+    const branchId = user?.branchId || null;
+    const salonId = (user as any)?.salonId || null;
+    socketClient.connect({ branchId, salonId });
 
-  const displayAppointments = appointments.length > 0 ? appointments : defaultAppointments;
-  const upcomingList = displayAppointments.slice(0, 5);
+    const handleRealtime = () => {
+      fetchDashboard();
+    };
 
-  const userName = user?.name?.split(" ")[0] || "Ramesh";
+    const unsub1 = socketClient.onAppointmentCreated(handleRealtime);
+    const unsub2 = socketClient.onAppointmentUpdated(handleRealtime);
+    const unsub3 = socketClient.onAppointmentStatusChanged(handleRealtime);
+
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+    };
+  }, [user, fetchDashboard]);
+
+  const upcomingList = appointments.slice(0, 5);
+  const userName = user?.name?.split(" ")[0] || "Owner";
+
+  // Compute revenue change vs yesterday
+  const todayRev = todayOverview?.revenue?.total ?? 0;
+  let vsYesterdayText = "0%";
+  if (yesterdayRevenue === 0) {
+    vsYesterdayText = todayRev > 0 ? "+100%" : "0%";
+  } else {
+    const diffPct = Math.round(((todayRev - yesterdayRevenue) / yesterdayRevenue) * 100);
+    vsYesterdayText = `${diffPct >= 0 ? "+" : ""}${diffPct}%`;
+  }
 
   if (loading) {
     return (
@@ -180,7 +217,7 @@ export default function DashboardPage() {
                 Last updated
               </p>
               <p className="text-xs font-bold text-slate-800">
-                11 Sep 2026, 06:32 PM
+                {lastUpdated || "Just now"}
               </p>
             </div>
           </div>
@@ -196,11 +233,11 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs font-bold text-slate-600 mb-1">Today's Revenue</p>
             <p className="text-3xl font-black text-slate-900 tracking-tight">
-              {formatPrice(todayOverview?.revenue?.total || 0)}
+              {formatPrice(todayOverview?.revenue?.total ?? 0)}
             </p>
             <div className="flex items-center gap-1 mt-2 text-emerald-600 font-bold text-xs">
               <TrendingUp size={13} />
-              <span>+0%</span>
+              <span>{vsYesterdayText}</span>
               <span className="text-slate-400 font-normal ml-0.5">vs. yesterday</span>
             </div>
           </div>
@@ -212,10 +249,10 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs font-bold text-slate-600 mb-1">Today's Bookings</p>
             <p className="text-3xl font-black text-slate-900 tracking-tight">
-              {todayOverview?.appointments?.total || 1}
+              {todayOverview?.appointments?.total ?? 0}
             </p>
             <p className="text-xs font-medium text-slate-500 mt-2">
-              {todayOverview?.appointments?.completed || 0} done · {todayOverview?.appointments?.pending || 1} upcoming
+              {todayOverview?.appointments?.completed ?? 0} done · {(todayOverview?.appointments?.pending ?? 0) + (todayOverview?.appointments?.confirmed ?? 0)} upcoming
             </p>
           </div>
 
@@ -226,10 +263,10 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs font-bold text-slate-600 mb-1">Completed Today</p>
             <p className="text-3xl font-black text-slate-900 tracking-tight">
-              {todayOverview?.appointments?.completed || 0}
+              {todayOverview?.appointments?.completed ?? 0}
             </p>
             <p className="text-xs font-medium text-slate-500 mt-2">
-              Completion rate: {todayOverview?.appointments?.completionRate || "0%"}
+              Completion rate: {todayOverview?.appointments?.completionRate ?? "0%"}
             </p>
           </div>
 
@@ -240,10 +277,10 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs font-bold text-slate-600 mb-1">This Month Revenue</p>
             <p className="text-3xl font-black text-slate-900 tracking-tight">
-              {formatPrice(monthOverview?.revenue?.total || 0)}
+              {formatPrice(monthOverview?.revenue?.total ?? 0)}
             </p>
             <p className="text-xs font-medium text-slate-500 mt-2">
-              {monthOverview?.appointments?.total || 1} bookings
+              {monthOverview?.appointments?.total ?? 0} booking{(monthOverview?.appointments?.total ?? 0) !== 1 ? "s" : ""}
             </p>
           </div>
 
@@ -274,50 +311,62 @@ export default function DashboardPage() {
               </div>
 
               {/* Appointments Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      <th className="pb-3 pr-4 font-bold">TIME</th>
-                      <th className="pb-3 px-4 font-bold">CUSTOMER</th>
-                      <th className="pb-3 px-4 font-bold">SERVICE</th>
-                      <th className="pb-3 px-4 font-bold">STAFF</th>
-                      <th className="pb-3 px-4 font-bold">STATUS</th>
-                      <th className="pb-3 pl-4 text-right font-bold">ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100/80">
-                    {upcomingList.map((item) => (
-                      <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 pr-4 font-bold text-xs text-slate-900 whitespace-nowrap">
-                          {item.startTime}
-                        </td>
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <p className="text-xs font-bold text-slate-900">{getName(item.customerId)}</p>
-                          <p className="text-[11px] font-medium text-slate-400">{getPhone(item.customerId)}</p>
-                        </td>
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <p className="text-xs font-bold text-slate-900">{getName(item.serviceId, "Hair Cut")}</p>
-                          <p className="text-[11px] font-medium text-slate-400">30 min</p>
-                        </td>
-                        <td className="py-4 px-4 text-xs font-medium text-slate-400 whitespace-nowrap">
-                          {getName(item.staffId, "—")}
-                        </td>
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <span className="bg-[#efeefd] text-[#5542f6] px-3 py-1 rounded-lg text-xs font-bold inline-block">
-                            Upcoming
-                          </span>
-                        </td>
-                        <td className="py-4 pl-4 text-right whitespace-nowrap">
-                          <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
-                            <MoreVertical size={16} />
-                          </button>
-                        </td>
+              {upcomingList.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                    <CalendarDays size={22} />
+                  </div>
+                  <p className="text-sm font-extrabold text-slate-800">No upcoming appointments scheduled</p>
+                  <p className="text-xs font-medium text-slate-400 mt-1">
+                    Bookings made by customers will appear here in real time.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <th className="pb-3 pr-4 font-bold">TIME</th>
+                        <th className="pb-3 px-4 font-bold">CUSTOMER</th>
+                        <th className="pb-3 px-4 font-bold">SERVICE</th>
+                        <th className="pb-3 px-4 font-bold">STAFF</th>
+                        <th className="pb-3 px-4 font-bold">STATUS</th>
+                        <th className="pb-3 pl-4 text-right font-bold">ACTIONS</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100/80">
+                      {upcomingList.map((item) => (
+                        <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-4 pr-4 font-bold text-xs text-slate-900 whitespace-nowrap">
+                            {item.startTime}
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            <p className="text-xs font-bold text-slate-900">{getName(item.customerId)}</p>
+                            <p className="text-[11px] font-medium text-slate-400">{getPhone(item.customerId)}</p>
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            <p className="text-xs font-bold text-slate-900">{getName(item.serviceId, "Hair Cut")}</p>
+                            <p className="text-[11px] font-medium text-slate-400">30 min</p>
+                          </td>
+                          <td className="py-4 px-4 text-xs font-medium text-slate-400 whitespace-nowrap">
+                            {getName(item.staffId, "—")}
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            <span className="bg-[#efeefd] text-[#5542f6] px-3 py-1 rounded-lg text-xs font-bold inline-block">
+                              {item.status || "Upcoming"}
+                            </span>
+                          </td>
+                          <td className="py-4 pl-4 text-right whitespace-nowrap">
+                            <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
+                              <MoreVertical size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 
@@ -395,41 +444,45 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      <th className="pb-2.5 pr-2 font-bold">CUSTOMER</th>
-                      <th className="pb-2.5 px-2 font-bold">SERVICE</th>
-                      <th className="pb-2.5 px-2 font-bold">DATE & TIME</th>
-                      <th className="pb-2.5 pl-2 text-right font-bold">STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {upcomingList.slice(0, 3).map((item) => (
-                      <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3 pr-2 whitespace-nowrap">
-                          <p className="text-xs font-bold text-slate-900">{getName(item.customerId)}</p>
-                          <p className="text-[10px] font-medium text-slate-400">{getPhone(item.customerId)}</p>
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap">
-                          <p className="text-xs font-bold text-slate-900">{getName(item.serviceId, "Hair Cut")}</p>
-                          <p className="text-[10px] font-medium text-slate-400">30 min</p>
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap">
-                          <p className="text-xs font-bold text-slate-900">11 Sep 2026</p>
-                          <p className="text-[10px] font-medium text-slate-400">{item.startTime}</p>
-                        </td>
-                        <td className="py-3 pl-2 text-right whitespace-nowrap">
-                          <span className="bg-[#efeefd] text-[#5542f6] px-2.5 py-1 rounded-lg text-[11px] font-bold inline-block">
-                            Upcoming
-                          </span>
-                        </td>
+              {upcomingList.length === 0 ? (
+                <p className="text-xs font-medium text-slate-400 py-4 text-center">No recent bookings found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <th className="pb-2.5 pr-2 font-bold">CUSTOMER</th>
+                        <th className="pb-2.5 px-2 font-bold">SERVICE</th>
+                        <th className="pb-2.5 px-2 font-bold">DATE & TIME</th>
+                        <th className="pb-2.5 pl-2 text-right font-bold">STATUS</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {upcomingList.slice(0, 3).map((item) => (
+                        <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 pr-2 whitespace-nowrap">
+                            <p className="text-xs font-bold text-slate-900">{getName(item.customerId)}</p>
+                            <p className="text-[10px] font-medium text-slate-400">{getPhone(item.customerId)}</p>
+                          </td>
+                          <td className="py-3 px-2 whitespace-nowrap">
+                            <p className="text-xs font-bold text-slate-900">{getName(item.serviceId, "Hair Cut")}</p>
+                            <p className="text-[10px] font-medium text-slate-400">30 min</p>
+                          </td>
+                          <td className="py-3 px-2 whitespace-nowrap">
+                            <p className="text-xs font-bold text-slate-900">{item.date || getToday()}</p>
+                            <p className="text-[10px] font-medium text-slate-400">{item.startTime}</p>
+                          </td>
+                          <td className="py-3 pl-2 text-right whitespace-nowrap">
+                            <span className="bg-[#efeefd] text-[#5542f6] px-2.5 py-1 rounded-lg text-[11px] font-bold inline-block">
+                              {item.status || "Upcoming"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
           </div>
