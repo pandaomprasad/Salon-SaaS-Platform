@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronsLeft,
   ChevronsRight,
+  KeyRound,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
 import { type AppPage, PAGE_ACCESS } from "@/lib/rbac";
@@ -57,6 +58,7 @@ interface SidebarProps {
   salonName: string;
   onNavigate: (page: AppPage) => void;
   onLogout: () => void;
+  onChangePassword?: () => void;
   onClose: () => void;
   onToggleCollapse: () => void;
 }
@@ -73,6 +75,7 @@ export default function Sidebar({
   salonName,
   onNavigate,
   onLogout,
+  onChangePassword,
   onClose,
   onToggleCollapse,
 }: SidebarProps) {
@@ -219,7 +222,7 @@ export default function Sidebar({
 
         {/* Profile Footer */}
         <div className="p-3 border-t border-slate-100 shrink-0 bg-white">
-          <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3 px-2 py-1"}`}>
+          <div className={`flex items-center ${collapsed ? "flex-col gap-2" : "gap-2 px-1 py-1"}`}>
             <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
               {initials || "R"}
             </div>
@@ -229,14 +232,35 @@ export default function Sidebar({
                 <p className="text-[11px] font-medium text-slate-400 capitalize">{role || "Owner"}</p>
               </div>
             )}
-            {!collapsed && (
-              <button
-                onClick={onLogout}
-                title="Sign out"
-                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0 p-1.5 rounded-lg"
-              >
-                <LogOut size={16} strokeWidth={1.75} />
-              </button>
+            {!collapsed ? (
+              <div className="flex items-center gap-1 shrink-0">
+                {onChangePassword && (
+                  <button
+                    onClick={onChangePassword}
+                    title="Change Password"
+                    className="text-slate-400 hover:text-[#5542f6] hover:bg-[#efeefd] transition-colors p-1.5 rounded-lg"
+                  >
+                    <KeyRound size={16} strokeWidth={1.75} />
+                  </button>
+                )}
+                <button
+                  onClick={onLogout}
+                  title="Sign out"
+                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors p-1.5 rounded-lg"
+                >
+                  <LogOut size={16} strokeWidth={1.75} />
+                </button>
+              </div>
+            ) : (
+              onChangePassword && (
+                <button
+                  onClick={onChangePassword}
+                  title="Change Password"
+                  className="text-slate-400 hover:text-[#5542f6] hover:bg-[#efeefd] transition-colors p-1.5 rounded-lg"
+                >
+                  <KeyRound size={16} strokeWidth={1.75} />
+                </button>
+              )
             )}
           </div>
         </div>

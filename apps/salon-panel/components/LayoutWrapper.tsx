@@ -3,6 +3,7 @@
 import Sidebar from "@/components/layout/Sidebar";
 import BranchSelectorModal from "@/components/BranchSelectorModal";
 import NoBranchModal from "@/components/NoBranchModal";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import BranchTopBar from "@/components/BranchTopBar";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
@@ -35,6 +36,7 @@ export default function LayoutWrapper({
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -84,18 +86,58 @@ export default function LayoutWrapper({
   checkSalonStatus();
 }, [user, salon]);
 
+  const [salonDetails, setSalonDetails] = useState<{ name: string } | null>(null);
+
+  useEffect(() => {
+    if (!user || PUBLIC_PATHS.has(pathname)) return;
+
+    const existingName =
+      salon?.name ||
+      (user as any)?.salon?.name ||
+      (user as any)?.salonName ||
+      selectedBranch?.name;
+
+    if (existingName) {
+      setSalonDetails({ name: existingName });
+      return;
+    }
+
+    const sId =
+      salon?._id ||
+      (user as any)?.salonId ||
+      (user as any)?.salon?._id;
+
+    if (sId && typeof sId === "string") {
+      apiClient
+        .get(`/salons/${sId}`)
+        .then((res) => {
+          if (res.data?.data?.name) {
+            setSalonDetails({ name: res.data.data.name });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user, salon, selectedBranch, pathname]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    const sName = salon?.name;
+    const sName =
+      salon?.name ||
+      salonDetails?.name ||
+      (user as any)?.salon?.name ||
+      (user as any)?.salonName ||
+      selectedBranch?.name ||
+      (user ? "Ramesh Salon" : null);
+
     if (sName) {
       document.title = `ST CUT - ${sName}`;
     } else {
       document.title = "ST CUT - Partner Salon Management";
     }
-  }, [salon?.name]);
+  }, [salon?.name, salonDetails?.name, user, selectedBranch?.name]);
 
   useEffect(() => {
     if (mounted && !isLoading && !user && !PUBLIC_PATHS.has(pathname)) {
@@ -135,7 +177,7 @@ export default function LayoutWrapper({
           email={user.email}
           initials={user.initials}
           userId={user.id}
-          salonName={salon?.name || "Salon"}
+          salonName={salon?.name || salonDetails?.name || "Ramesh Salon"}
           isOpen={sidebarOpen}
           collapsed={collapsed}
           onToggleCollapse={handleToggleCollapse}
@@ -149,6 +191,7 @@ export default function LayoutWrapper({
             dispatch(logout());
             router.replace("/login");
           }}
+          onChangePassword={() => setChangePasswordOpen(true)}
           onClose={() => setSidebarOpen(false)}
         />
       )}
@@ -198,6 +241,10 @@ export default function LayoutWrapper({
           </main>
           <BranchSelectorModal />
           <NoBranchModal />
+          <ChangePasswordModal
+            isOpen={changePasswordOpen}
+            onClose={() => setChangePasswordOpen(false)}
+          />
           <BookingNotificationToast />
         </div>
       ) : (

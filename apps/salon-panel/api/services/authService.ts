@@ -90,3 +90,14 @@ export async function getMe(): Promise<ApiResponse<BackendUser>> {
   const { data } = await apiClient.get<ApiResponse<BackendUser>>("/auth/me");
   return data;
 }
+
+export async function changePasswordService(payload: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<ApiResponse<any>> {
+  const { data } = await apiClient.post<ApiResponse<any>>(
+    "/auth/change-password",
+    payload,
+  );
+  return data;
+}
