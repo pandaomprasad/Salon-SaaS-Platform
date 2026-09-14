@@ -18,7 +18,6 @@ import {
   Users,
   TrendingUp,
   CheckCircle2,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -392,7 +391,6 @@ export default function CustomersPage() {
                     <th className="py-3.5 px-5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Total Spent</th>
                     <th className="py-3.5 px-5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Avg Rating</th>
                     <th className="py-3.5 px-5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Last Visit</th>
-                    <th className="py-3.5 px-5 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -461,19 +459,6 @@ export default function CustomersPage() {
                         {/* Last Visit */}
                         <td className="py-4 px-5 text-xs font-medium text-slate-500">
                           {c.lastVisit ? timeAgo(c.lastVisit) : "—"}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-4 px-5 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCustomer(c);
-                            }}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
                         </td>
                       </tr>
                     );

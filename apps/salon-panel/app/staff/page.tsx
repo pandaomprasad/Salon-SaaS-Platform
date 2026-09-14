@@ -14,7 +14,6 @@ import {
   Mail,
   Calendar,
   UserCheck,
-  MoreVertical,
   X,
   ArrowUpDown,
   UserX,
@@ -316,16 +315,6 @@ export default function StaffPage() {
                           </div>
                         </div>
                       </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedStaff(s);
-                        }}
-                        className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
                     </div>
 
                     {/* Divider */}

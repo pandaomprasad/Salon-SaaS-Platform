@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import apiClient from "@/lib/api-client";
 import {
@@ -22,6 +23,7 @@ import {
   BarChart3,
   Calendar,
   CalendarCheck,
+  ArrowRight,
 } from "lucide-react";
 import { toLocalDateStr } from "@/lib/utils";
 
@@ -600,7 +602,13 @@ export default function ReportsPage() {
                   <h3 className="font-extrabold text-base text-slate-900">Top Services</h3>
                   <p className="text-xs font-medium text-slate-400 mt-0.5">Most booked services by revenue</p>
                 </div>
-                <button className="text-xs font-bold text-[#5542f6] hover:underline">View All</button>
+                <Link
+                  href="/reports/services-performance"
+                  className="text-xs font-bold text-[#5542f6] hover:underline inline-flex items-center gap-1"
+                >
+                  <span>View All</span>
+                  <ArrowRight size={13} />
+                </Link>
               </div>
 
               {popularServices.length === 0 ? (
@@ -654,7 +662,13 @@ export default function ReportsPage() {
                 Performance overview for the selected period
               </p>
             </div>
-            <button className="text-xs font-bold text-[#5542f6] hover:underline">View All</button>
+            <Link
+              href="/reports/staff-performance"
+              className="text-xs font-bold text-[#5542f6] hover:underline inline-flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ArrowRight size={13} />
+            </Link>
           </div>
 
           {staffPerf.length === 0 ? (

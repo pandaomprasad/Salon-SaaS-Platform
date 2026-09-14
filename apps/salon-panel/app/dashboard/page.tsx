@@ -15,7 +15,6 @@ import {
   BarChart3,
   TrendingUp,
   ArrowRight,
-  MoreVertical,
   AlertCircle,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
@@ -328,7 +327,6 @@ export default function DashboardPage() {
                         <th className="pb-2 px-3 font-bold">SERVICE</th>
                         <th className="pb-2 px-3 font-bold">STAFF</th>
                         <th className="pb-2 px-3 font-bold">STATUS</th>
-                        <th className="pb-2 pl-3 text-right font-bold">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100/80">
@@ -352,11 +350,6 @@ export default function DashboardPage() {
                             <span className="bg-[#efeefd] text-[#5542f6] px-2.5 py-0.5 rounded-md text-[11px] font-bold inline-block">
                               {item.status || "Upcoming"}
                             </span>
-                          </td>
-                          <td className="py-2.5 pl-3 text-right whitespace-nowrap">
-                            <button className="text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors">
-                              <MoreVertical size={15} />
-                            </button>
                           </td>
                         </tr>
                       ))}

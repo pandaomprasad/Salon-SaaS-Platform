@@ -15,7 +15,6 @@ import {
   Plus,
   Calendar,
   User,
-  MoreVertical,
   CalendarDays,
   Phone,
   Clock,
@@ -621,9 +620,6 @@ export default function SchedulePage() {
                             <span>Generate Slots</span>
                           </button>
                         )}
-                        <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
-                          <MoreVertical size={18} />
-                        </button>
                       </div>
                     </div>
 

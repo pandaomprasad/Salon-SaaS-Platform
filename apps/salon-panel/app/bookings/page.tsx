@@ -24,7 +24,6 @@ import {
   Sparkles,
   Building2,
   Clock,
-  MoreVertical,
   MapPin,
   Check,
   X,
@@ -349,7 +348,7 @@ export default function BookingsPage() {
   return (
     <ProtectedRoute page="bookings">
       <div className="space-y-6 animate-fade-in pb-10">
-        
+
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -370,11 +369,10 @@ export default function BookingsPage() {
             {/* Sound Toggle */}
             <button
               onClick={handleToggleSound}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-2xl border transition-all shadow-xs ${
-                soundOn
+              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-2xl border transition-all shadow-xs ${soundOn
                   ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
                   : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
-              }`}
+                }`}
             >
               {soundOn ? <Volume2 size={15} className="text-emerald-600" /> : <VolumeX size={15} />}
               <span>{soundOn ? "Sound On" : "Sound Muted"}</span>
@@ -402,7 +400,7 @@ export default function BookingsPage() {
 
         {/* Filter Toolbar Card */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs flex flex-wrap items-center gap-3">
-          
+
           {/* Search Input */}
           <div className="relative flex-1 min-w-[260px]">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -507,14 +505,13 @@ export default function BookingsPage() {
                   <th className="py-3.5 px-4">DURATION</th>
                   <th className="py-3.5 px-4">PRICE</th>
                   <th className="py-3.5 px-4">STATUS</th>
-                  <th className="py-3.5 px-4 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/90 text-xs">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      {Array.from({ length: 11 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <td key={j} className="px-4 py-4">
                           <div className="h-3.5 bg-slate-200/70 rounded-md w-full" />
                         </td>
@@ -523,7 +520,7 @@ export default function BookingsPage() {
                   ))
                 ) : displayList.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="text-center text-slate-400 py-12 font-medium">
+                    <td colSpan={10} className="text-center text-slate-400 py-12 font-medium">
                       No bookings found.
                     </td>
                   </tr>
@@ -535,9 +532,8 @@ export default function BookingsPage() {
                       <tr
                         key={a._id || idx}
                         onClick={() => setSelected(a)}
-                        className={`transition-colors cursor-pointer hover:bg-slate-50/60 ${
-                          isNew ? "bg-emerald-50/80 font-medium" : ""
-                        }`}
+                        className={`transition-colors cursor-pointer hover:bg-slate-50/60 ${isNew ? "bg-emerald-50/80 font-medium" : ""
+                          }`}
                       >
                         {/* # Row Index */}
                         <td className="py-4 px-4 font-bold text-slate-400">
@@ -620,13 +616,6 @@ export default function BookingsPage() {
                             )}
                           </div>
                         </td>
-
-                        {/* ACTIONS */}
-                        <td className="py-4 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
-                            <MoreVertical size={16} />
-                          </button>
-                        </td>
                       </tr>
                     );
                   })
@@ -667,11 +656,10 @@ export default function BookingsPage() {
                   <button
                     key={p}
                     onClick={() => goToPage(p)}
-                    className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-extrabold transition-all ${
-                      p === currentPage
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-extrabold transition-all ${p === currentPage
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     {p}
                   </button>
