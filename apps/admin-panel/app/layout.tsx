@@ -6,6 +6,11 @@ import LayoutWrapper from "@/app/LayoutWrapper";
 export const metadata: Metadata = {
   title: "ST CUT — SuperAdmin Control Panel",
   description: "Super admin control panel for ST CUT platform",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

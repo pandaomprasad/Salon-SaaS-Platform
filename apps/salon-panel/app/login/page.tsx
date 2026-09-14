@@ -110,10 +110,11 @@ export default function LoginPage() {
         {/* Top Branding Pill */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-black/80 border border-white/20 text-white flex flex-col items-center justify-center font-bold shadow-lg backdrop-blur-md">
-              <span className="text-[10px] font-black tracking-tighter text-amber-400">ST</span>
-              <span className="text-[8px] font-semibold tracking-wider text-slate-300 -mt-1">CUT</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="ST CUT Logo"
+              className="w-10 h-10 rounded-xl object-contain bg-black p-1 shrink-0 shadow-lg border border-white/20 backdrop-blur-md"
+            />
             <div>
               <p className="text-[10px] font-black tracking-[0.2em] uppercase text-amber-400">
                 ST CUT PARTNER

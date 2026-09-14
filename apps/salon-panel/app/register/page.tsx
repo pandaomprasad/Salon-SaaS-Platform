@@ -175,10 +175,12 @@ export default function RegisterPage() {
       <div className="w-full max-w-xl relative animate-slide-up">
         {/* Branding */}
         <div className="text-center mb-10">
-          <Link href="/login" className="inline-flex items-center justify-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-              <Sparkles size={16} className="text-white" />
-            </div>
+          <Link href="/login" className="inline-flex items-center justify-center gap-2 mb-2">
+            <img
+              src="/logo.png"
+              alt="ST CUT Logo"
+              className="w-10 h-10 rounded-xl object-contain bg-black p-1 shrink-0 shadow-md"
+            />
           </Link>
           <p className="text-[11px] tracking-[0.4em] text-muted uppercase mb-3 animate-fade-in [animation-delay:100ms] opacity-0">
             Salon Owner Registration

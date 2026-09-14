@@ -17,9 +17,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ST CUT — Partner Salon Management Panel",
+  title: "ST CUT - Partner Salon Management",
   description:
     "The all-in-one salon management platform for ST CUT partner studios. Bookings, staff, services and revenue.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

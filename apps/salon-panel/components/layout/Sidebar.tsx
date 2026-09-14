@@ -163,10 +163,11 @@ export default function Sidebar({
         <div className={`px-5 pt-5 pb-6 shrink-0 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
           {!collapsed ? (
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-black text-white flex flex-col items-center justify-center font-bold text-xs shrink-0 shadow-md">
-                <span className="text-[10px] font-black tracking-tighter text-amber-400">ST</span>
-                <span className="text-[8px] font-semibold tracking-wider text-slate-300 -mt-1">CUT</span>
-              </div>
+              <img
+                src="/logo.png"
+                alt="ST CUT Logo"
+                className="w-10 h-10 rounded-xl object-contain bg-black p-1 shrink-0 shadow-md border border-slate-800"
+              />
               <div className="min-w-0">
                 <p className="text-[9px] font-extrabold tracking-[0.18em] text-slate-400 uppercase">
                   ST CUT PARTNER
@@ -177,9 +178,11 @@ export default function Sidebar({
               </div>
             </div>
           ) : (
-            <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-bold text-xs shrink-0">
-              ST
-            </div>
+            <img
+              src="/logo.png"
+              alt="ST CUT Logo"
+              className="w-9 h-9 rounded-xl object-contain bg-black p-1 shrink-0 shadow-md border border-slate-800"
+            />
           )}
           <button
             onClick={onToggleCollapse}

@@ -89,6 +89,15 @@ export default function LayoutWrapper({
   }, []);
 
   useEffect(() => {
+    const sName = salon?.name;
+    if (sName) {
+      document.title = `ST CUT - ${sName}`;
+    } else {
+      document.title = "ST CUT - Partner Salon Management";
+    }
+  }, [salon?.name]);
+
+  useEffect(() => {
     if (mounted && !isLoading && !user && !PUBLIC_PATHS.has(pathname)) {
       router.replace("/login");
     }
