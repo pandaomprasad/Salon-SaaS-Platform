@@ -17,12 +17,29 @@ import {
   User,
   MoreVertical,
   CalendarDays,
+  Phone,
+  Clock,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { useBranch } from "@/hooks/useBranch";
 import { invalidateCache } from "@/lib/cache";
 import { toLocalDateStr } from "@/lib/utils";
+import { socketClient } from "@/lib/socket-client";
 
 // ── Types ──
+
+export interface AppointmentDetails {
+  _id?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  serviceName?: string;
+  serviceDuration?: number;
+  status?: string;
+  startTime?: string;
+  endTime?: string;
+}
 
 interface SlotItem {
   _id: string;
@@ -32,6 +49,7 @@ interface SlotItem {
   endTime: string;
   status: "AVAILABLE" | "BOOKED" | "BLOCKED" | "COMPLETED";
   appointmentId: string | null;
+  appointmentDetails?: AppointmentDetails | null;
   blockReason: string | null;
 }
 
@@ -183,62 +201,114 @@ export default function SchedulePage() {
   }, [branchId]);
 
   // Fetch slots — day view
-  const fetchDaySlots = useCallback(async () => {
-    if (!branchId) return;
+  const fetchDaySlots = useCallback(
+    async (isSilent = false) => {
+      if (!branchId) return;
 
-    setLoading(true);
-    setError(null);
-    try {
-      const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
-        params: { date: selectedDate, status: "all" },
-      });
-      const resData = data?.data || data;
-      const list = Array.isArray(resData)
-        ? resData
-        : (resData?.slots || data?.slots || []);
-      setSlots(list);
-    } catch (err: any) {
-      console.error("Failed to fetch day slots:", err);
-      setError(err.response?.data?.message || err.message || "Failed to load slots");
-    } finally {
-      setLoading(false);
-    }
-  }, [branchId, selectedDate]);
+      if (!isSilent) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const { data } = await apiClient.get(`/branches/${branchId}/slots`, {
+          params: { date: selectedDate, status: "all" },
+        });
+        const resData = data?.data || data;
+        const list = Array.isArray(resData)
+          ? resData
+          : (resData?.slots || data?.slots || []);
+        setSlots(list);
+      } catch (err: any) {
+        console.error("Failed to fetch day slots:", err);
+        if (!isSilent) {
+          setError(err.response?.data?.message || err.message || "Failed to load slots");
+        }
+      } finally {
+        if (!isSilent) {
+          setLoading(false);
+        }
+      }
+    },
+    [branchId, selectedDate],
+  );
 
   // Fetch slots — week view
-  const fetchWeekSlots = useCallback(async () => {
-    if (!branchId) return;
-    setLoading(true);
-    setError(null);
-    setWeekSlots({});
-    try {
-      const dates = getWeekDates(weekStart);
-      const results = await Promise.all(
-        dates.map((date) =>
-          apiClient.get(`/branches/${branchId}/slots`, { params: { date, status: "all" } }),
-        ),
-      );
-      const map: Record<string, SlotItem[]> = {};
-      dates.forEach((date, i) => {
-        const d = results[i]?.data;
-        const resData = d?.data || d;
-        map[date] = Array.isArray(resData)
-          ? resData
-          : (resData?.slots || d?.slots || []);
-      });
-      setWeekSlots(map);
-    } catch (err: any) {
-      console.error("Failed to fetch week slots:", err);
-      setError(err.response?.data?.message || err.message || "Failed to load weekly slots");
-    } finally {
-      setLoading(false);
-    }
-  }, [branchId, weekStart]);
+  const fetchWeekSlots = useCallback(
+    async (isSilent = false) => {
+      if (!branchId) return;
+      if (!isSilent) {
+        setLoading(true);
+        setError(null);
+        setWeekSlots({});
+      }
+      try {
+        const dates = getWeekDates(weekStart);
+        const results = await Promise.all(
+          dates.map((date) =>
+            apiClient.get(`/branches/${branchId}/slots`, { params: { date, status: "all" } }),
+          ),
+        );
+        const map: Record<string, SlotItem[]> = {};
+        dates.forEach((date, i) => {
+          const d = results[i]?.data;
+          const resData = d?.data || d;
+          map[date] = Array.isArray(resData)
+            ? resData
+            : (resData?.slots || d?.slots || []);
+        });
+        setWeekSlots(map);
+      } catch (err: any) {
+        console.error("Failed to fetch week slots:", err);
+        if (!isSilent) {
+          setError(err.response?.data?.message || err.message || "Failed to load weekly slots");
+        }
+      } finally {
+        if (!isSilent) {
+          setLoading(false);
+        }
+      }
+    },
+    [branchId, weekStart],
+  );
 
   useEffect(() => {
     if (viewMode === "day") fetchDaySlots();
     else fetchWeekSlots();
   }, [viewMode, fetchDaySlots, fetchWeekSlots]);
+
+  // Silent auto-refresh every 10 seconds to update slots automatically in real time
+  useEffect(() => {
+    if (!branchId) return;
+
+    const interval = setInterval(() => {
+      if (viewMode === "day") fetchDaySlots(true);
+      else fetchWeekSlots(true);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [branchId, viewMode, fetchDaySlots, fetchWeekSlots]);
+
+  // Real-time WebSocket event listener for live automatic updates
+  useEffect(() => {
+    if (!branchId) return;
+
+    socketClient.connect({ branchId });
+
+    const handleRealtimeUpdate = () => {
+      if (viewMode === "day") fetchDaySlots(true);
+      else fetchWeekSlots(true);
+    };
+
+    const cleanupCreated = socketClient.onAppointmentCreated(handleRealtimeUpdate);
+    const cleanupUpdated = socketClient.onAppointmentUpdated(handleRealtimeUpdate);
+    const cleanupStatus = socketClient.onAppointmentStatusChanged(handleRealtimeUpdate);
+
+    return () => {
+      cleanupCreated();
+      cleanupUpdated();
+      cleanupStatus();
+    };
+  }, [branchId, viewMode, fetchDaySlots, fetchWeekSlots]);
 
   // Filter slots by staff
   function filterSlots(slotList: SlotItem[]): SlotItem[] {
@@ -312,7 +382,7 @@ export default function SchedulePage() {
           {/* Top Right Action Buttons */}
           <div className="flex items-center gap-2.5 self-start sm:self-auto">
             <button
-              onClick={viewMode === "day" ? fetchDaySlots : fetchWeekSlots}
+              onClick={() => (viewMode === "day" ? fetchDaySlots() : fetchWeekSlots())}
               disabled={loading}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-50 rounded-2xl transition-all shadow-xs disabled:opacity-50"
             >
@@ -470,9 +540,18 @@ export default function SchedulePage() {
 
         {/* Error Alert */}
         {error && (
-          <div className="flex items-center gap-2 text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs font-medium">
-            <AlertCircle size={15} />
-            <p className="flex-1">{error}</p>
+          <div className="flex items-center justify-between text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs font-medium mb-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} />
+              <p>{error}</p>
+            </div>
+            <button
+              onClick={() => (viewMode === "day" ? fetchDaySlots() : fetchWeekSlots())}
+              className="bg-rose-100 hover:bg-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+            >
+              <RefreshCw size={12} />
+              <span>Retry</span>
+            </button>
           </div>
         )}
 
@@ -576,30 +655,99 @@ export default function SchedulePage() {
                           const style = STATUS_STYLES[slot.status] || STATUS_STYLES.AVAILABLE;
                           const isToggleable =
                             canManage && (slot.status === "AVAILABLE" || slot.status === "BLOCKED");
+                          const isBookedOrCompleted = slot.status === "BOOKED" || slot.status === "COMPLETED";
+                          const appt = slot.appointmentDetails;
+
                           return (
-                            <button
-                              key={slot._id}
-                              onClick={() => isToggleable && toggleSlot(slot)}
-                              disabled={togglingId === slot._id || !isToggleable}
-                              className={`
-                                border rounded-xl p-3 text-center transition-all
-                                ${style.bg} ${style.border}
-                                ${isToggleable ? "cursor-pointer hover:shadow-xs hover:scale-[1.02]" : "cursor-default"}
-                                ${togglingId === slot._id ? "opacity-50" : ""}
-                              `}
-                              title={
-                                slot.status === "BLOCKED"
-                                  ? `Blocked: ${slot.blockReason || "No reason"}`
-                                  : slot.status === "BOOKED"
-                                    ? "Booked — cannot modify"
-                                    : `${slot.startTime} - ${slot.endTime}`
-                              }
-                            >
-                              <p className={`text-xs font-black ${style.text}`}>{slot.startTime}</p>
-                              <p className={`text-[10px] font-semibold tracking-tight mt-0.5 ${style.subtext}`}>
-                                {style.label}
-                              </p>
-                            </button>
+                            <div key={slot._id} className="relative group">
+                              <button
+                                onClick={() => isToggleable && toggleSlot(slot)}
+                                disabled={togglingId === slot._id || !isToggleable}
+                                className={`
+                                  w-full border rounded-xl p-3 text-center transition-all
+                                  ${style.bg} ${style.border}
+                                  ${isToggleable ? "cursor-pointer hover:shadow-xs hover:scale-[1.02]" : "cursor-default"}
+                                  ${togglingId === slot._id ? "opacity-50" : ""}
+                                `}
+                              >
+                                <p className={`text-xs font-black ${style.text}`}>{slot.startTime}</p>
+                                <p className={`text-[10px] font-semibold tracking-tight mt-0.5 ${style.subtext}`}>
+                                  {style.label}
+                                </p>
+                              </button>
+
+                              {/* Hover Tooltip / Popover Card */}
+                              {isBookedOrCompleted ? (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 z-50 w-56 sm:w-60 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out transform scale-95 group-hover:scale-100 origin-bottom">
+                                  <div className="bg-white p-3.5 rounded-2xl shadow-xl border border-slate-200/90 text-left relative overflow-hidden">
+                                    {/* Accent Header Bar */}
+                                    {(() => {
+                                      const isDone = slot.status === "COMPLETED" || appt?.status?.toUpperCase() === "COMPLETED";
+                                      return (
+                                        <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
+                                          <span
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                              isDone ? "bg-slate-100 text-slate-600" : "bg-[#efeefd] text-[#5542f6]"
+                                            }`}
+                                          >
+                                            <span
+                                              className={`w-1.5 h-1.5 rounded-full ${
+                                                isDone ? "bg-slate-400" : "bg-[#5542f6] animate-pulse"
+                                              }`}
+                                            />
+                                            {appt?.status || (isDone ? "Completed" : "Booked")}
+                                          </span>
+                                          <span className="text-[11px] font-bold text-slate-500">
+                                            {slot.startTime} - {slot.endTime}
+                                          </span>
+                                        </div>
+                                      );
+                                    })()}
+
+                                    {/* Appointment Name & Customer */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-full bg-[#efeefd] text-[#5542f6] border border-[#5542f6]/20 flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+                                          <User size={14} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-xs font-black text-slate-900 truncate capitalize">
+                                            {appt?.customerName || "Customer Appointment"}
+                                          </p>
+                                          <p className="text-[10px] font-bold text-slate-400">Appointment Name</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Service Details Badge */}
+                                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-2 flex items-center justify-between mt-1">
+                                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                                          <Sparkles size={13} className="text-[#5542f6] shrink-0" />
+                                          <span className="text-xs font-bold text-slate-800 truncate">
+                                            {appt?.serviceName || "Service"}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200/60 shrink-0">
+                                          <Clock size={10} />
+                                          <span>{appt?.serviceDuration || 30}m</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {/* Arrow */}
+                                  <div className="w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-white mx-auto -mt-0.5 drop-shadow-xs" />
+                                </div>
+                              ) : slot.status === "BLOCKED" && slot.blockReason ? (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 z-50 w-48 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-200 transform scale-95 group-hover:scale-100 origin-bottom">
+                                  <div className="bg-rose-50 text-rose-800 p-2.5 rounded-xl text-xs font-medium border border-rose-200 shadow-md text-center">
+                                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-0.5">
+                                      Blocked Reason
+                                    </p>
+                                    <p className="text-xs font-bold text-rose-900">{slot.blockReason}</p>
+                                  </div>
+                                  <div className="w-0 h-0 border-x-6 border-x-transparent border-t-6 border-t-rose-50 mx-auto -mt-0.5" />
+                                </div>
+                              ) : null}
+                            </div>
                           );
                         })}
                       </div>

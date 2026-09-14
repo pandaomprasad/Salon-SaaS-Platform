@@ -45,19 +45,31 @@ export async function getUnreadCount(options?: { forceRefresh?: boolean }) {
   return unreadCountRequest;
 }
 
-export function seedUnreadCount(unreadCount: number) {
+export function notifyUnreadCountChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("notifications_unread_updated"));
+  }
+}
+
+export function seedUnreadCount(unreadCount: number, notify = true) {
+  const current = getCached<number>(UNREAD_COUNT_CACHE_KEY, UNREAD_COUNT_TTL);
   setCache(UNREAD_COUNT_CACHE_KEY, unreadCount);
+  if (notify && current !== unreadCount) {
+    notifyUnreadCountChanged();
+  }
 }
 
 export function bumpUnreadCount(delta = 1) {
   const current = getCached<number>(UNREAD_COUNT_CACHE_KEY, UNREAD_COUNT_TTL) ?? 0;
   const next = Math.max(0, current + delta);
   setCache(UNREAD_COUNT_CACHE_KEY, next);
+  notifyUnreadCountChanged();
   return next;
 }
 
 export function clearUnreadCountCache() {
   invalidateCache(UNREAD_COUNT_CACHE_KEY);
+  notifyUnreadCountChanged();
 }
 
 export async function markNotificationRead(notificationId: string) {

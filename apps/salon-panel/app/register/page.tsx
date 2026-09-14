@@ -117,7 +117,7 @@ export default function RegisterPage() {
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
               <Sparkles size={16} className="text-white" />
             </div>
-            <p className="font-display text-2xl text-ink">Luxe Salon</p>
+            <p className="font-display text-2xl text-ink">ST CUT Partner</p>
           </div>
 
           <div className="bg-white rounded-3xl p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.06)] border border-border/50">
@@ -157,7 +157,7 @@ export default function RegisterPage() {
           </div>
 
           <p className="text-center mt-8 text-[11px] text-muted/60 font-medium">
-            © 2026 LUXE SALON PLATFORM. ALL RIGHTS RESERVED.
+            © 2026 ST CUT PARTNER PLATFORM. ALL RIGHTS RESERVED.
           </p>
         </div>
       </div>
@@ -197,7 +197,7 @@ export default function RegisterPage() {
             <div className="space-y-5">
               <Input
                 label="Salon Name"
-                placeholder="Luxe Salon"
+                placeholder="ST CUT Studio"
                 value={salonName}
                 onChange={(e) => {
                   setSalonName(e.target.value);
@@ -326,7 +326,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="text-center mt-10 text-[11px] text-muted/60 font-medium">
-          © 2026 LUXE SALON PLATFORM. ALL RIGHTS RESERVED.
+          © 2026 ST CUT PARTNER PLATFORM. ALL RIGHTS RESERVED.
         </p>
       </div>
     </div>

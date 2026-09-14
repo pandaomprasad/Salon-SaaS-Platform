@@ -194,12 +194,14 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.salon = action.payload.salon || null;
         state.isAuthenticated = true;
       })
       .addCase(hydrateAuth.rejected, (state) => {
         state.isLoading = false;
         state.user = null;
         state.token = null;
+        state.salon = null;
         state.isAuthenticated = false;
       });
 

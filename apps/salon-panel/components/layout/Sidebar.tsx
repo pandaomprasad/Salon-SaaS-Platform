@@ -76,29 +76,38 @@ export default function Sidebar({
   onClose,
   onToggleCollapse,
 }: SidebarProps) {
-  const [unread, setUnread] = useState(1); // default 1 matching reference design
+  const [unread, setUnread] = useState(0);
   const UNREAD_POLL_MS = 120000;
 
   useEffect(() => {
-    if (!userId) return;
-
     let cancelled = false;
     const poll = async () => {
       try {
         const count = await getUnreadCount();
         if (!cancelled) {
-          setUnread(count > 0 ? count : 1);
-          seedUnreadCount(count);
+          setUnread(count);
         }
       } catch {
-        // keep default badge for UI fidelity
+        // silent fallback
       }
     };
     poll();
     const timer = setInterval(poll, UNREAD_POLL_MS);
 
-    socketClient.connect();
-    socketClient.setUserId(userId);
+    const handleUnreadEvent = async () => {
+      try {
+        const count = await getUnreadCount();
+        if (!cancelled) setUnread(count);
+      } catch {}
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("notifications_unread_updated", handleUnreadEvent);
+    }
+
+    if (userId) {
+      socketClient.connect();
+      socketClient.setUserId(userId);
+    }
     const offNotif = socketClient.onNotificationNew(() => {
       setUnread((prev) => {
         bumpUnreadCount(1);
@@ -109,6 +118,9 @@ export default function Sidebar({
     return () => {
       cancelled = true;
       clearInterval(timer);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("notifications_unread_updated", handleUnreadEvent);
+      }
       offNotif();
     };
   }, [userId]);

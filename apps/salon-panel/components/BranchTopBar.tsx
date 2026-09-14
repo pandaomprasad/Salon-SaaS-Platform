@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { useRouter } from "next/navigation";
 import { RootState } from "@/store";
 import { selectBranch } from "@/store/slices/authSlice";
 import apiClient from "@/lib/api-client";
+import { getUnreadCount } from "@/api/services/notificationService";
 import { MapPin, ChevronDown, Check, AlertCircle, Bell } from "lucide-react";
 
 interface BranchOption {
@@ -17,14 +19,48 @@ interface BranchOption {
 }
 
 export default function BranchTopBar() {
+  const router = useRouter();
   const dispatch = useDispatch();
   const { user, salon, selectedBranch } = useSelector((state: RootState) => state.auth);
 
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [unread, setUnread] = useState(0);
 
   const role = user?.role;
+
+  // Unread notifications count sync
+  useEffect(() => {
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const count = await getUnreadCount();
+        if (!cancelled) setUnread(count);
+      } catch {
+        // silent
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+
+    const handleUnreadEvent = () => {
+      fetchUnread();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("notifications_unread_updated", handleUnreadEvent);
+    }
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("notifications_unread_updated", handleUnreadEvent);
+      }
+    };
+  }, []);
 
   // Fetch branches from the API using the salon from Redux
   useEffect(() => {
@@ -33,7 +69,12 @@ export default function BranchTopBar() {
     async function fetchBranches() {
       setLoading(true);
       try {
-        const salonId = salon?._id;
+        const salonId =
+          salon?._id ||
+          (typeof salon === "string" ? salon : null) ||
+          (user as any)?.salonId ||
+          (user as any)?.salon?._id ||
+          (user as any)?.salon;
         if (!salonId) return;
 
         const { data } = await apiClient.get(`/salons/${salonId}/branches`);
@@ -77,6 +118,25 @@ export default function BranchTopBar() {
     fetchBranches();
   }, [role, salon, dispatch]);
 
+  const [currentDateStr, setCurrentDateStr] = useState<string>("");
+
+  useEffect(() => {
+    const updateDate = () => {
+      const now = new Date();
+      const formatted = now.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      setCurrentDateStr(formatted);
+    };
+
+    updateDate();
+    const interval = setInterval(updateDate, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Don't render dropdown UI for staff role, but sync branch status in Redux above
   if (role !== "owner" && role !== "manager") return null;
 
@@ -109,15 +169,21 @@ export default function BranchTopBar() {
         {/* Right Header Controls matching reference design */}
         <div className="flex items-center gap-4">
           <span className="text-xs font-medium text-slate-500 hidden md:inline">
-            Friday, 11 September 2026
+            {currentDateStr}
           </span>
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+          <div
+            onClick={() => router.push("/notifications")}
+            className="relative cursor-pointer"
+            title="Notifications"
+          >
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors">
               <Bell size={16} />
             </div>
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center border border-white">
-              1
-            </span>
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center border border-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
           </div>
           <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shadow-sm">
             {user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase() : "R"}

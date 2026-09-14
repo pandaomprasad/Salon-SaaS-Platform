@@ -145,7 +145,7 @@ export default function LayoutWrapper({
       )}
 
       {!hideSidebar && user ? (
-        <div className={`${collapsed ? "lg:ml-[72px]" : "lg:ml-64"} flex flex-col min-h-screen transition-all duration-300 ease-in-out`}>
+        <div className={`${collapsed ? "lg:ml-[72px]" : "lg:ml-64"} flex flex-col h-screen overflow-hidden transition-all duration-300 ease-in-out`}>
           <BranchTopBar />
           {adminBlock.blocked && (
             <div className="bg-danger/5 border-b border-danger/20 px-6 py-4">
@@ -184,7 +184,7 @@ export default function LayoutWrapper({
               </div>
             </div>
           )}
-          <main className="flex-1 p-5 md:p-7 lg:p-8">
+          <main className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 scrollbar-thin">
             {children}
           </main>
           <BranchSelectorModal />

@@ -86,7 +86,7 @@ export default function NoBranchModal() {
 
           <h3 className="font-semibold text-lg text-ink">No Branch Registered</h3>
           <p className="text-[13px] text-slate mt-2 leading-relaxed max-w-sm">
-            Welcome to Luxe Salon! You haven&apos;t registered any branch for your salon yet. Would you like to register a branch first?
+            Welcome to ST CUT Partner! You haven&apos;t registered any branch for your salon yet. Would you like to register a branch first?
           </p>
 
           <div className="mt-6 flex flex-col sm:flex-row gap-2.5 w-full">

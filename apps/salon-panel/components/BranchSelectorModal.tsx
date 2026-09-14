@@ -33,7 +33,12 @@ export default function BranchSelectorModal() {
     // Only show for owner who hasn't selected a branch yet
     if (role !== "owner" || selectedBranch) return;
 
-    const salonId = salon?._id;
+    const salonId =
+      salon?._id ||
+      (typeof salon === "string" ? salon : null) ||
+      (user as any)?.salonId ||
+      (user as any)?.salon?._id ||
+      (user as any)?.salon;
     if (!salonId) return;
 
     async function fetchBranches() {

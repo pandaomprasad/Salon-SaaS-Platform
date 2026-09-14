@@ -2,6 +2,7 @@ const Slot = require("../models/slot.model");
 const Branch = require("../models/branch.model");
 const User = require("../models/user.model");
 const Appointment = require("../models/appointment.model");
+const Service = require("../models/service.model");
 const Role = require("../models/role.model");
 const AppError = require("../utils/AppError");
 const { generateDaySlots } = require("../utils/slotGenerator");
@@ -138,7 +139,42 @@ const getSlots = async (req, res, next) => {
       return `${parts[0].padStart(2, "0")}:${(parts[1] || "00").padStart(2, "0")}`;
     };
 
+    // Helper to format appointment details cleanly
+    const formatApptDetails = (appt) => {
+      if (!appt) return null;
+      const custObj = typeof appt.customerId === "object" && appt.customerId ? appt.customerId : null;
+      const custName = custObj?.name || appt.customerName || "Customer";
+      const custPhone = custObj?.phone || appt.customerPhone || "";
+      const custEmail = custObj?.email || appt.customerEmail || "";
+
+      const svcObj = typeof appt.serviceId === "object" && appt.serviceId ? appt.serviceId : null;
+      let svcName = svcObj?.name || appt.serviceName || "";
+      let svcDuration = svcObj?.durationMinutes || 30;
+
+      if (!svcName && Array.isArray(appt.services) && appt.services.length > 0) {
+        const names = appt.services.map((s) => (typeof s === "object" ? s.name : "")).filter(Boolean);
+        if (names.length > 0) svcName = names.join(", ");
+        svcDuration = appt.services.reduce((acc, s) => acc + (typeof s === "object" ? (s.durationMinutes || 0) : 0), 0) || svcDuration;
+      }
+
+      if (!svcName) svcName = "Hair & Beauty Service";
+
+      return {
+        _id: String(appt._id),
+        customerName: custName,
+        customerPhone: custPhone,
+        customerEmail: custEmail,
+        serviceName: svcName,
+        serviceDuration: svcDuration,
+        status: appt.status,
+        startTime: appt.startTime,
+        endTime: appt.endTime,
+      };
+    };
+
     // 1. Fetch active appointments for this branch and date
+    // Only active bookings (PENDING, CONFIRMED, IN_PROGRESS) lock time slots.
+    // Completed, Cancelled, and No-Show appointments release the slot so it becomes AVAILABLE again.
     const apptFilter = {
       branchId,
       date,
@@ -152,9 +188,21 @@ const getSlots = async (req, res, next) => {
 
     // Run both queries in parallel
     const [activeAppointments, fetchedSlots] = await Promise.all([
-      Appointment.find(apptFilter).lean(),
+      Appointment.find(apptFilter)
+        .populate("customerId", "name email phone")
+        .populate("serviceId", "name price durationMinutes")
+        .populate("services", "name price durationMinutes")
+        .lean(),
       Slot.find(baseFilter)
         .populate("staffId", "name")
+        .populate({
+          path: "appointmentId",
+          populate: [
+            { path: "customerId", select: "name email phone" },
+            { path: "serviceId", select: "name price durationMinutes" },
+            { path: "services", select: "name price durationMinutes" },
+          ],
+        })
         .sort({ startTime: 1 })
         .lean(),
     ]);
@@ -165,7 +213,7 @@ const getSlots = async (req, res, next) => {
 
     activeAppointments.forEach((appt) => {
       if (appt.slotId) {
-        bookedSlotIdMap.set(String(appt.slotId), appt._id);
+        bookedSlotIdMap.set(String(appt.slotId), appt);
       }
       if (appt.staffId && appt.startTime) {
         const apptStaffId = String(
@@ -175,13 +223,14 @@ const getSlots = async (req, res, next) => {
           staffId: apptStaffId,
           startTime: padTime(appt.startTime),
           endTime: padTime(appt.endTime || appt.startTime),
-          apptId: appt._id,
+          appt,
         });
       }
     });
 
     // 3. Sync slot statuses with active appointments
     const slotsToMarkBookedInDb = [];
+    const slotsToMarkAvailableInDb = [];
 
     let slots = fetchedSlots.map((slot) => {
       const slotStaffId = String(
@@ -200,19 +249,36 @@ const getSlots = async (req, res, next) => {
 
       const isBookedByTime = Boolean(matchingAppt);
 
-      if (isBookedById || isBookedByTime) {
-        const apptId = isBookedById
-          ? bookedSlotIdMap.get(String(slot._id))
-          : matchingAppt?.apptId;
+      const apptObj = isBookedById
+        ? bookedSlotIdMap.get(String(slot._id))
+        : (matchingAppt?.appt || (typeof slot.appointmentId === "object" ? slot.appointmentId : null));
 
-        if (slot.status === "AVAILABLE") {
+      const apptDetails = formatApptDetails(apptObj);
+
+      if (isBookedById || isBookedByTime) {
+        const apptId = apptObj?._id || (typeof slot.appointmentId === "object" ? slot.appointmentId?._id : slot.appointmentId) || null;
+
+        if (slot.status === "AVAILABLE" || slot.status === "COMPLETED") {
           slotsToMarkBookedInDb.push(slot._id);
         }
 
         return {
           ...slot,
           status: "BOOKED",
-          appointmentId: slot.appointmentId || apptId || null,
+          appointmentId: apptId,
+          appointmentDetails: apptDetails,
+        };
+      }
+
+      // If slot was previously marked BOOKED/COMPLETED in DB but there is NO active pending/confirmed/in_progress appointment,
+      // release the slot back to AVAILABLE!
+      if (slot.status === "BOOKED" || slot.status === "COMPLETED") {
+        slotsToMarkAvailableInDb.push(slot._id);
+        return {
+          ...slot,
+          status: "AVAILABLE",
+          appointmentId: null,
+          appointmentDetails: apptDetails,
         };
       }
 
@@ -224,7 +290,14 @@ const getSlots = async (req, res, next) => {
       Slot.updateMany(
         { _id: { $in: slotsToMarkBookedInDb } },
         { status: "BOOKED" }
-      ).catch((err) => console.warn("Failed async slot status sync:", err));
+      ).catch((err) => console.warn("Failed async slot status sync (booked):", err));
+    }
+
+    if (slotsToMarkAvailableInDb.length > 0) {
+      Slot.updateMany(
+        { _id: { $in: slotsToMarkAvailableInDb } },
+        { status: "AVAILABLE", appointmentId: null }
+      ).catch((err) => console.warn("Failed async slot status sync (available):", err));
     }
 
     // 4. Apply status filter if requested

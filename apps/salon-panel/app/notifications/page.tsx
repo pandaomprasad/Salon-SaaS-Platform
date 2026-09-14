@@ -358,6 +358,12 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !isItemRead(n)).length;
 
+  useEffect(() => {
+    if (!loading) {
+      seedUnreadCount(unreadCount);
+    }
+  }, [loading, unreadCount]);
+
   // Group by date
   const grouped: Record<string, NotifItem[]> = {};
   filtered.forEach((n) => {
