@@ -70,8 +70,25 @@ const bookingLimiter = rateLimit({
   },
 });
 
+// Admin rate limiter for administrative endpoints (100 requests per 15 mins in prod, 10000 in dev)
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 10000 : 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
+  store: createRedisStore("admin"),
+  message: {
+    success: false,
+    message: "Too many admin requests from this client. Please try again later.",
+  },
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
   bookingLimiter,
+  adminLimiter,
 };
+

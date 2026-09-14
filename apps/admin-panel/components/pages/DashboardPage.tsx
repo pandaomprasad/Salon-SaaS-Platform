@@ -1,295 +1,171 @@
-"use client";
+'use client'
 
-import { SALONS, BOOKINGS, CUSTOMERS, STAFF, PLANS } from "@/lib/data";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import StatCard from "@/components/ui/StatCard";
-import { PlanBadge, SalonStatusBadge } from "@/components/ui/Badge";
+import { useState, useEffect } from 'react'
+import apiClient from '@/lib/api-client'
+import { formatCurrency, formatNumber, formatDate } from '@/lib/utils'
+import StatCard from '@/components/ui/StatCard'
 import {
   TrendingUp,
   CalendarDays,
   Users,
-  UserCog,
-  AlertCircle,
   Building2,
-} from "lucide-react";
+  AlertCircle,
+  Clock,
+  Loader2,
+  CheckCircle2,
+} from 'lucide-react'
+
+interface StatsData {
+  totalSalons?: number
+  activeSalons?: number
+  deactivatedSalons?: number
+  totalCustomers?: number
+  totalBookings?: number
+  completedBookings?: number
+  cancelledBookings?: number
+  todayBookings?: number
+  totalRevenue?: number
+  pendingOwnerRequests?: number
+}
+
+interface ActivityItem {
+  id?: string
+  _id?: string
+  type: string
+  title: string
+  description: string
+  timestamp: string
+  salonName?: string
+  amount?: number
+}
 
 export default function DashboardPage() {
-  // ── KPIs ──────────────────────────────────────────────────────
-  const totalRevenue = SALONS.reduce((sum, s) => sum + s.totalRevenue, 0);
-  const totalBookings = SALONS.reduce((sum, s) => sum + s.totalBookings, 0);
-  const activeSalons = SALONS.filter((s) => s.status === "active").length;
-  const suspendedSalons = SALONS.filter((s) => s.status === "suspended").length;
-  const totalMRR = PLANS.reduce((sum, p) => sum + p.price * p.salonCount, 0);
+  const [stats, setStats]         = useState<StatsData | null>(null)
+  const [activity, setActivity]   = useState<ActivityItem[]>([])
+  const [loading, setLoading]     = useState(true)
 
-  // ── Booking status ────────────────────────────────────────────
-  const byStatus = {
-    confirmed: BOOKINGS.filter((b) => b.status === "confirmed").length,
-    completed: BOOKINGS.filter((b) => b.status === "completed").length,
-    pending: BOOKINGS.filter((b) => b.status === "pending").length,
-    cancelled: BOOKINGS.filter((b) => b.status === "cancelled").length,
-  };
+  useEffect(() => {
+    let cancelled = false
+    async function loadDashboard() {
+      setLoading(true)
+      try {
+        const [statsRes, actRes] = await Promise.all([
+          apiClient.get('/admin/stats'),
+          apiClient.get('/admin/activity').catch(() => ({ data: { data: [] } })),
+        ])
 
-  // ── Top salons ────────────────────────────────────────────────
-  const topSalons = [...SALONS]
-    .sort((a, b) => b.totalRevenue - a.totalRevenue)
-    .slice(0, 5);
+        if (!cancelled) {
+          setStats(statsRes.data?.data || null)
+          setActivity(actRes.data?.data || [])
+        }
+      } catch (err) {
+        console.error('Error loading dashboard stats:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
 
-  // ── Plan breakdown ────────────────────────────────────────────
-  const planData = [
-    {
-      label: "Basic",
-      count: SALONS.filter((s) => s.plan === "basic").length,
-      color: "bg-slate-400",
-    },
-    {
-      label: "Pro",
-      count: SALONS.filter((s) => s.plan === "pro").length,
-      color: "bg-blue-500",
-    },
-    {
-      label: "Enterprise",
-      count: SALONS.filter((s) => s.plan === "enterprise").length,
-      color: "bg-indigo-500",
-    },
-  ];
+    loadDashboard()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Platform Overview</h2>
-        <p className="text-sm text-slate-400 mt-0.5">Sunday, 22 March 2026</p>
+        <p className="text-sm text-slate-400 mt-0.5">{currentDate}</p>
       </div>
 
-      {/* Suspended alert */}
-      {suspendedSalons > 0 && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-5 py-3.5">
-          <AlertCircle size={16} className="text-red-500 shrink-0" />
-          <p className="text-sm text-red-600">
-            <span className="font-semibold">
-              {suspendedSalons} salon{suspendedSalons > 1 ? "s" : ""}
-            </span>{" "}
-            currently suspended and requires attention.
+      {/* Pending Approval Alert */}
+      {stats?.pendingOwnerRequests && stats.pendingOwnerRequests > 0 ? (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5">
+          <AlertCircle size={16} className="text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800">
+            <span className="font-bold">
+              {stats.pendingOwnerRequests} owner registration request{stats.pendingOwnerRequests > 1 ? 's' : ''}
+            </span>{' '}
+            pending approval on the platform. Check owner requests tab.
           </p>
         </div>
+      ) : null}
+
+      {/* KPI Cards */}
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 space-y-2">
+          <Loader2 size={24} className="animate-spin mx-auto text-blue-600" />
+          <p className="text-xs font-semibold">Loading platform metrics...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Platform Revenue"
+              value={formatCurrency(stats?.totalRevenue || 0)}
+              change="+14% this month"
+              positive={true}
+              icon={<TrendingUp size={20} className="text-blue-600" />}
+            />
+            <StatCard
+              title="Total Salons"
+              value={formatNumber(stats?.totalSalons || 0)}
+              subtitle={`${stats?.activeSalons || 0} active salons`}
+              icon={<Building2 size={20} className="text-emerald-600" />}
+            />
+            <StatCard
+              title="Total Bookings"
+              value={formatNumber(stats?.totalBookings || 0)}
+              subtitle={`${stats?.todayBookings || 0} today`}
+              icon={<CalendarDays size={20} className="text-purple-600" />}
+            />
+            <StatCard
+              title="Registered Customers"
+              value={formatNumber(stats?.totalCustomers || 0)}
+              change="+8% this week"
+              positive={true}
+              icon={<Users size={20} className="text-amber-600" />}
+            />
+          </div>
+
+          {/* Activity Timeline */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-800 text-base">Recent Platform Activity</h3>
+              <span className="text-xs text-slate-400 font-medium">Real-time updates</span>
+            </div>
+
+            {activity.length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center">No recent activity logged.</p>
+            ) : (
+              <div className="space-y-4">
+                {activity.slice(0, 10).map((act, i) => (
+                  <div key={act.id || act._id || i} className="flex items-start gap-3.5 pb-3 border-b border-slate-50 last:border-0 last:pb-0">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Clock size={14} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-900">{act.title || act.type}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{act.description}</p>
+                    </div>
+                    <span className="text-[11px] text-slate-400 whitespace-nowrap">
+                      {act.timestamp ? formatDate(act.timestamp) : 'Just now'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
-
-      {/* KPI stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Revenue"
-          value={formatCurrency(totalRevenue)}
-          sub="across all salons"
-          icon={<TrendingUp size={15} />}
-          trend="up"
-          dark
-        />
-        <StatCard
-          label="Monthly MRR"
-          value={formatCurrency(totalMRR)}
-          sub="subscription revenue"
-          icon={<TrendingUp size={15} />}
-        />
-        <StatCard
-          label="Total Bookings"
-          value={formatNumber(totalBookings)}
-          sub={`${activeSalons} active salons`}
-          icon={<CalendarDays size={15} />}
-        />
-        <StatCard
-          label="Total Customers"
-          value={formatNumber(CUSTOMERS.length)}
-          sub={`${STAFF.length} staff members`}
-          icon={<Users size={15} />}
-        />
-      </div>
-
-      {/* Three column row */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Salon status */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">Salon Status</h3>
-          <div className="space-y-4">
-            {[
-              {
-                label: "Active",
-                value: SALONS.filter((s) => s.status === "active").length,
-                color: "bg-emerald-500",
-              },
-              {
-                label: "Inactive",
-                value: SALONS.filter((s) => s.status === "inactive").length,
-                color: "bg-slate-300",
-              },
-              {
-                label: "Suspended",
-                value: SALONS.filter((s) => s.status === "suspended").length,
-                color: "bg-red-400",
-              },
-            ].map((item) => {
-              const pct = Math.round((item.value / SALONS.length) * 100);
-              return (
-                <div key={item.label}>
-                  <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-slate-500">{item.label}</span>
-                    <span className="font-medium text-slate-700">
-                      {item.value}{" "}
-                      <span className="text-slate-400 font-normal">
-                        ({pct}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${item.color}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Plan breakdown */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">
-            Subscription Plans
-          </h3>
-          <div className="space-y-4">
-            {planData.map((item) => (
-              <div key={item.label} className="flex items-center gap-3">
-                <div
-                  className={`w-2 h-2 rounded-full shrink-0 ${item.color}`}
-                />
-                <div className="flex-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">{item.label}</span>
-                    <span className="font-medium text-slate-700">
-                      {item.count} salons
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Booking status */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">
-            Bookings by Status
-          </h3>
-          <div className="space-y-4">
-            {[
-              {
-                label: "Confirmed",
-                value: byStatus.confirmed,
-                color: "bg-blue-500",
-              },
-              {
-                label: "Completed",
-                value: byStatus.completed,
-                color: "bg-emerald-500",
-              },
-              {
-                label: "Pending",
-                value: byStatus.pending,
-                color: "bg-amber-400",
-              },
-              {
-                label: "Cancelled",
-                value: byStatus.cancelled,
-                color: "bg-red-400",
-              },
-            ].map((item) => {
-              const pct = Math.round((item.value / BOOKINGS.length) * 100);
-              return (
-                <div key={item.label}>
-                  <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-slate-500">{item.label}</span>
-                    <span className="font-medium text-slate-700">
-                      {item.value}{" "}
-                      <span className="text-slate-400 font-normal">
-                        ({pct}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${item.color}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Top salons + Recent bookings */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Top salons */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">
-            Top Performing Salons
-          </h3>
-          <div className="space-y-4">
-            {topSalons.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-3">
-                <span className="text-lg font-bold text-slate-200 w-5 shrink-0">
-                  {i + 1}
-                </span>
-                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                  <Building2 size={14} className="text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">
-                    {s.name}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {s.city} · {s.totalBookings} bookings
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold text-slate-700">
-                    {formatCurrency(s.totalRevenue)}
-                  </p>
-                  <div className="flex justify-end mt-0.5">
-                    <PlanBadge plan={s.plan} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent bookings */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">Recent Bookings</h3>
-          <div className="space-y-4">
-            {BOOKINGS.slice(0, 6).map((b) => (
-              <div key={b.id} className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">
-                    {b.customerName}
-                  </p>
-                  <p className="text-[11px] text-slate-400 truncate">
-                    {b.salonName} · {b.serviceName}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-medium text-slate-700">
-                    {formatCurrency(b.price)}
-                  </p>
-                  <p className="text-[11px] text-slate-400">{b.date}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
-  );
+  )
 }

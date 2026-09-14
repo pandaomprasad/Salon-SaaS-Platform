@@ -2,8 +2,10 @@ const express = require('express')
 const router = express.Router()
 const authenticate = require('../middleware/authenticate')
 const adminController = require('../controllers/admin.controller')
+const { adminLimiter } = require('../middleware/rateLimiter.middleware')
 
-// All admin routes require authentication + superadmin role
+// All admin routes require rate limiting, authentication + superadmin role
+router.use(adminLimiter)
 router.use(authenticate)
 router.use((req, res, next) => {
   if (req.user.role !== 'superadmin') {
@@ -12,8 +14,19 @@ router.use((req, res, next) => {
   next()
 })
 
+// Admin Profile
+router.get('/me', adminController.getAdminMe)
+
 // Dashboard / overview
 router.get('/stats', adminController.getPlatformStats)
+
+// Superadmin User Management
+router.get('/admins', adminController.getAdmins)
+router.post('/admins', adminController.createAdmin)
+router.delete('/admins/:id', adminController.deleteAdmin)
+
+// Bookings
+router.get('/bookings', adminController.getAllBookings)
 
 // Salon management
 router.get('/salons', adminController.getAllSalons)

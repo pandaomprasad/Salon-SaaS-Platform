@@ -6,13 +6,14 @@ import { X } from 'lucide-react'
 interface ModalProps {
   title: string
   subtitle?: string
+  isOpen?: boolean
   onClose: () => void
   children: React.ReactNode
   width?: string
 }
 
 export default function Modal({
-  title, subtitle, onClose, children, width = 'max-w-lg',
+  title, subtitle, isOpen = true, onClose, children, width = 'max-w-lg',
 }: ModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -21,6 +22,8 @@ export default function Modal({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  if (!isOpen) return null
 
   return (
     <div

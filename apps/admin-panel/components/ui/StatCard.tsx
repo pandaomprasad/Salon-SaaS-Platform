@@ -1,15 +1,21 @@
 interface StatCardProps {
-  label: string
+  label?: string
+  title?: string
   value: string | number
   sub?: string
+  subtitle?: string
+  change?: string
+  positive?: boolean
   icon?: React.ReactNode
   trend?: 'up' | 'down'
   dark?: boolean
 }
 
 export default function StatCard({
-  label, value, sub, icon, trend, dark = false,
+  label, title, value, sub, subtitle, change, positive, icon, trend, dark = false,
 }: StatCardProps) {
+  const displayLabel = label || title || ''
+  const displaySub = sub || subtitle || change || ''
   return (
     <div className={`
       rounded-2xl p-5
@@ -20,7 +26,7 @@ export default function StatCard({
     `}>
       <div className="flex items-start justify-between mb-4">
         <p className={`text-[10px] font-semibold tracking-[0.15em] uppercase ${dark ? 'text-blue-200' : 'text-slate-400'}`}>
-          {label}
+          {displayLabel}
         </p>
         {icon && (
           <span className={dark ? 'text-blue-200' : 'text-slate-400'}>
@@ -31,11 +37,11 @@ export default function StatCard({
       <p className={`text-3xl font-semibold mb-1.5 tracking-tight ${dark ? 'text-white' : 'text-slate-800'}`}>
         {value}
       </p>
-      {sub && (
+      {displaySub && (
         <p className={`text-[11px] ${dark ? 'text-blue-200' : 'text-slate-400'}`}>
           {trend === 'up'   && <span className="text-emerald-400 mr-1">↑</span>}
           {trend === 'down' && <span className="text-red-400 mr-1">↓</span>}
-          {sub}
+          {displaySub}
         </p>
       )}
     </div>

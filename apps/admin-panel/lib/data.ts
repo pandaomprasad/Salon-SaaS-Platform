@@ -5,11 +5,7 @@ import {
 
 // ─── Admin Users ──────────────────────────────────────────────
 
-export const ADMIN_USERS: AdminUser[] = [
-  { id: 'a1', name: 'Rohan Mehta', email: 'rohan@salonhq.com', password: 'admin123', initials: 'RM' },
-  { id: 'a2', name: 'Sara Iyer',   email: 'sara@salonhq.com',  password: 'sara456',  initials: 'SI' },
-  { id: 'a3', name: 'Dev Kapoor',  email: 'dev@salonhq.com',   password: 'dev789',   initials: 'DK' },
-]
+export const ADMIN_USERS: AdminUser[] = []
 
 // ─── Plans ────────────────────────────────────────────────────
 

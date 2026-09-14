@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ADMIN_USERS } from '@/lib/data'
+import apiClient, { tokenStorage } from '@/lib/api-client'
 import { AdminUser } from '@/lib/types'
 import { Input } from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -17,20 +17,50 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
-  function handleLogin() {
+  async function handleLogin() {
     setError('')
+    if (!email.trim() || !password) {
+      setError('Please enter your email and password.')
+      return
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      const user = ADMIN_USERS.find(
-        u => u.email === email.trim().toLowerCase() && u.password === password
-      )
-      if (user) {
-        onLogin(user)
-      } else {
-        setError('Invalid email or password.')
-        setLoading(false)
+    try {
+      const { data } = await apiClient.post('/auth/login', {
+        email: email.trim().toLowerCase(),
+        password,
+      })
+
+      const u = data.data?.user
+      const accessToken = data.data?.accessToken
+      const refreshToken = data.data?.refreshToken
+
+      if (!u || !accessToken) {
+        throw new Error('Invalid response from server.')
       }
-    }, 600)
+
+      if (u.role !== 'superadmin') {
+        setError('Access denied. Superadmin account required.')
+        setLoading(false)
+        return
+      }
+
+      tokenStorage.setTokens(accessToken, refreshToken || '')
+
+      const adminUser: AdminUser = {
+        id: u.id || u._id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        initials: u.name ? u.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'AD',
+      }
+
+      onLogin(adminUser)
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Invalid email or password.'
+      setError(msg)
+      setLoading(false)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -80,32 +110,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </div>
         </div>
 
-        {/* Demo credentials */}
-        <div>
-          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-3">
-            Demo Credentials
-          </p>
-          <div className="space-y-2">
-            {ADMIN_USERS.map(u => (
-              <div
-                key={u.id}
-                onClick={() => {
-                  setEmail(u.email)
-                  setPassword(u.password)
-                  setError('')
-                }}
-                className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-xl px-4 py-3 cursor-pointer transition-colors group"
-              >
-                <div>
-                  <p className="text-sm font-medium text-white">{u.name}</p>
-                  <p className="text-[11px] text-slate-500">{u.email} · {u.password}</p>
-                </div>
-                <span className="text-[10px] text-slate-600 group-hover:text-slate-400 transition-colors">
-                  Click to fill →
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* Footer info */}
+        <div className="text-xs text-slate-500">
+          Protected Administrative Portal · ST CUT Platform
         </div>
 
       </div>
@@ -164,27 +171,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               Sign In to Admin Panel
             </Button>
           </div>
-
-          {/* Mobile demo credentials */}
-          <div className="lg:hidden mt-6 border border-slate-200 rounded-xl p-4 space-y-2">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Demo Credentials
-            </p>
-            {ADMIN_USERS.map(u => (
-              <div
-                key={u.id}
-                onClick={() => {
-                  setEmail(u.email)
-                  setPassword(u.password)
-                  setError('')
-                }}
-                className="text-xs text-slate-500 cursor-pointer hover:text-slate-800 transition-colors py-1"
-              >
-                <span className="font-medium">{u.name}:</span> {u.email} / {u.password}
-              </div>
-            ))}
-          </div>
-
         </div>
       </div>
 

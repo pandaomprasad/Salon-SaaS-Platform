@@ -728,6 +728,173 @@ const rejectOwnerRequest = async (req, res, next) => {
   }
 }
 
+// ================================
+// GET /api/v1/admin/me
+// ================================
+const getAdminMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId).populate('role', 'name').lean()
+    if (!user) return next(new AppError('Admin user not found', 404))
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role?.name || 'superadmin',
+        initials: user.name ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase() : 'AD',
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/admin/admins
+// ================================
+const getAdmins = async (req, res, next) => {
+  try {
+    const superadminRole = await Role.findOne({ name: 'superadmin' })
+    if (!superadminRole) return res.status(200).json({ success: true, data: [] })
+
+    const admins = await User.find({ role: superadminRole._id })
+      .select('-password -refreshToken')
+      .sort({ createdAt: -1 })
+      .lean()
+
+    res.status(200).json({
+      success: true,
+      data: admins.map((a) => ({
+        id: a._id,
+        _id: a._id,
+        name: a.name,
+        email: a.email,
+        phone: a.phone || '',
+        role: 'superadmin',
+        initials: a.name ? a.name.split(' ').map((n) => n[0]).join('').toUpperCase() : 'AD',
+        createdAt: a.createdAt,
+      })),
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// POST /api/v1/admin/admins
+// ================================
+const createAdmin = async (req, res, next) => {
+  try {
+    const { name, email, password, phone } = req.body
+    if (!name || !email || !password) {
+      return next(new AppError('Name, email, and password are required', 400))
+    }
+
+    const existing = await User.findOne({ email })
+    if (existing) {
+      return next(new AppError('Email is already registered', 400))
+    }
+
+    const superadminRole = await Role.findOne({ name: 'superadmin' })
+    if (!superadminRole) {
+      return next(new AppError('Superadmin role not found', 500))
+    }
+
+    const newAdmin = await User.create({
+      name,
+      email,
+      password,
+      phone: phone || '',
+      role: superadminRole._id,
+      isActive: true,
+    })
+
+    res.status(201).json({
+      success: true,
+      message: 'Superadmin created successfully',
+      data: {
+        id: newAdmin._id,
+        _id: newAdmin._id,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        phone: newAdmin.phone,
+        role: 'superadmin',
+        initials: newAdmin.name.split(' ').map((n) => n[0]).join('').toUpperCase(),
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// DELETE /api/v1/admin/admins/:id
+// ================================
+const deleteAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    if (id === req.user.userId) {
+      return next(new AppError('You cannot delete your own admin account', 400))
+    }
+
+    const admin = await User.findByIdAndDelete(id)
+    if (!admin) return next(new AppError('Admin not found', 404))
+
+    res.status(200).json({
+      success: true,
+      message: 'Admin account deleted successfully',
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
+// GET /api/v1/admin/bookings
+// ================================
+const getAllBookings = async (req, res, next) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query
+    const query = {}
+
+    if (status && status !== 'ALL') {
+      query.status = status.toUpperCase()
+    }
+
+    const skip = (Number(page) - 1) * Number(limit)
+
+    const [appointments, total] = await Promise.all([
+      Appointment.find(query)
+        .populate('customerId', 'name email phone')
+        .populate('salonId', 'name')
+        .populate('branchId', 'name')
+        .populate('staffId', 'name')
+        .populate('services.serviceId', 'name price durationMinutes')
+        .sort({ date: -1, startTime: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Appointment.countDocuments(query),
+    ])
+
+    res.status(200).json({
+      success: true,
+      data: appointments,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   getPlatformStats,
   getAllSalons,
@@ -748,4 +915,9 @@ module.exports = {
   listOwnerRequests,
   approveOwnerRequest,
   rejectOwnerRequest,
+  getAdminMe,
+  getAdmins,
+  createAdmin,
+  deleteAdmin,
+  getAllBookings,
 }

@@ -26,7 +26,7 @@ export const hydrateAuth = createAsyncThunk("auth/hydrate", async (_, { rejectWi
   try {
     const token = tokenStorage.getAccessToken();
     if (!token) return rejectWithValue("No token");
-    const { data } = await apiClient.get("/auth/me");
+    const { data } = await apiClient.get("/admin/me");
     const u = data.data;
     if (u.role !== "superadmin") {
       tokenStorage.clearTokens();

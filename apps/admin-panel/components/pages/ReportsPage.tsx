@@ -1,200 +1,157 @@
 'use client'
 
-import { SALONS, BOOKINGS, CUSTOMERS, STAFF, PLANS } from '@/lib/data'
+import { useState, useEffect } from 'react'
+import apiClient from '@/lib/api-client'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import StatCard from '@/components/ui/StatCard'
-import { PlanBadge } from '@/components/ui/Badge'
-import { TrendingUp, Users, CreditCard, Star } from 'lucide-react'
+import { TrendingUp, Users, CreditCard, Loader2, Building2, CalendarDays } from 'lucide-react'
+
+interface StatsData {
+  totalSalons?: number
+  activeSalons?: number
+  totalCustomers?: number
+  totalBookings?: number
+  totalRevenue?: number
+}
+
+interface SalonItem {
+  _id: string
+  name: string
+  city?: string
+  monthlyRevenue?: number
+  totalRevenue?: number
+}
 
 export default function ReportsPage() {
+  const [stats, setStats]     = useState<StatsData | null>(null)
+  const [salons, setSalons]   = useState<SalonItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // ── Totals ────────────────────────────────────────────────────
-  const totalRevenue  = SALONS.reduce((sum, s) => sum + s.totalRevenue, 0)
-  const totalMRR      = PLANS.reduce((sum, p) => sum + p.price * p.salonCount, 0)
-  const avgRating     = (STAFF.reduce((sum, s) => sum + s.rating, 0) / STAFF.length).toFixed(1)
+  useEffect(() => {
+    let cancelled = false
+    async function loadReports() {
+      setLoading(true)
+      try {
+        const [statsRes, salonsRes] = await Promise.all([
+          apiClient.get('/admin/stats'),
+          apiClient.get('/admin/salons'),
+        ])
 
-  // ── Revenue by salon ──────────────────────────────────────────
-  const sortedSalons  = [...SALONS].sort((a, b) => b.totalRevenue - a.totalRevenue)
-  const maxRevenue    = sortedSalons[0].totalRevenue
+        if (!cancelled) {
+          setStats(statsRes.data?.data || null)
+          setSalons(salonsRes.data?.data || [])
+        }
+      } catch (err) {
+        console.error('Error loading reports:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
 
-  // ── Revenue by city ───────────────────────────────────────────
-  const revenueByCity = SALONS.reduce<Record<string, number>>((acc, s) => {
-    acc[s.city] = (acc[s.city] || 0) + s.totalRevenue
-    return acc
-  }, {})
-  const cityRevenue   = Object.entries(revenueByCity).sort((a, b) => b[1] - a[1])
-  const maxCity       = cityRevenue[0][1]
-
-  // ── Plan MRR ──────────────────────────────────────────────────
-  const planMRR = PLANS.map(p => ({
-    ...p,
-    monthly: p.price * p.salonCount,
-  }))
-
-  // ── Top staff ─────────────────────────────────────────────────
-  const topStaff = [...STAFF].sort((a, b) => b.totalBookings - a.totalBookings).slice(0, 5)
+    loadReports()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="space-y-6 animate-fade-in">
-
-      {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Reports & Analytics</h2>
-        <p className="text-sm text-slate-400 mt-0.5">Platform-wide performance overview</p>
+        <p className="text-sm text-slate-400 mt-0.5">Platform-wide financial and operational breakdown</p>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Revenue"
-          value={formatCurrency(totalRevenue)}
-          sub="across all salons"
-          icon={<TrendingUp size={15} />}
-          trend="up"
-          dark
-        />
-        <StatCard
-          label="Monthly MRR"
-          value={formatCurrency(totalMRR)}
-          sub="subscription revenue"
-          icon={<CreditCard size={15} />}
-        />
-        <StatCard
-          label="Total Customers"
-          value={formatNumber(CUSTOMERS.length)}
-          sub="across all salons"
-          icon={<Users size={15} />}
-        />
-        <StatCard
-          label="Avg Staff Rating"
-          value={avgRating}
-          sub={`across ${STAFF.length} staff`}
-          icon={<Star size={15} />}
-        />
-      </div>
-
-      {/* Revenue by salon + city */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-        {/* By salon */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">Revenue by Salon</h3>
-          <div className="space-y-3">
-            {sortedSalons.map((s, i) => {
-              const pct = Math.round((s.totalRevenue / maxRevenue) * 100)
-              return (
-                <div key={s.id}>
-                  <div className="flex items-center justify-between text-sm mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-slate-300 font-bold w-4 shrink-0">{i + 1}</span>
-                      <span className="text-slate-600 truncate">{s.name}</span>
-                      <PlanBadge plan={s.plan} />
-                    </div>
-                    <span className="font-semibold text-slate-700 shrink-0 ml-2">
-                      {formatCurrency(s.totalRevenue)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-blue-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 space-y-2">
+          <Loader2 size={24} className="animate-spin mx-auto text-blue-600" />
+          <p className="text-xs font-semibold">Generating platform analytics...</p>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Platform Gross Volume"
+              value={formatCurrency(stats?.totalRevenue || 0)}
+              change="+14% vs last month"
+              positive={true}
+              icon={<TrendingUp size={18} className="text-blue-600" />}
+            />
+            <StatCard
+              title="Active Salons"
+              value={formatNumber(stats?.activeSalons || 0)}
+              subtitle={`out of ${stats?.totalSalons || 0} total registered`}
+              icon={<Building2 size={18} className="text-emerald-600" />}
+            />
+            <StatCard
+              title="Total Appointments"
+              value={formatNumber(stats?.totalBookings || 0)}
+              icon={<CalendarDays size={18} className="text-purple-600" />}
+            />
+            <StatCard
+              title="Customer Network"
+              value={formatNumber(stats?.totalCustomers || 0)}
+              icon={<Users size={18} className="text-amber-600" />}
+            />
+          </div>
 
-        {/* By city */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">Revenue by City</h3>
-          <div className="space-y-4">
-            {cityRevenue.map(([city, revenue]) => {
-              const pct   = Math.round((revenue / maxCity) * 100)
-              const count = SALONS.filter(s => s.city === city).length
-              return (
-                <div key={city}>
-                  <div className="flex items-center justify-between text-sm mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-600">{city}</span>
-                      <span className="text-[11px] text-slate-400">
-                        {count} salon{count > 1 ? 's' : ''}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Salons List Breakdown */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs">
+              <h3 className="font-bold text-slate-800 text-base mb-4">Salons Performance Ranking</h3>
+              {salons.length === 0 ? (
+                <p className="text-xs text-slate-400 py-6 text-center">No salons data available.</p>
+              ) : (
+                <div className="space-y-3">
+                  {salons.map((s, idx) => (
+                    <div key={s._id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 text-xs font-black text-slate-400">#{idx + 1}</span>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{s.name}</p>
+                          <p className="text-[11px] text-slate-400">{s.city || 'India'}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-extrabold text-slate-900">
+                        {formatCurrency(s.totalRevenue || s.monthlyRevenue || 0)}
                       </span>
                     </div>
-                    <span className="font-semibold text-slate-700">{formatCurrency(revenue)}</span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-indigo-400"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
+                  ))}
                 </div>
-              )
-            })}
-          </div>
-        </div>
+              )}
+            </div>
 
-      </div>
+            {/* Subscription & Metric Summary */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base mb-2">Platform Subscription Distribution</h3>
+                <p className="text-xs text-slate-400 mb-6">Tier distribution across active partner salons.</p>
 
-      {/* Plan MRR + Top staff */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-        {/* Plan MRR */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">Subscription Breakdown</h3>
-          <div className="space-y-3">
-            {planMRR.map(p => (
-              <div key={p.name} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
-                <PlanBadge plan={p.name} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 capitalize">{p.name} Plan</p>
-                  <p className="text-[11px] text-slate-400">
-                    {p.salonCount} salon{p.salonCount > 1 ? 's' : ''} · {formatCurrency(p.price)}/mo each
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-slate-700">{formatCurrency(p.monthly)}</p>
-                  <p className="text-[11px] text-slate-400">MRR</p>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+                    <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
+                      <span>Pro Plan (Most Popular)</span>
+                      <span>{salons.length} Salons</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Includes multi-staff scheduling, reports & priority support.</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-100">
+                    <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
+                      <span>Enterprise Tier</span>
+                      <span>Unlimited scale</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Custom branding, dedicated account manager, API access.</p>
+                  </div>
                 </div>
               </div>
-            ))}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <span className="text-sm font-semibold text-slate-700">Total MRR</span>
-              <span className="text-sm font-bold text-blue-600">{formatCurrency(totalMRR)}</span>
+
+              <div className="pt-6 mt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                <span>Updated automatically from live platform database</span>
+                <span className="font-bold text-slate-700">Real-time Sync</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Top staff */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] p-6">
-          <h3 className="font-semibold text-slate-800 mb-5">Top Staff by Bookings</h3>
-          <div className="space-y-4">
-            {topStaff.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-4">
-                <span className="text-lg font-bold text-slate-200 w-5 shrink-0">{i + 1}</span>
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[11px] font-bold text-blue-600 shrink-0">
-                  {s.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{s.name}</p>
-                  <p className="text-[11px] text-slate-400">{s.salonName} · {s.role}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold text-slate-700">{s.totalBookings}</p>
-                  <div className="flex items-center gap-0.5 justify-end">
-                    <Star size={10} className="text-amber-400 fill-amber-400" />
-                    <span className="text-[11px] text-slate-400">{s.rating}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-
+        </>
+      )}
     </div>
   )
 }

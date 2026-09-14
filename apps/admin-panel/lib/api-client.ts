@@ -38,33 +38,32 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 apiClient.interceptors.response.use(
-  (res) => {
-    const startTime = (res.config as any)?._startTime;
-    if (startTime) {
-      const duration = (
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
-        startTime
-      ).toFixed(2);
-      console.log(
-        `⏱️ [API CLIENT TIME] ${res.config.method?.toUpperCase()} ${res.config.url} | Status: ${res.status} | Duration: ${duration}ms`
-      );
-    }
-    return res;
-  },
-  (error) => {
-    const startTime = (error.config as any)?._startTime;
-    if (startTime) {
-      const duration = (
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
-        startTime
-      ).toFixed(2);
-      console.warn(
-        `⏱️ [API CLIENT TIME ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url} | Status: ${error.response?.status || "ERR"} | Duration: ${duration}ms`
-      );
-    }
-    if (error.response?.status === 401) {
-      tokenStorage.clearTokens();
-      if (typeof window !== "undefined") window.location.href = "/login";
+  (res) => res,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const refreshToken = tokenStorage.getRefreshToken();
+      if (refreshToken) {
+        try {
+          const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
+          const newAccess = data.data?.accessToken;
+          const newRefresh = data.data?.refreshToken || refreshToken;
+          if (newAccess) {
+            tokenStorage.setTokens(newAccess, newRefresh);
+            originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+            return apiClient(originalRequest);
+          }
+        } catch {
+          tokenStorage.clearTokens();
+          if (typeof window !== "undefined") window.location.href = "/login";
+        }
+      } else {
+        tokenStorage.clearTokens();
+        if (typeof window !== "undefined") window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },
