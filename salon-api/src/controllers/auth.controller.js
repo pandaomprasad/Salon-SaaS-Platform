@@ -1,5 +1,20 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const jwksClient = require("jwks-rsa");
+
+const appleJwksClient = jwksClient({
+  jwksUri: "https://appleid.apple.com/auth/keys",
+});
+
+function getAppleSigningKey(header, callback) {
+  appleJwksClient.getSigningKey(header.kid, function (err, key) {
+    if (err) {
+      return callback(err, null);
+    }
+    const signingKey = key.publicKey || key.rsaPublicKey;
+    callback(null, signingKey);
+  });
+}
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const AppError = require("../utils/AppError");
@@ -602,9 +617,28 @@ const appleLogin = async (req, res, next) => {
       return next(new AppError("Apple identityToken is required", 400));
     }
 
-    const decoded = jwt.decode(identityToken);
-    if (!decoded) {
-      return next(new AppError("Invalid Apple identity token", 400));
+    let decoded;
+    try {
+      decoded = await new Promise((resolve, reject) => {
+        const verifyOptions = {
+          algorithms: ["RS256"],
+          issuer: "https://appleid.apple.com",
+        };
+        if (process.env.APPLE_CLIENT_ID) {
+          verifyOptions.audience = process.env.APPLE_CLIENT_ID;
+        }
+        jwt.verify(
+          identityToken,
+          getAppleSigningKey,
+          verifyOptions,
+          (err, decodedToken) => {
+            if (err) return reject(err);
+            resolve(decodedToken);
+          }
+        );
+      });
+    } catch (err) {
+      return next(new AppError("Invalid Apple identity token: " + err.message, 400));
     }
 
     const appleId = appleUserId || decoded.sub;

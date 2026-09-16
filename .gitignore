@@ -36,3 +36,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.swp
+
+# Security audit output (agent-generated, not source)
+security-audit-report/

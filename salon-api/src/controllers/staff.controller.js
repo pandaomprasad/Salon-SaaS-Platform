@@ -2,6 +2,7 @@ const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const Branch = require("../models/branch.model");
 const Salon = require("../models/salon.model");
+const Permission = require("../models/permission.model");
 const AppError = require("../utils/AppError");
 const bcrypt = require("bcryptjs");
 const logger = require("../utils/logger");
@@ -47,6 +48,11 @@ const createStaff = async (req, res, next) => {
     const existing = await User.findOne({ email });
     if (existing) {
       return next(new AppError("Email already registered", 400));
+    }
+
+    // prevent privilege escalation
+    if (roleName === "owner" || roleName === "superadmin") {
+      return next(new AppError("Cannot create user with owner or superadmin role", 403));
     }
 
     // get role document
@@ -250,9 +256,9 @@ const updateStaff = async (req, res, next) => {
         return next(new AppError(`Role "${newRole}" not found`, 404));
       }
 
-      // manager cannot be changed to owner
-      if (newRole === "owner") {
-        return next(new AppError("Cannot assign owner role to staff", 403));
+      // owners cannot escalate privileges to owner or superadmin
+      if (newRole === "owner" || newRole === "superadmin") {
+        return next(new AppError("Cannot assign owner or superadmin role to staff", 403));
       }
 
       user.role = roleDoc._id;
@@ -343,21 +349,34 @@ const updateStaffPermissions = async (req, res, next) => {
       return next(new AppError("Staff member not found", 404));
     }
 
-    // validate permission format "resource:action"
+    // validate permission format, check catalog, and restrict sensitive resources
     const validFormat = /^[a-z]+:[a-z]+$/;
     const allPerms = [
       ...(extraPermissions || []),
       ...(deniedPermissions || []),
     ];
 
-    for (const perm of allPerms) {
-      if (!validFormat.test(perm)) {
-        return next(
-          new AppError(
-            `Invalid permission format: "${perm}". Must be "resource:action" e.g. "report:read"`,
-            400,
-          ),
-        );
+    if (allPerms.length > 0) {
+      const allCatalogPerms = await Permission.find({}).lean();
+      const validCatalog = new Set(allCatalogPerms.map((p) => `${p.resource}:${p.action}`));
+      const RESTRICTED_RESOURCES = ["salon", "billing", "branch", "manager"];
+
+      for (const perm of allPerms) {
+        if (!validFormat.test(perm)) {
+          return next(new AppError(`Invalid permission format: ${perm}`, 400));
+        }
+        if (!validCatalog.has(perm)) {
+          return next(new AppError(`Permission does not exist in catalog: ${perm}`, 400));
+        }
+      }
+
+      if (extraPermissions && extraPermissions.length > 0) {
+        for (const perm of extraPermissions) {
+          const [resource] = perm.split(":");
+          if (RESTRICTED_RESOURCES.includes(resource)) {
+            return next(new AppError(`Cannot grant restricted permission: ${perm}`, 403));
+          }
+        }
       }
     }
 

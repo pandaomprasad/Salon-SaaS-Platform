@@ -20,12 +20,16 @@ const uploadSingle = async (req, res, next) => {
     }
 
     const folder = sanitizeFolder(req.query.folder || req.body.folder);
+    const { userId, role, salonId, branchId } = req.user;
 
     const result = await StorageService.uploadBuffer({
       buffer: req.file.buffer,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       folder,
+      uploadedBy: userId,
+      salonId,
+      branchId,
     });
 
     return res.status(201).json({
@@ -53,6 +57,7 @@ const uploadMultiple = async (req, res, next) => {
     }
 
     const folder = sanitizeFolder(req.query.folder || req.body.folder);
+    const { userId, role, salonId, branchId } = req.user;
 
     const uploadPromises = req.files.map((file) =>
       StorageService.uploadBuffer({
@@ -60,6 +65,9 @@ const uploadMultiple = async (req, res, next) => {
         originalName: file.originalname,
         mimeType: file.mimetype,
         folder,
+        uploadedBy: userId,
+        salonId,
+        branchId,
       })
     );
 
@@ -89,10 +97,15 @@ const getPresignedUrl = async (req, res, next) => {
       });
     }
 
+    const { userId, role, salonId, branchId } = req.user;
+
     const result = await StorageService.generatePresignedUploadUrl({
       fileName,
       fileType,
       folder: sanitizeFolder(folder),
+      uploadedBy: userId,
+      salonId,
+      branchId,
     });
 
     return res.status(200).json({
@@ -113,6 +126,7 @@ const getPresignedUrl = async (req, res, next) => {
 const deleteFile = async (req, res, next) => {
   try {
     const fileUrl = req.body.fileUrl || req.body.key || req.query.fileUrl || req.query.key;
+    const { userId, role } = req.user;
 
     if (!fileUrl) {
       return res.status(400).json({
@@ -121,7 +135,14 @@ const deleteFile = async (req, res, next) => {
       });
     }
 
-    const result = await StorageService.deleteFile(fileUrl);
+    const result = await StorageService.deleteFile(fileUrl, { userId, role });
+
+    if (!result.success && result.code === "UNAUTHORIZED") {
+      return res.status(403).json({
+        success: false,
+        message: result.message,
+      });
+    }
 
     return res.status(200).json({
       success: true,

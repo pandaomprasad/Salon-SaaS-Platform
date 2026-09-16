@@ -283,30 +283,13 @@ const bookAppointment = async (req, res, next) => {
       requiredSlotIds.push(slot._id);
     }
 
-    // Verify all required slots are available (or reserved by this user)
-    for (const reqSlot of requiredSlots) {
-      const isAvailable =
-        reqSlot.status === "AVAILABLE" ||
-        (reqSlot.reservedBy && reqSlot.reservedBy.toString() === userId.toString() && ["RESERVED", "BOOKED"].includes(reqSlot.status)) ||
-        (reqSlot.status === "RESERVED" && reqSlot.reservedAt && reqSlot.reservedAt < tenMinsAgo && !reqSlot.appointmentId);
-
-      if (!isAvailable) {
-        return next(
-          new AppError(
-            `The required consecutive time slots for a ${totalServiceDurationMinutes}-minute service are no longer available.`,
-            409,
-          ),
-        );
-      }
-    }
-
     // --------------------------------
-    // Step 4 — atomic slot acquisition
-    // Uses findOneAndUpdate condition on status: AVAILABLE or expired RESERVED
+    // Step 4 — atomic multi-slot acquisition
+    // Uses findOneAndUpdate per slot with status condition inside a transaction
+    // to prevent race conditions on consecutive slot booking.
     // --------------------------------
     let appointment;
     const slotAcquireFilter = {
-      _id: slotId,
       $or: [
         { status: "AVAILABLE" },
         { reservedBy: userId, status: { $in: ["RESERVED", "BOOKED"] } },
@@ -321,65 +304,77 @@ const bookAppointment = async (req, res, next) => {
       session = null;
     }
 
+    const acquireSlotsAtomically = async (sess) => {
+      const acquiredSlotIds = [];
+      try {
+        // Atomically acquire each required slot with conditional update
+        for (const slotId of requiredSlotIds) {
+          const acquired = await Slot.findOneAndUpdate(
+            { _id: slotId, ...slotAcquireFilter },
+            { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
+            { new: true, session: sess },
+          );
+          if (!acquired) {
+            throw new AppError("Required consecutive slot was just booked by another customer", 409);
+          }
+          acquiredSlotIds.push(acquired._id);
+        }
+
+        const created = await Appointment.create(
+          [
+            {
+              salonId: slot.salonId,
+              branchId: slot.branchId,
+              customerId: userId,
+              staffId: slot.staffId,
+              serviceId: primaryService._id,
+              services: serviceIdList,
+              slotId,
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: computedEndTime,
+              pricePaid: totalPricePaid,
+              currency: primaryService.currency || "INR",
+              customerNotes,
+              guests: guestCount,
+              status: "PENDING",
+              history: [
+                {
+                  status: "PENDING",
+                  changedBy: userId,
+                  changedAt: new Date(),
+                  note: "Appointment booked by customer",
+                },
+              ],
+            },
+          ],
+          { session: sess },
+        );
+
+        appointment = created[0];
+
+        // Link all acquired slots to the appointment
+        await Slot.updateMany(
+          { _id: { $in: acquiredSlotIds } },
+          { appointmentId: appointment._id },
+          { session: sess },
+        );
+      } catch (err) {
+        // Rollback any slots acquired in this attempt
+        if (acquiredSlotIds.length > 0) {
+          await Slot.updateMany(
+            { _id: { $in: acquiredSlotIds } },
+            { status: "AVAILABLE", reservedBy: null, reservedAt: null, appointmentId: null },
+            { session: sess },
+          );
+        }
+        throw err;
+      }
+    };
+
     if (session && typeof session.withTransaction === "function") {
       try {
-        await session.withTransaction(async () => {
-          const slotToBook = await Slot.findOneAndUpdate(
-            slotAcquireFilter,
-            { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
-            { new: true, session },
-          );
-
-          if (!slotToBook) {
-            throw new AppError("Slot was just booked by another customer", 409);
-          }
-
-          // Mark all consecutive slots as booked
-          await Slot.updateMany(
-            { _id: { $in: requiredSlotIds } },
-            { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
-            { session },
-          );
-
-          const created = await Appointment.create(
-            [
-              {
-                salonId: slot.salonId,
-                branchId: slot.branchId,
-                customerId: userId,
-                staffId: slot.staffId,
-                serviceId: primaryService._id,
-                services: serviceIdList,
-                slotId,
-                date: slot.date,
-                startTime: slot.startTime,
-                endTime: computedEndTime,
-                pricePaid: totalPricePaid,
-                currency: primaryService.currency || "INR",
-                customerNotes,
-                guests: guestCount,
-                status: "PENDING",
-                history: [
-                  {
-                    status: "PENDING",
-                    changedBy: userId,
-                    changedAt: new Date(),
-                    note: "Appointment booked by customer",
-                  },
-                ],
-              },
-            ],
-            { session },
-          );
-
-          appointment = created[0];
-
-          await Slot.updateMany(
-            { _id: { $in: requiredSlotIds } },
-            { appointmentId: appointment._id },
-            { session },
-          );
-        });
+        await session.withTransaction(acquireSlotsAtomically);
       } catch (txError) {
         if (txError.status === 409 || txError.message?.includes("booked by another customer")) {
           return next(new AppError("Slot was just booked by another customer", 409));
@@ -390,24 +385,22 @@ const bookAppointment = async (req, res, next) => {
       }
     }
 
-    // Single-node or fallback atomic slot booking
+    // Single-node or fallback atomic slot booking (no transaction)
     if (!appointment) {
-      const slotToBook = await Slot.findOneAndUpdate(
-        slotAcquireFilter,
-        { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
-        { new: true },
-      );
-
-      if (!slotToBook) {
-        return next(new AppError("Slot was just booked by another customer", 409));
-      }
-
-      await Slot.updateMany(
-        { _id: { $in: requiredSlotIds } },
-        { status: "BOOKED", reservedBy: userId, reservedAt: new Date() }
-      );
-
+      const acquiredSlotIds = [];
       try {
+        for (const slotId of requiredSlotIds) {
+          const acquired = await Slot.findOneAndUpdate(
+            { _id: slotId, ...slotAcquireFilter },
+            { status: "BOOKED", reservedBy: userId, reservedAt: new Date() },
+            { new: true },
+          );
+          if (!acquired) {
+            throw new AppError("Required consecutive slot was just booked by another customer", 409);
+          }
+          acquiredSlotIds.push(acquired._id);
+        }
+
         appointment = await Appointment.create({
           salonId: slot.salonId,
           branchId: slot.branchId,
@@ -435,20 +428,17 @@ const bookAppointment = async (req, res, next) => {
         });
 
         await Slot.updateMany(
-          { _id: { $in: requiredSlotIds } },
+          { _id: { $in: acquiredSlotIds } },
           { appointmentId: appointment._id }
         );
       } catch (createErr) {
-        // Rollback atomic slot reservations on appointment creation failure
-        await Slot.updateMany(
-          { _id: { $in: requiredSlotIds } },
-          {
-            status: "AVAILABLE",
-            reservedBy: null,
-            reservedAt: null,
-            appointmentId: null,
-          }
-        );
+        // Rollback any slots acquired in this attempt
+        if (acquiredSlotIds.length > 0) {
+          await Slot.updateMany(
+            { _id: { $in: acquiredSlotIds } },
+            { status: "AVAILABLE", reservedBy: null, reservedAt: null, appointmentId: null }
+          );
+        }
         throw createErr;
       }
     }

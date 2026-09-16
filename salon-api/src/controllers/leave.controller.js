@@ -226,8 +226,20 @@ const getStaffLeaves = async (req, res, next) => {
 // ================================
 const getLeave = async (req, res, next) => {
   try {
-    const { leaveId } = req.params;
-    const leave = await StaffLeave.findById(leaveId).lean();
+    const { branchId, staffId, leaveId } = req.params;
+    const { role, salonId, branchId: userBranchId } = req.user;
+
+    if (role === "manager" && branchId !== userBranchId.toString()) {
+      return next(new AppError("Access denied.", 403));
+    }
+
+    const branch = await Branch.findOne({
+      _id: branchId,
+      ...(role === "owner" ? { salonId } : {}),
+    });
+    if (!branch) return next(new AppError("Branch not found", 404));
+
+    const leave = await StaffLeave.findOne({ _id: leaveId, staffId, branchId }).lean();
     if (!leave) return next(new AppError("Leave not found", 404));
 
     res.status(200).json({ success: true, data: { leave } });
@@ -309,9 +321,16 @@ const deleteLeave = async (req, res, next) => {
       return next(new AppError("Access denied.", 403));
     }
 
+    const branch = await Branch.findOne({
+      _id: branchId,
+      ...(role === "owner" ? { salonId } : {}),
+    });
+    if (!branch) return next(new AppError("Branch not found", 404));
+
     const leave = await StaffLeave.findOne({
       _id: leaveId,
       staffId,
+      branchId,
       isActive: true,
     });
     if (!leave) return next(new AppError("Leave not found or already cancelled", 404));

@@ -517,6 +517,108 @@ List endpoints relied on raw `(parseInt(page) - 1) * parseInt(limit)`. Invalid i
 
 ---
 
+## [#ReDoS] ReDoS Prevention in Banner Controller City Parameter
+**Date:** 2026-09-16
+**Roadmap item:** Security hardening / 3.2 addendum
+**Files changed:**
+- salon-api/src/controllers/banner.controller.js
+
+**Problem (before):**
+`GET /api/v1/banners` accepted a `?city=` query parameter and built an unescaped `RegExp(city, 'i')` directly from user input at line 22. An attacker could supply a malicious regex payload (e.g., `(a+)+`) causing catastrophic backtracking and CPU exhaustion (ReDoS).
+
+**Fix (what was done):**
+Added regex escaping identical to the pattern already used in `browse.controller.js` (lines 16, 224, 237, 442):
+```js
+const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+query.$or = [{ city: { $exists: false } }, { city: '' }, { city: new RegExp(escapedCity, 'i') }];
+```
+This ensures all regex metacharacters are escaped before constructing the pattern, eliminating ReDoS risk.
+
+**How it was verified:**
+- Code review: confirmed escaping pattern matches `browse.controller.js` implementation
+- Syntax check: `node -c salon-api/src/controllers/banner.controller.js` passes
+- Manual test: `GET /api/v1/banners?city=brahmapur` returns expected banners; `GET /api/v1/banners?city=(a+)+` treats literal string, no CPU spike
+
+**Known limitations / follow-ups:**
+- None — fix is minimal and follows existing codebase convention
+
+---
+
+## [#RaceCondition] Atomic Multi-Slot Booking & MongoDB Replica Set
+**Date:** 2026-09-16
+**Roadmap item:** 0.3 addendum / Critical race condition fix
+**Files changed:**
+- salon-api/src/controllers/appointment.controller.js
+- docker-compose.yml
+
+**Problem (before):**
+Two critical issues in `bookAppointment`:
+1. **Race condition on multi-slot bookings (lines 287-337)**: The code checked all required consecutive slots in-memory (lines 287-301), then used unconditional `updateMany` (lines 338-342, 405-408) to mark them booked. Between check and update, a concurrent request could book one of those slots → double-booking.
+2. **MongoDB transactions non-functional**: `docker-compose.yml` ran MongoDB as standalone (no `--replSet`), so `mongoose.startSession()` + `withTransaction()` silently failed and fell back to the non-atomic path (line 387: `session = null`), making the race condition guaranteed.
+
+**Fix (what was done):**
+1. **docker-compose.yml**: Enabled replica set `rs0`:
+   - Added `command: ["--replSet", "rs0", "--bind_ip_all"]` to mongo service
+   - Updated `MONGO_URI` to include `?replicaSet=rs0`
+   - Added `mongo-init` service that runs `rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongo:27017"}]})` after mongo is healthy
+2. **appointment.controller.js**: Rewrote multi-slot acquisition to be fully atomic:
+   - Removed in-memory check (lines 287-301) — it was TOCTOU vulnerable
+   - Created `acquireSlotsAtomically` helper that iterates `requiredSlotIds` and uses `findOneAndUpdate` per slot with the same conditional filter (`status: AVAILABLE` OR `reservedBy: userId` OR expired `RESERVED`)
+   - Each slot acquisition is atomic; if any fails, rolls back all acquired slots in the same transaction (or sequentially in fallback)
+   - Only after ALL slots acquired, creates appointment and links slots
+   - Applied same logic to both transaction path (with `withTransaction`) and non-transaction fallback path
+
+**How it was verified:**
+- Syntax check: `node -c salon-api/src/controllers/appointment.controller.js` passes
+- Code review: verified each `findOneAndUpdate` includes conditional filter preventing double-book
+- Verified rollback logic in catch blocks releases slots on any failure
+- Verified replica set config enables transactions (required for `withTransaction` to work)
+
+**Known limitations / follow-ups:**
+- Requires `docker-compose up --build` to pick up mongo command change and run init container
+- For production, consider odd-numbered replica set members (3+) for HA; single-member rs0 works for dev/staging
+
+---
+
+## [#UnscopedDelete] Scoped File Deletion with Ownership Verification
+**Date:** 2026-09-16
+**Roadmap item:** Security hardening / 3.3 addendum
+**Files changed:**
+- salon-api/src/models/uploadedFile.model.js (new)
+- salon-api/src/services/storage.service.js
+- salon-api/src/controllers/upload.controller.js
+
+**Problem (before):**
+`DELETE /api/v1/upload` (handled by `upload.controller.js:113-134`) accepted a `fileUrl` or `key` parameter and deleted the corresponding object from the shared Cloudflare R2 bucket **without any ownership verification**. Any authenticated user (even role `customer`) could delete any file in the bucket by simply providing its URL/key. This is a critical authorization bypass.
+
+**Fix (what was done):**
+1. **Created `UploadedFile` model** (`uploadedFile.model.js`) to track every uploaded file with:
+   - `key` (R2 object key, unique index)
+   - `uploadedBy` (User ObjectId, required, indexed)
+   - `salonId`, `branchId` (optional, for multi-tenant scoping)
+   - Metadata: `originalName`, `mimeType`, `size`, `folder`, `isMock`
+2. **Modified `StorageService.uploadBuffer`** to accept `uploadedBy`, `salonId`, `branchId` and persist a tracking record on every upload (including presigned URL generation).
+3. **Modified `StorageService.generatePresignedUploadUrl`** to also track the pre-authorized key with ownership info.
+4. **Rewrote `StorageService.deleteFile`** to accept `{ userId, role }` options and enforce:
+   - If file is tracked: only the uploader (`uploadedBy === userId`) OR elevated roles (`owner`, `admin`, `manager`) can delete.
+   - If file is NOT tracked (legacy/external): only elevated roles can delete (fail-closed).
+   - Returns `{ success: false, message, code: "UNAUTHORIZED" }` on violation instead of throwing.
+5. **Updated `upload.controller.js`** to pass `req.user` (userId, role, salonId, branchId) to all storage operations.
+6. **Updated `deleteFile` controller** to return `403 Forbidden` when `StorageService.deleteFile` returns an unauthorized result.
+
+**How it was verified:**
+- Syntax check: all 3 files pass `node -c`
+- Code review: ownership check is enforced before any R2 `DeleteObjectCommand` is sent
+- Verified elevated roles (`owner`, `admin`, `manager`) bypass ownership check for administrative cleanup
+- Verified mock mode also respects ownership and cleans up tracking records
+
+**Known limitations / follow-ups:**
+- Legacy files uploaded before this fix are untracked; only elevated roles can delete them (fail-closed by design)
+- Consider adding a migration script to backfill `UploadedFile` records for existing R2 objects if needed
+- Presigned URLs generated before this fix won't have tracking records; they fall under "untracked" rule
+
+---
+
 ## Summary Table (update as you go)
 
 | # | Item | Status | Date Completed |
@@ -524,6 +626,8 @@ List endpoints relied on raw `(parseInt(page) - 1) * parseInt(limit)`. Invalid i
 | 0.1 | Server-side cache invalidation on write | Done | 2026-08-29 |
 | 0.2 | Redis Pub/Sub for multi-instance cache sync | Done | 2026-08-29 |
 | 0.3 | Atomic slot locking + idempotency keys | Done | 2026-08-29 |
+| 0.3b | Atomic multi-slot booking + MongoDB replica set | Done | 2026-09-16 |
+| 3.3b | Scoped file deletion with ownership verification | Done | 2026-09-16 |
 | 1.1 | Metrics & tracing | Done | 2026-08-29 |
 | 1.2 | Circuit breaker / DB resilience | Done | 2026-08-29 |
 | 1.3 | Rate limiting | Done | 2026-08-29 |

@@ -19,7 +19,8 @@ exports.getActiveBanners = async (req, res, next) => {
     const query = { isActive: true };
 
     if (city) {
-      query.$or = [{ city: { $exists: false } }, { city: '' }, { city: new RegExp(city, 'i') }];
+      const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.$or = [{ city: { $exists: false } }, { city: '' }, { city: new RegExp(escapedCity, 'i') }];
     }
 
     const banners = await Banner.find(query).sort({ displayOrder: 1, createdAt: -1 });

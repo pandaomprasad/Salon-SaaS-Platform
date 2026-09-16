@@ -97,7 +97,7 @@ const getInitialLoad = async (req, res, next) => {
         .lean(),
 
       User.find({ branchId: { $in: branchIds }, isActive: { $ne: false } })
-        .select('branchId name email phone avatar photoUrl role bio title rating')
+        .select('branchId name avatar photoUrl role bio title rating')
         .lean(),
 
       Slot.find({
@@ -785,7 +785,7 @@ const getBranchStaffPublic = async (req, res, next) => {
     }
 
     const staff = await User.find({ branchId, isActive: { $ne: false } })
-      .select('name email phone avatar photoUrl role')
+      .select('name avatar photoUrl role bio title rating')
       .lean()
 
     const resultData = { staff }
