@@ -167,6 +167,11 @@ export default function LayoutWrapper({
     );
   }
 
+  // Prevent flash of protected page content for unauthorized roles while redirect is pending
+  if (user && !PUBLIC_PATHS.has(pathname) && !canAccess(user.role as UserRole, currentPage)) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-surface">
       {!hideSidebar && user && (

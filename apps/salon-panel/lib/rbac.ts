@@ -10,6 +10,7 @@ export type AppPage =
   | "reports"
   | "notifications"
   | "branches"
+  | "branch"
   | "staff"
   | "leaves";
 
@@ -23,7 +24,8 @@ export const PAGE_ACCESS: Record<AppPage, UserRole[]> = {
   schedule:      ["owner", "manager", "staff"],
   reports:       ["owner", "manager"],
   notifications: ["owner", "manager", "staff"],
-  branches:      ["owner"],
+  branches:      ["owner", "manager"],
+  branch:        ["owner", "manager"],
   staff:         ["owner", "manager"],
   leaves:        ["owner", "manager", "staff"],
 };
