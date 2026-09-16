@@ -5,7 +5,6 @@ export const mapUser = (user: BackendUser): User => {
   return {
     id: user.id || user._id || "",
     email: user.email,
-    password: "",
     name: user.name,
     role: user.role,
     initials: user.name

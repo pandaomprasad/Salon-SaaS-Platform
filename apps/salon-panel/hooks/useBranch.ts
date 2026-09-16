@@ -2,7 +2,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { RootState } from "@/store";
 import { selectBranch } from "@/store/slices/authSlice";
-import apiClient from "@/lib/api-client";
+import apiClient, { tokenStorage } from "@/lib/api-client";
 import type { UserRole } from "@/lib/api";
 
 const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
@@ -17,7 +17,7 @@ export function useBranch() {
   const role = (user?.role || "staff") as UserRole;
   const canManage = role === "owner" || role === "manager";
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = tokenStorage.getAccessToken();
   let decoded: any = null;
   if (token) {
     try {

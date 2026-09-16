@@ -1,6 +1,12 @@
 const StorageService = require("../services/storage.service");
 const logger = require("../utils/logger");
 
+const sanitizeFolder = (folder) => {
+  if (!folder || typeof folder !== "string") return "general";
+  const sanitized = folder.replace(/[^a-zA-Z0-9_-]/g, "").substring(0, 50);
+  return sanitized || "general";
+};
+
 /**
  * Handle single file upload
  */
@@ -13,7 +19,7 @@ const uploadSingle = async (req, res, next) => {
       });
     }
 
-    const folder = req.query.folder || req.body.folder || "general";
+    const folder = sanitizeFolder(req.query.folder || req.body.folder);
 
     const result = await StorageService.uploadBuffer({
       buffer: req.file.buffer,
@@ -46,7 +52,7 @@ const uploadMultiple = async (req, res, next) => {
       });
     }
 
-    const folder = req.query.folder || req.body.folder || "general";
+    const folder = sanitizeFolder(req.query.folder || req.body.folder);
 
     const uploadPromises = req.files.map((file) =>
       StorageService.uploadBuffer({
@@ -86,7 +92,7 @@ const getPresignedUrl = async (req, res, next) => {
     const result = await StorageService.generatePresignedUploadUrl({
       fileName,
       fileType,
-      folder: folder || "general",
+      folder: sanitizeFolder(folder),
     });
 
     return res.status(200).json({

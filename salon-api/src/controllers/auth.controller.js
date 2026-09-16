@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const AppError = require("../utils/AppError");
@@ -501,13 +502,9 @@ const googleLogin = async (req, res, next) => {
       return next(new AppError("Could not extract email from Google account", 400));
     }
 
-    const requestedRole = req.body.role || "customer";
-    let targetRole = await Role.findOne({ name: requestedRole });
+    const targetRole = await Role.findOne({ name: "customer" });
     if (!targetRole) {
-      targetRole = await Role.findOne({ name: "customer" });
-    }
-    if (!targetRole) {
-      return next(new AppError("User role not found. Please run database seeder.", 500));
+      return next(new AppError("Customer role not found. Please run database seeder.", 500));
     }
 
     let user = await User.findOne({ email }).populate("role", "name");
@@ -619,9 +616,9 @@ const appleLogin = async (req, res, next) => {
       if (parts.length > 0) name = parts.join(" ");
     }
 
-    const customerRole = await Role.findOne({ name: "customer" });
-    if (!customerRole) {
-      return next(new AppError("Customer role not found", 500));
+    const targetRole = await Role.findOne({ name: "customer" });
+    if (!targetRole) {
+      return next(new AppError("Customer role not found. Please run database seeder.", 500));
     }
 
     let user = await User.findOne({
@@ -708,7 +705,7 @@ const forgotPassword = async (req, res, next) => {
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
 
     user.resetPasswordOtp = await bcrypt.hash(otp, 10);
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins

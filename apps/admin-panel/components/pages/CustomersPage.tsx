@@ -110,11 +110,13 @@ export default function CustomersPage() {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900">{c.name || 'Customer'}</p>
-                          <p className="text-[11px] text-slate-400">{c.email || '—'}</p>
+                          <p className="text-[11px] text-slate-400 font-medium">{c.email ? (c.email.includes('@') ? c.email.split('@')[0].slice(0,2) + '***@' + c.email.split('@')[1] : c.email) : '—'}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-medium text-slate-600">{c.phone || '—'}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600 text-xs">
+                      {c.phone ? (c.phone.trim().length <= 7 ? "•••••••" : "•••••••" + c.phone.trim().slice(7)) : "—"}
+                    </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">{c.totalBookings || 0}</td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       {formatCurrency(c.totalSpent || 0)}

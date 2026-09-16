@@ -16,6 +16,7 @@ router.use((req, res, next) => {
 
 // Admin Profile
 router.get('/me', adminController.getAdminMe)
+router.post('/verify-password', adminController.verifyAdminPassword)
 
 // Dashboard / overview
 router.get('/stats', adminController.getPlatformStats)

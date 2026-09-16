@@ -1,19 +1,10 @@
 import {
-  User,
   Customer,
   Service,
   StaffMember,
   Booking,
   Notification,
 } from './types'
-
-// ─── Users ────────────────────────────────────────────────────
-
-export const USERS: User[] = [
-  { id: 'u1', name: 'Aria Chen',     email: 'aria@luxesalon.com',  password: 'owner123',   role: 'owner',   initials: 'AC' },
-  { id: 'u2', name: 'Marco Silva',   email: 'marco@luxesalon.com', password: 'manager123', role: 'manager', initials: 'MS' },
-  { id: 'u3', name: 'Jade Williams', email: 'jade@luxesalon.com',  password: 'staff123',   role: 'staff',   initials: 'JW' },
-]
 
 // ─── Customers ────────────────────────────────────────────────
 

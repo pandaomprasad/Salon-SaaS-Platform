@@ -73,13 +73,9 @@ npm run start
 
 ---
 
-## Demo Credentials
+## Authentication
 
-| Role    | Email                      | Password     |
-|---------|----------------------------|--------------|
-| Owner   | aria@luxesalon.com         | owner123     |
-| Manager | marco@luxesalon.com        | manager123   |
-| Staff   | jade@luxesalon.com         | staff123     |
+Login must go through the backend API. Hardcoded demo credentials have been removed.
 
 ---
 

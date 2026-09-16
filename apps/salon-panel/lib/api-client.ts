@@ -8,6 +8,7 @@ import axios, {
   AxiosInstance,
   InternalAxiosRequestConfig,
 } from "axios";
+import { socketClient } from "./socket-client";
 
 // ──────────────────────────────────────────
 // Config
@@ -17,15 +18,15 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:6969/api/v1";
 
 // ──────────────────────────────────────────
-// Token helpers
-// Your login page already stores: localStorage.setItem("token", token)
-// We extend this to also handle the refresh token.
+// In-Memory Access Token Storage
+// Fallback: Access token stored in memory only, refresh token in localStorage
 // ──────────────────────────────────────────
+
+let memoryAccessToken: string | null = null;
 
 export const tokenStorage = {
   getAccessToken: (): string | null => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("token"); // matches your existing key
+    return memoryAccessToken;
   },
 
   getRefreshToken: (): string | null => {
@@ -34,13 +35,19 @@ export const tokenStorage = {
   },
 
   setTokens: (accessToken: string, refreshToken: string) => {
-    localStorage.setItem("token", accessToken);
-    localStorage.setItem("refreshToken", refreshToken);
+    memoryAccessToken = accessToken;
+    if (typeof window !== "undefined") {
+      if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+      localStorage.removeItem("token"); // ensure no access token is stored in localStorage
+    }
   },
 
   clearTokens: () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
+    memoryAccessToken = null;
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+    }
   },
 };
 
@@ -60,8 +67,6 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    (config as any)._startTime =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
     const token = tokenStorage.getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -72,7 +77,7 @@ apiClient.interceptors.request.use(
 );
 
 // ──────────────────────────────────────────
-// RESPONSE interceptor — timing log & silent refresh on 401
+// RESPONSE interceptor — silent refresh on 401 & socket re-auth
 // ──────────────────────────────────────────
 
 let isRefreshing = false;
@@ -90,30 +95,8 @@ const processQueue = (error: AxiosError | null, token: string | null) => {
 };
 
 apiClient.interceptors.response.use(
-  (response) => {
-    const startTime = (response.config as any)?._startTime;
-    if (startTime) {
-      const duration = (
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
-        startTime
-      ).toFixed(2);
-      console.log(
-        `⏱️ [API CLIENT TIME] ${response.config.method?.toUpperCase()} ${response.config.url} | Status: ${response.status} | Duration: ${duration}ms`
-      );
-    }
-    return response;
-  },
+  (response) => response,
   async (error: AxiosError) => {
-    const startTime = (error.config as any)?._startTime;
-    if (startTime) {
-      const duration = (
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
-        startTime
-      ).toFixed(2);
-      console.warn(
-        `⏱️ [API CLIENT TIME ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url} | Status: ${error.response?.status || "ERR"} | Duration: ${duration}ms`
-      );
-    }
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
@@ -155,6 +138,7 @@ apiClient.interceptors.response.use(
       const newRefresh = data.data.refreshToken || refreshToken;
 
       tokenStorage.setTokens(newAccess, newRefresh);
+      socketClient.reauthenticate(newAccess);
       processQueue(null, newAccess);
 
       if (originalRequest.headers)

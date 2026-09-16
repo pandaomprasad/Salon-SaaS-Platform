@@ -1,0 +1,1 @@
+check the Salon panel tell me is there any bugs present which is found by you. also find the security breach possiblities adn write in a md file also create a TODO list. Don't start fixing the bugs just find out.

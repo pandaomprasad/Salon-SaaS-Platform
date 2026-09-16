@@ -4,13 +4,13 @@ const multer = require("multer");
 const storage = multer.memoryStorage();
 
 // Allowed MIME types whitelist
+// SVG removed due to XSS risk (can contain executable JavaScript)
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
   "image/gif",
-  "image/svg+xml",
   "application/pdf",
 ];
 

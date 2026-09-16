@@ -7,6 +7,8 @@ import { useEffect } from "react";
 import type { UserRole } from "@/lib/api";
 import { canAccess, type AppPage } from "@/lib/rbac";
 
+import { tokenStorage } from "@/lib/api-client";
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   page?: AppPage;
@@ -24,8 +26,8 @@ export default function ProtectedRoute({
   useEffect(() => {
     if (isLoading) return;
 
-    const token = localStorage.getItem("token");
-    if (!token || !user) {
+    const hasSession = tokenStorage.getAccessToken() || tokenStorage.getRefreshToken();
+    if (!hasSession || !user) {
       router.push("/login");
       return;
     }

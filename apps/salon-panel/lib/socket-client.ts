@@ -74,6 +74,15 @@ export const socketClient = {
     }
   },
 
+  reauthenticate: (newToken: string) => {
+    if (socket) {
+      socket.auth = { token: newToken };
+      if (socket.connected) {
+        socket.disconnect().connect();
+      }
+    }
+  },
+
   isConnected: (): boolean => {
     return !!(socket && socket.connected);
   },

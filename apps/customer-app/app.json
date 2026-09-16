@@ -41,7 +41,9 @@
       "@react-native-google-signin/google-signin",
       "expo-secure-store",
       "expo-apple-authentication",
-      "expo-font"
+      "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

@@ -159,7 +159,7 @@ export default function BookingsPage() {
                       </td>
                       <td className="py-3.5 px-4">
                         <p className="font-bold text-slate-900">{custName}</p>
-                        {custPhone && <p className="text-[11px] text-slate-400">{custPhone}</p>}
+                        <p className="text-[11px] text-slate-400 font-mono">{custPhone || '—'}</p>
                       </td>
                       <td className="py-3.5 px-4">
                         <p className="font-semibold text-slate-800">{salonName}</p>

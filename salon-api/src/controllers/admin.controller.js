@@ -68,26 +68,97 @@ const getPlatformStats = async (req, res, next) => {
 
 // ================================
 // GET /api/v1/admin/salons
+// Paginated view (10 salons per page)
 // ================================
 const getAllSalons = async (req, res, next) => {
   try {
-    const salons = await Salon.find({})
-      .select('+deactivatedByAdmin +adminDeactivationReason +adminDeactivatedAt')
-      .populate('owner', 'name email phone')
-      .lean()
+    const page = parseInt(req.query.page, 10) || 1
+    const limit = parseInt(req.query.limit, 10) || 10
+    const skip = (page - 1) * limit
 
-    // Get branch count for each salon
+    const query = {}
+
+    if (req.query.status === 'ACTIVE') {
+      query.isActive = true
+      query.deactivatedByAdmin = { $ne: true }
+    } else if (req.query.status === 'INACTIVE') {
+      query.$or = [{ isActive: false }, { deactivatedByAdmin: true }]
+    }
+
+    let matchingOwnerIds = []
+    if (req.query.search) {
+      const s = req.query.search.trim()
+      const matchingOwners = await User.find({
+        $or: [
+          { name: { $regex: s, $options: 'i' } },
+          { email: { $regex: s, $options: 'i' } }
+        ]
+      }).select('_id').lean()
+      matchingOwnerIds = matchingOwners.map((o) => o._id)
+
+      query.$or = [
+        { name: { $regex: s, $options: 'i' } },
+        { contactEmail: { $regex: s, $options: 'i' } },
+        { owner: { $in: matchingOwnerIds } }
+      ]
+    }
+
+    const staffRoles = await Role.find({ name: { $in: ['staff', 'manager'] } }).select('_id').lean()
+    const staffRoleIds = staffRoles.map((r) => r._id)
+
+    const [
+      total,
+      salons,
+      totalSalonsCount,
+      activeSalonsCount,
+      inactiveSalonsCount,
+      totalBranchesCount,
+      totalStaffCount
+    ] = await Promise.all([
+      Salon.countDocuments(query),
+      Salon.find(query)
+        .select('+deactivatedByAdmin +adminDeactivationReason +adminDeactivatedAt')
+        .populate('owner', 'name email phone')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Salon.countDocuments({}),
+      Salon.countDocuments({ isActive: true, deactivatedByAdmin: { $ne: true } }),
+      Salon.countDocuments({ $or: [{ isActive: false }, { deactivatedByAdmin: true }] }),
+      Branch.countDocuments({ isActive: true }),
+      User.countDocuments({ role: { $in: staffRoleIds }, isActive: true })
+    ])
+
+    // Get branch & staff count for paginated salons
     const salonsWithBranches = await Promise.all(
       salons.map(async (salon) => {
         const branchCount = await Branch.countDocuments({ salonId: salon._id, isActive: true })
-        const staffCount = await User.countDocuments({ salonId: salon._id, isActive: true }) - 1 // exclude owner
+        const staffCount = Math.max(0, (await User.countDocuments({ salonId: salon._id, isActive: true })) - 1)
         return { ...salon, branchCount, staffCount }
       })
     )
 
+    const totalPages = Math.ceil(total / limit) || 1
+
     res.status(200).json({
       success: true,
-      data: { salons: salonsWithBranches }
+      data: {
+        salons: salonsWithBranches,
+        summary: {
+          totalSalons: totalSalonsCount,
+          activeSalons: activeSalonsCount,
+          inactiveSalons: inactiveSalonsCount,
+          totalBranches: totalBranchesCount,
+          totalStaff: totalStaffCount
+        },
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages
+        }
+      }
     })
   } catch (error) {
     next(error)
@@ -255,14 +326,76 @@ const deleteSalon = async (req, res, next) => {
 const getAllOwners = async (req, res, next) => {
   try {
     const ownerRole = await Role.findOne({ name: 'owner' })
-    const owners = await User.find({ role: ownerRole._id })
-      .select('name email phone salonId isActive createdAt')
-      .populate('salonId', 'name isActive')
-      .lean()
+    if (!ownerRole) return next(new AppError('Owner role not found', 500))
+
+    const page = parseInt(req.query.page, 10) || 1
+    const limit = parseInt(req.query.limit, 10) || 10
+    const skip = (page - 1) * limit
+
+    const query = { role: ownerRole._id }
+
+    if (req.query.status === 'active') {
+      query.isActive = true
+    } else if (req.query.status === 'inactive') {
+      query.isActive = false
+    }
+
+    if (req.query.search) {
+      const s = req.query.search.trim()
+      const matchingSalons = await Salon.find({
+        name: { $regex: s, $options: 'i' }
+      }).select('_id').lean()
+      const matchingSalonIds = matchingSalons.map((sal) => sal._id)
+
+      query.$or = [
+        { name: { $regex: s, $options: 'i' } },
+        { email: { $regex: s, $options: 'i' } },
+        { phone: { $regex: s, $options: 'i' } },
+        { salonId: { $in: matchingSalonIds } }
+      ]
+    }
+
+    const [
+      total,
+      owners,
+      totalOwnersCount,
+      activeOwnersCount,
+      inactiveOwnersCount,
+      linkedSalonsCount
+    ] = await Promise.all([
+      User.countDocuments(query),
+      User.find(query)
+        .select('name email phone salonId isActive createdAt')
+        .populate('salonId', 'name isActive')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments({ role: ownerRole._id }),
+      User.countDocuments({ role: ownerRole._id, isActive: true }),
+      User.countDocuments({ role: ownerRole._id, isActive: false }),
+      Salon.countDocuments({ owner: { $ne: null } })
+    ])
+
+    const totalPages = Math.ceil(total / limit) || 1
 
     res.status(200).json({
       success: true,
-      data: { owners }
+      data: {
+        owners,
+        summary: {
+          totalOwners: totalOwnersCount,
+          activeOwners: activeOwnersCount,
+          inactiveOwners: inactiveOwnersCount,
+          linkedSalons: linkedSalonsCount
+        },
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages
+        }
+      }
     })
   } catch (error) {
     next(error)
@@ -313,10 +446,43 @@ const updateOwner = async (req, res, next) => {
     const owner = await User.findById(req.params.ownerId)
     if (!owner) return next(new AppError('Owner not found', 404))
 
-    const allowed = ['name', 'phone', 'isActive']
-    allowed.forEach((field) => {
-      if (req.body[field] !== undefined) owner[field] = req.body[field]
-    })
+    const { name, phone, isActive, reason } = req.body
+    if (name !== undefined) owner.name = name
+    if (phone !== undefined) owner.phone = phone
+
+    if (isActive !== undefined) {
+      owner.isActive = isActive
+      const reasonText = reason || (isActive ? undefined : 'Owner deactivated by superadmin')
+
+      // Cascade salon deactivation/activation
+      const salonsToUpdate = []
+      if (owner.salonId) salonsToUpdate.push(owner.salonId)
+
+      const ownerSalons = await Salon.find({ ownerId: owner._id })
+      ownerSalons.forEach(s => salonsToUpdate.push(s._id))
+
+      if (salonsToUpdate.length > 0) {
+        if (!isActive) {
+          await Salon.updateMany(
+            { _id: { $in: salonsToUpdate } },
+            { isActive: false, deactivatedByAdmin: true, adminDeactivationReason: reasonText, adminDeactivatedAt: new Date() }
+          )
+          await Branch.updateMany(
+            { salonId: { $in: salonsToUpdate } },
+            { isActive: false, deactivatedByAdmin: true, adminDeactivationReason: reasonText, adminDeactivatedAt: new Date() }
+          )
+        } else {
+          await Salon.updateMany(
+            { _id: { $in: salonsToUpdate } },
+            { isActive: true, deactivatedByAdmin: false, adminDeactivationReason: null }
+          )
+          await Branch.updateMany(
+            { salonId: { $in: salonsToUpdate } },
+            { isActive: true, deactivatedByAdmin: false, adminDeactivationReason: null }
+          )
+        }
+      }
+    }
 
     await owner.save()
 
@@ -338,17 +504,31 @@ const deactivateOwner = async (req, res, next) => {
     const owner = await User.findById(req.params.ownerId)
     if (!owner) return next(new AppError('Owner not found', 404))
 
+    const reason = req.body?.reason || req.query?.reason || 'Deactivated by admin'
+
     owner.isActive = false
     await owner.save()
 
-    // Also deactivate their salon
-    if (owner.salonId) {
-      await Salon.findByIdAndUpdate(owner.salonId, { isActive: false })
+    const salonsToUpdate = []
+    if (owner.salonId) salonsToUpdate.push(owner.salonId)
+
+    const ownerSalons = await Salon.find({ ownerId: owner._id })
+    ownerSalons.forEach(s => salonsToUpdate.push(s._id))
+
+    if (salonsToUpdate.length > 0) {
+      await Salon.updateMany(
+        { _id: { $in: salonsToUpdate } },
+        { isActive: false, deactivatedByAdmin: true, adminDeactivationReason: reason, adminDeactivatedAt: new Date() }
+      )
+      await Branch.updateMany(
+        { salonId: { $in: salonsToUpdate } },
+        { isActive: false, deactivatedByAdmin: true, adminDeactivationReason: reason, adminDeactivatedAt: new Date() }
+      )
     }
 
     res.status(200).json({
       success: true,
-      message: 'Owner and associated salon deactivated'
+      message: 'Owner and all associated salons deactivated successfully'
     })
   } catch (error) {
     next(error)
@@ -357,19 +537,73 @@ const deactivateOwner = async (req, res, next) => {
 
 // ================================
 // GET /api/v1/admin/customers
-// Limited view — name, email, phone, join date only
+// Limited view with server-side pagination (10 items per page)
 // ================================
 const getAllCustomers = async (req, res, next) => {
   try {
+    const page = parseInt(req.query.page, 10) || 1
+    const limit = parseInt(req.query.limit, 10) || 10
+    const skip = (page - 1) * limit
+
     const customerRole = await Role.findOne({ name: 'customer' })
-    const customers = await User.find({ role: customerRole._id })
-      .select('name email phone isActive createdAt')
-      .sort({ createdAt: -1 })
-      .lean()
+    if (!customerRole) {
+      return res.status(200).json({
+        success: true,
+        data: { customers: [], pagination: { total: 0, page, limit, totalPages: 0 } }
+      })
+    }
+
+    const query = { role: customerRole._id }
+
+    if (req.query.search) {
+      const s = req.query.search.trim()
+      query.$or = [
+        { name: { $regex: s, $options: 'i' } },
+        { email: { $regex: s, $options: 'i' } },
+        { phone: { $regex: s, $options: 'i' } }
+      ]
+    }
+
+    if (req.query.status === 'active') query.isActive = { $ne: false }
+    if (req.query.status === 'inactive') query.isActive = false
+
+    const [
+      total,
+      customers,
+      totalCustomersCount,
+      activeCustomersCount,
+      inactiveCustomersCount
+    ] = await Promise.all([
+      User.countDocuments(query),
+      User.find(query)
+        .select('name email phone isActive createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments({ role: customerRole._id }),
+      User.countDocuments({ role: customerRole._id, isActive: { $ne: false } }),
+      User.countDocuments({ role: customerRole._id, isActive: false })
+    ])
+
+    const totalPages = Math.ceil(total / limit) || 1
 
     res.status(200).json({
       success: true,
-      data: { customers }
+      data: {
+        customers,
+        summary: {
+          totalCustomers: totalCustomersCount,
+          activeCustomers: activeCustomersCount,
+          inactiveCustomers: inactiveCustomersCount
+        },
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages
+        }
+      }
     })
   } catch (error) {
     next(error)
@@ -515,11 +749,9 @@ const getActivity = async (req, res, next) => {
     })
 
     // Sort by timestamp desc
-    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
     res.status(200).json({
       success: true,
-      data: { activities: activities.slice(0, limit) }
+      data: activities.slice(0, limit)
     })
   } catch (error) {
     next(error)
@@ -753,6 +985,32 @@ const getAdminMe = async (req, res, next) => {
 }
 
 // ================================
+// POST /api/v1/admin/verify-password
+// ================================
+const verifyAdminPassword = async (req, res, next) => {
+  try {
+    const { password } = req.body
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Password is required' })
+    }
+
+    const user = await User.findById(req.user.userId).select('+password')
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Admin user not found' })
+    }
+
+    const isMatch = await user.comparePassword(password)
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Incorrect password. Please try again.' })
+    }
+
+    res.status(200).json({ success: true, message: 'Password verified successfully' })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ================================
 // GET /api/v1/admin/admins
 // ================================
 const getAdmins = async (req, res, next) => {
@@ -916,6 +1174,7 @@ module.exports = {
   approveOwnerRequest,
   rejectOwnerRequest,
   getAdminMe,
+  verifyAdminPassword,
   getAdmins,
   createAdmin,
   deleteAdmin,

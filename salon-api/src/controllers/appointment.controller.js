@@ -13,6 +13,7 @@ const { slotOverlapsLeave } = require("../utils/staffLeaveHelper");
 const { getActiveStaffLeaves } = require("../utils/staffLeaveQueries");
 
 const { getCache, setCache, delCachePattern } = require("../services/cache.service");
+const redis = require("../config/redis");
 const { sendPushToUser } = require("../services/push.service");
 const { notifyUser } = require("../services/notification.service");
 const {
@@ -143,6 +144,32 @@ const bookAppointment = async (req, res, next) => {
     if (slotDateTime.isBefore(dayjs())) {
       return next(new AppError("Cannot book a slot in the past", 400));
     }
+
+    // --------------------------------
+    // Distributed Lock — prevent race conditions on slot booking
+    // --------------------------------
+    const lockKey = `lock:slot:${slotId}`;
+    const lockValue = `${userId}:${Date.now()}`;
+    const lockAcquired = await redis.set(lockKey, lockValue, "NX", "EX", 10);
+    if (!lockAcquired) {
+      return next(new AppError("Slot is being processed by another request. Please try again.", 409));
+    }
+
+    // Ensure lock is released
+    const releaseLock = async () => {
+      const script = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+        else
+          return 0
+        end
+      `;
+      try {
+        await redis.eval(script, 1, lockKey, lockValue);
+      } catch (e) {
+        console.warn("Lock release failed:", e.message);
+      }
+    };
 
     // --------------------------------
     // Step 2 — validate service(s)

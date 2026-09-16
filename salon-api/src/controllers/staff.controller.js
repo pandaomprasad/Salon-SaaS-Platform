@@ -306,11 +306,15 @@ const deleteStaff = async (req, res, next) => {
 
     // soft delete
     user.isActive = false;
+    user.tokenVersion += 1;
     await user.save();
 
     res.status(200).json({
       success: true,
       message: "Staff member deactivated successfully",
+      data: {
+        tokenInvalidated: true,
+      },
     });
   } catch (error) {
     next(error);
