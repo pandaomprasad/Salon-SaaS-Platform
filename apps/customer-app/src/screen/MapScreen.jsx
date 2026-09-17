@@ -14,6 +14,7 @@ import {
   Animated,
   ActivityIndicator,
   Modal,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -32,6 +33,15 @@ const CARD_MARGIN = 10;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_MARGIN * 2;
 
 const TOP_INSET = Platform.OS === "ios" ? 54 : (StatusBar.currentHeight ? StatusBar.currentHeight + 14 : 44);
+
+const CATEGORIES = [
+  { id: "all", label: "All", icon: "✨" },
+  { id: "combo", label: "Combos", icon: "🎁" },
+  { id: "hair", label: "Haircut", icon: "✂️" },
+  { id: "facial", label: "Facials", icon: "🧴" },
+  { id: "nails", label: "Nails", icon: "💅" },
+  { id: "spa", label: "Spa", icon: "🌿" },
+];
 
 // Default fallback location (Brahmapur, Odisha, India)
 const DEFAULT_LAT = 19.3150;
@@ -181,6 +191,20 @@ export default function MapScreen({ navigate, onScroll }) {
           s.address.toLowerCase().includes(q) ||
           s.categories.some((c) => (c.name || c).toLowerCase().includes(q))
       );
+    }
+
+    if (filters.serviceType && filters.serviceType !== "all") {
+      const typeStr = filters.serviceType.toLowerCase();
+      list = list.filter((s) => {
+        const catList = s.categories || s.services || [];
+        const summary = (s.servicesSummary || s.description || "").toLowerCase();
+        const nameStr = (s.name || "").toLowerCase();
+        return (
+          nameStr.includes(typeStr) ||
+          summary.includes(typeStr) ||
+          catList.some((c) => (c.name || c).toString().toLowerCase().includes(typeStr))
+        );
+      });
     }
 
     if (filters.minRating && filters.minRating !== "all") {
@@ -373,6 +397,39 @@ export default function MapScreen({ navigate, onScroll }) {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Horizontal Category Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: 14 }}
+          contentContainerStyle={{ paddingRight: 10, gap: 8 }}
+        >
+          {CATEGORIES.map((cat) => {
+            const isSelected = filters.serviceType === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => setFilters({ ...filters, serviceType: cat.id })}
+                activeOpacity={0.85}
+                style={[
+                  styles.catPill,
+                  isSelected ? styles.catPillActive : styles.catPillInactive,
+                ]}
+              >
+                <Text style={{ fontSize: 13, marginRight: 5 }}>{cat.icon}</Text>
+                <Text
+                  style={[
+                    styles.catText,
+                    isSelected ? styles.catTextActive : styles.catTextInactive,
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* INTERACTIVE MAP ENGINE */}
@@ -571,6 +628,33 @@ function getStyles(isDark) {
       fontSize: 9,
       fontWeight: "800",
       color: "#FFFFFF",
+    },
+
+    // Category Filter Pills
+    catPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderRadius: 20,
+    },
+    catPillActive: {
+      backgroundColor: "#6C5CE7",
+    },
+    catPillInactive: {
+      backgroundColor: isDark ? "#1F1F28" : "#FFFFFF",
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C38" : "#EBECEF",
+    },
+    catText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    catTextActive: {
+      color: "#FFFFFF",
+    },
+    catTextInactive: {
+      color: isDark ? "#D1D1D6" : "#2C2C34",
     },
 
     // Map Area
