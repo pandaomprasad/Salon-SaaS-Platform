@@ -293,7 +293,7 @@ const browseSalons = async (req, res, next) => {
     const [salons, total, branchCounts, branches] = await Promise.all([
       Salon.find(filter)
         .populate('owner', 'name')
-        .select('name description contactEmail contactPhone logo')
+        .select('name description contactEmail contactPhone logo coverImage images')
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
@@ -386,7 +386,7 @@ const getSalonPublic = async (req, res, next) => {
     }
 
     const salon = await Salon.findOne({ _id: salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
-      .select('name description contactEmail contactPhone logo')
+      .select('name description contactEmail contactPhone logo coverImage images')
       .lean()
 
     if (!salon) {

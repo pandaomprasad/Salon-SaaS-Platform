@@ -15,6 +15,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   KeyRound,
+  Image as ImageIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api";
 import { type AppPage, PAGE_ACCESS } from "@/lib/rbac";
@@ -42,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { page: "staff",         label: "Staff",          icon: UserCog,         group: "manage" },
   { page: "leaves",        label: "Leaves",         icon: CalendarOff,     group: "manage" },
   { page: "branches",      label: "Branches",       icon: GitBranch,       group: "manage" },
+  { page: "gallery",       label: "Gallery",        icon: ImageIcon,       group: "manage" },
   { page: "reports",       label: "Reports",        icon: BarChart3,       group: "manage" },
   { page: "notifications", label: "Notifications",  icon: Bell,            group: "other" },
 ];
@@ -252,15 +254,17 @@ export default function Sidebar({
                 </button>
               </div>
             ) : (
-              onChangePassword && (
-                <button
-                  onClick={onChangePassword}
-                  title="Change Password"
-                  className="text-slate-400 hover:text-[#5542f6] hover:bg-[#efeefd] transition-colors p-1.5 rounded-lg"
-                >
-                  <KeyRound size={16} strokeWidth={1.75} />
-                </button>
-              )
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                {onChangePassword && (
+                  <button
+                    onClick={onChangePassword}
+                    title="Change Password"
+                    className="text-slate-400 hover:text-[#5542f6] hover:bg-[#efeefd] transition-colors p-1.5 rounded-lg"
+                  >
+                    <KeyRound size={16} strokeWidth={1.75} />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -17,7 +17,7 @@ import TopPromoBanner from "../components/TopPromoBanner";
 import QuickRebookWidget from "../components/QuickRebookWidget";
 import SalonCard from "../components/SalonCard";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import PermissionPromptModal from "../components/PermissionPromptModal";
 import LocationPickerModal from "../components/LocationPickerModal";
 import InteractiveMapModal from "../components/InteractiveMapModal";
@@ -31,6 +31,14 @@ import { storage } from "../services/storage";
 import { cleanCityName, getCurrentLocation } from "../services/locationService";
 import { useLocationStore } from "../store/useLocationStore";
 import { socketClient } from "../services/socketClient";
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+let Notifications = null;
+if (!isExpoGo) {
+  try {
+    Notifications = require("expo-notifications");
+  } catch (e) {}
+}
 
 const SalonCarousel = memo(({ salons, onSalonPress, styles }) => (
   <ScrollView
@@ -129,9 +137,11 @@ function HomeScreen({ navigate, onScroll }) {
 
         // Check Notification permission
         try {
-          const notifPerm = await Notifications.getPermissionsAsync();
-          if (!notifPerm.granted && notifPerm.canAskAgain) {
-            if (active) setPermissionModalType("notification");
+          if (Notifications) {
+            const notifPerm = await Notifications.getPermissionsAsync();
+            if (!notifPerm.granted && notifPerm.canAskAgain) {
+              if (active) setPermissionModalType("notification");
+            }
           }
         } catch (e) { }
       } catch (err) {
@@ -161,18 +171,22 @@ function HomeScreen({ navigate, onScroll }) {
 
       // Automatically move to Notification permission check if needed
       try {
-        const notifPerm = await Notifications.getPermissionsAsync();
-        if (!notifPerm.granted && notifPerm.canAskAgain) {
-          setPermissionLoading(false);
-          setPermissionModalType("notification");
-          return;
+        if (Notifications) {
+          const notifPerm = await Notifications.getPermissionsAsync();
+          if (!notifPerm.granted && notifPerm.canAskAgain) {
+            setPermissionLoading(false);
+            setPermissionModalType("notification");
+            return;
+          }
         }
       } catch (e) { }
 
       setPermissionModalType(null);
     } else if (permissionModalType === "notification") {
       try {
-        await Notifications.requestPermissionsAsync();
+        if (Notifications) {
+          await Notifications.requestPermissionsAsync();
+        }
       } catch (e) {
         console.warn("Notification permission error:", e);
       }
@@ -184,10 +198,12 @@ function HomeScreen({ navigate, onScroll }) {
   const handleSkipPermission = async () => {
     if (permissionModalType === "location") {
       try {
-        const notifPerm = await Notifications.getPermissionsAsync();
-        if (!notifPerm.granted && notifPerm.canAskAgain) {
-          setPermissionModalType("notification");
-          return;
+        if (Notifications) {
+          const notifPerm = await Notifications.getPermissionsAsync();
+          if (!notifPerm.granted && notifPerm.canAskAgain) {
+            setPermissionModalType("notification");
+            return;
+          }
         }
       } catch (e) { }
       setPermissionModalType(null);

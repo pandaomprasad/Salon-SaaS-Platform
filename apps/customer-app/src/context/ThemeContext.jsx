@@ -116,8 +116,12 @@ export function ThemeProvider({ children }) {
 
     if (Platform.OS === "android") {
       const activeTheme = activeIsDark ? DARK : LIGHT;
-      NavigationBar.setBackgroundColorAsync(activeTheme.navBarColor).catch(() => { });
-      NavigationBar.setButtonStyleAsync(activeTheme.navBarButtonStyle).catch(() => { });
+      if (NavigationBar && typeof NavigationBar.setBackgroundColorAsync === 'function') {
+        NavigationBar.setBackgroundColorAsync(activeTheme.navBarColor).catch(() => { });
+      }
+      if (NavigationBar && typeof NavigationBar.setButtonStyleAsync === 'function') {
+        NavigationBar.setButtonStyleAsync(activeTheme.navBarButtonStyle).catch(() => { });
+      }
     }
   }, [themeMode, activeSystemDark]);
 

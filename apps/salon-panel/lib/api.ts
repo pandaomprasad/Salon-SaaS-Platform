@@ -74,6 +74,8 @@ export interface Salon {
   name: string;
   description?: string;
   logo?: string;
+  coverImage?: string;
+  images?: string[];
   owner: string;
   isActive: boolean;
   createdAt: string;

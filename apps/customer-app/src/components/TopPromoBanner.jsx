@@ -172,17 +172,17 @@ export default function TopPromoBanner({ onPressBanner, refreshTrigger }) {
             <View style={styles.contentLayer}>
               {/* Glassmorphic Tag Badge */}
               <View style={styles.glassTagPill}>
-                <Text style={styles.glassTagText}>{banner.tag.toUpperCase()}</Text>
+                <Text style={styles.glassTagText}>{(banner.tag || "SPECIAL OFFER").toUpperCase()}</Text>
               </View>
 
-              <Text style={styles.title} numberOfLines={2}>{banner.title}</Text>
+              <Text style={styles.title} numberOfLines={2}>{banner.title || "Special Offer"}</Text>
               {banner.subtitle ? (
                 <Text style={styles.subtitle} numberOfLines={2}>{banner.subtitle}</Text>
               ) : null}
 
               <TouchableOpacity activeOpacity={0.88} onPress={() => handleBannerClick(banner)}>
                 <View style={styles.luxuryButton}>
-                  <Text style={styles.luxuryButtonText}>{banner.cta}</Text>
+                  <Text style={styles.luxuryButtonText}>{banner.cta || "Book Now"}</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -231,20 +231,23 @@ function getStyles() {
       position: "relative",
     },
     image: {
-      ...StyleSheet.absoluteFillObject,
+      position: "absolute",
+      top: 0, left: 0, right: 0, bottom: 0,
       width: "100%",
       height: "100%",
       opacity: 0.9,
     },
     gradientOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      position: "absolute",
+      top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: "rgba(12, 12, 14, 0.55)",
     },
     contentLayer: {
-      flex: 1,
+      position: "absolute",
+      top: 0, left: 0, right: 0, bottom: 0,
       padding: S.lg,
       justifyContent: "flex-end",
-      zIndex: 2,
+      zIndex: 10,
     },
     glassTagPill: {
       alignSelf: "flex-start",
@@ -263,17 +266,16 @@ function getStyles() {
       letterSpacing: 1.2,
     },
     title: {
-      fontFamily: FF.display || "System",
       fontSize: 19,
-      fontWeight: "600",
+      fontWeight: "700",
       color: "#FFFFFF",
       marginBottom: 4,
       lineHeight: 24,
       letterSpacing: -0.3,
     },
     subtitle: {
-      fontFamily: FF.body || "System",
       fontSize: 13,
+      fontWeight: "500",
       color: "rgba(255, 255, 255, 0.88)",
       marginBottom: S.md,
       lineHeight: 17,

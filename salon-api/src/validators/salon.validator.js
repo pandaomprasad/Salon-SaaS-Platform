@@ -36,6 +36,19 @@ const updateSalonValidator = [
     .optional()
     .trim()
     .isEmail().withMessage('Must be a valid email'),
+
+  body('coverImage')
+    .optional()
+    .trim()
+    .isURL().withMessage('Must be a valid URL'),
+
+  body('images')
+    .optional()
+    .isArray({ max: 5 }).withMessage('Images must be an array of up to 5 URLs'),
+    
+  body('images.*')
+    .optional()
+    .isURL().withMessage('Each image must be a valid URL'),
 ]
 
 module.exports = { createSalonValidator, updateSalonValidator }

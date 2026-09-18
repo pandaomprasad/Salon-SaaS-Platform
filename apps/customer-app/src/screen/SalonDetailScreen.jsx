@@ -325,6 +325,16 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const favorited = isFavorite(salonId);
 
   const coverImage = salonData?.coverImage || salonData?.image || HERO_IMAGES[0];
+  const carouselImages = salonData?.images?.length ? salonData.images : [coverImage];
+
+  const handleScrollImage = (event) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width;
+    const index = event.nativeEvent.contentOffset.x / slideSize;
+    const roundIndex = Math.round(index);
+    if (roundIndex !== activeImageIndex) {
+      setActiveImageIndex(roundIndex);
+    }
+  };
 
   const reviewAvg = useMemo(() => {
     if (reviewsList.length === 0) return "0.0";
@@ -574,7 +584,23 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         ]}
       >
         <View style={styles.heroCardContainer}>
-          <Image source={{ uri: coverImage }} style={styles.heroImage} resizeMode="cover" />
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScrollImage}
+            scrollEventThrottle={16}
+            style={{ width: SCREEN_WIDTH, height: '100%' }}
+          >
+            {carouselImages.map((imgUri, idx) => (
+              <Image 
+                key={idx} 
+                source={{ uri: imgUri }} 
+                style={[styles.heroImage, { width: SCREEN_WIDTH }]} 
+                resizeMode="cover" 
+              />
+            ))}
+          </ScrollView>
 
           {/* Bottom scrim so overlaid content stays legible on any photo */}
           <View style={styles.heroScrim} pointerEvents="none" />
@@ -603,14 +629,16 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
             />
           </TouchableOpacity>
 
-          <View style={styles.dotsRow}>
-            {[0, 1, 2, 3, 4].map((idx) => (
-              <View
-                key={idx}
-                style={[styles.dot, idx === activeImageIndex && styles.dotActive]}
-              />
-            ))}
-          </View>
+          {carouselImages.length > 1 && (
+            <View style={styles.dotsRow}>
+              {carouselImages.map((_, idx) => (
+                <View
+                  key={idx}
+                  style={[styles.dot, idx === activeImageIndex && styles.dotActive]}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.titleSection}>

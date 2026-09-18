@@ -31,6 +31,7 @@ export function generateMapHtml({
   userLng = 84.7941,
 }) {
   const tileUrl = getTileUrl(isDark);
+  const isFallbackMap = tileUrl.includes("openstreetmap.org");
   const bgColor = isDark ? "#121216" : "#EAEAEA";
 
   // Sanitize coordinates to guarantee valid finite numbers for Leaflet
@@ -68,6 +69,11 @@ export function generateMapHtml({
           background: ${bgColor};
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
+        ${isDark && isFallbackMap ? `
+        .leaflet-tile-pane {
+          filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        ` : ""}
         .leaflet-control-container .leaflet-routing-container-hide { display: none; }
         .leaflet-control-attribution { display: none !important; }
 
