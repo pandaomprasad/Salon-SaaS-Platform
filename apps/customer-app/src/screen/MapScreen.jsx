@@ -104,7 +104,7 @@ export default function MapScreen({ navigate, onScroll }) {
   const detectCurrentLocation = useLocationStore((state) => state.detectCurrentLocation);
 
   const [salons, setSalons] = useState(MOCK_SALONS);
-  const [selectedSalonId, setSelectedSalonId] = useState(MOCK_SALONS[0].id);
+  const [selectedSalonId, setSelectedSalonId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -157,7 +157,6 @@ export default function MapScreen({ navigate, onScroll }) {
             };
           });
           setSalons(mapped);
-          if (mapped.length > 0) setSelectedSalonId(mapped[0].id);
         }
       } catch (err) {
         console.warn("MapScreen fetch error, using fallback salons:", err?.message);
@@ -234,8 +233,9 @@ export default function MapScreen({ navigate, onScroll }) {
 
   // Currently selected salon object
   const selectedSalon = useMemo(() => {
-    return filteredSalons.find((s) => s.id === selectedSalonId) || filteredSalons[0] || salons[0];
-  }, [filteredSalons, selectedSalonId, salons]);
+    if (!selectedSalonId) return null;
+    return filteredSalons.find((s) => s.id === selectedSalonId) || null;
+  }, [filteredSalons, selectedSalonId]);
 
   // Center coordinates for map view
   const mapCenterLat = selectedSalon?.latitude || userLat;
@@ -878,4 +878,3 @@ function getStyles(isDark) {
     },
   });
 }
-

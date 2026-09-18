@@ -7,6 +7,7 @@ import {
   StyleSheet,
   LayoutAnimation,
   Platform,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../theme";
@@ -23,10 +24,24 @@ export default function CategoryAccordionList({
   const { theme, isDark } = useTheme();
   const styles = getStyles(theme, isDark);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredServices = React.useMemo(() => {
+    if (!searchQuery.trim()) return services;
+    const query = searchQuery.toLowerCase().trim();
+    return services.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(query) ||
+        s.description?.toLowerCase().includes(query) ||
+        s.category?.toLowerCase().includes(query)
+    );
+  }, [services, searchQuery]);
+
   // Group services by category
   const groupedCategories = React.useMemo(() => {
     const groups = {};
-    services.forEach((s) => {
+    filteredServices.forEach((s) => {
       const cat = (s.category || "General").trim();
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(s);
@@ -35,7 +50,7 @@ export default function CategoryAccordionList({
       name: catName,
       items: groups[catName],
     }));
-  }, [services]);
+  }, [filteredServices]);
 
   // Keep track of expanded category name (default: first category expanded)
   const [expandedCat, setExpandedCat] = useState(
@@ -51,21 +66,39 @@ export default function CategoryAccordionList({
           LayoutAnimation.Properties.opacity
         )
       );
-    } catch (e) {}
+    } catch (e) { }
     setExpandedCat((prev) => (prev === catName ? null : catName));
   };
 
-  if (groupedCategories.length === 0) {
-    return (
-      <View style={styles.emptyCard}>
-        <Text style={styles.emptyText}>No services available at this time.</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      {groupedCategories.map((group) => {
+      {/* Search Bar */}
+      {services.length > 0 && (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={18} color={isDark ? "#9BA1A6" : "#8E8E93"} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a service..."
+            placeholderTextColor={isDark ? "#687076" : "#A1A1AA"}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={16} color={isDark ? "#9BA1A6" : "#8E8E93"} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {groupedCategories.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>
+            {searchQuery.trim() ? "No matching services found." : "No services available at this time."}
+          </Text>
+        </View>
+      ) : (
+        groupedCategories.map((group) => {
         const isExpanded = expandedCat === group.name;
         const count = group.items.length;
         const isComboGroup = group.name.toLowerCase().includes("combo") || group.name.toLowerCase().includes("package");
@@ -135,8 +168,8 @@ export default function CategoryAccordionList({
                     isExpanded || selectedInGroup
                       ? C.purple || "#6C5CE7"
                       : isDark
-                      ? "#94A3B8"
-                      : "#8E8E93"
+                        ? "#94A3B8"
+                        : "#8E8E93"
                   }
                   style={{ marginLeft: 6 }}
                 />
@@ -177,19 +210,19 @@ export default function CategoryAccordionList({
                       <View style={styles.serviceInfo}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
                           <Text style={styles.serviceName}>{service.name}</Text>
-                          {isCombo && (
+                          {/* {isCombo && (
                             <View style={styles.comboItemTag}>
                               <Text style={styles.comboItemTagText}>View Details ↗</Text>
                             </View>
-                          )}
+                          )} */}
                         </View>
                         <Text style={styles.serviceMeta}>
                           {service.durationMinutes || service.duration || 30} mins
-                          {service.packageOfferTag
+                          {/* {service.packageOfferTag
                             ? ` • ${service.packageOfferTag}`
                             : service.description
-                            ? ` • ${service.description}`
-                            : ""}
+                              ? ` • ${service.description}`
+                              : ""} */}
                         </Text>
                       </View>
 
@@ -221,7 +254,8 @@ export default function CategoryAccordionList({
             )}
           </View>
         );
-      })}
+      })
+      )}
     </View>
   );
 }
@@ -232,6 +266,21 @@ function getStyles(theme, isDark) {
   return StyleSheet.create({
     container: {
       gap: 12,
+    },
+    searchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "#1C1C1E" : "#F4F5F8",
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      height: 48,
+      marginBottom: 4,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: 10,
+      fontSize: 15,
+      color: isDark ? "#FFFFFF" : "#1C1C1E",
     },
     groupCardWrapper: {
       borderRadius: 20,
