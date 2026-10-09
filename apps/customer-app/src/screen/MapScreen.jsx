@@ -208,7 +208,8 @@ export default function MapScreen({ navigate, onScroll }) {
 
         if (isMounted) {
           if (fetchedList.length === 0) {
-            if (selectedCity && selectedCity.toLowerCase() !== "brahmapur") {
+            const LIVE_CITIES = ["brahmapur", "bhubaneswar"];
+            if (selectedCity && !LIVE_CITIES.includes(selectedCity.toLowerCase())) {
               setSalons([]);
             } else {
               setSalons(MOCK_SALONS);
@@ -247,7 +248,8 @@ export default function MapScreen({ navigate, onScroll }) {
       } catch (err) {
         console.warn("MapScreen fetch error:", err?.message);
         if (isMounted) {
-          if (selectedCity && selectedCity.toLowerCase() !== "brahmapur") {
+          const LIVE_CITIES = ["brahmapur", "bhubaneswar"];
+          if (selectedCity && !LIVE_CITIES.includes(selectedCity.toLowerCase())) {
             setSalons([]);
           } else {
             setSalons(MOCK_SALONS);

@@ -266,7 +266,7 @@ export default function CategoryDetailScreen({ goBack, navigate, routeParams = {
       setLoading(true);
       try {
         const cleanCity = cleanCityName(selectedCity);
-        const res = await browseService.getSalons({ city: cleanCity, category: categoryName });
+        const res = await browseService.getSalons({ city: cleanCity, category: categoryName, bypassCache: true });
         const fetched = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
 
         if (isMounted && fetched.length > 0) {
@@ -289,7 +289,8 @@ export default function CategoryDetailScreen({ goBack, navigate, routeParams = {
           const categoryFiltered = mapped.filter((s) => isSalonInCategory(s, categoryName));
           setSalons(categoryFiltered.length > 0 ? categoryFiltered : mapped);
         } else if (isMounted) {
-          if (selectedCity && selectedCity.toLowerCase() !== "brahmapur") {
+          const LIVE_CITIES = ["brahmapur", "bhubaneswar"];
+          if (selectedCity && !LIVE_CITIES.includes(selectedCity.toLowerCase())) {
             setSalons([]);
           } else {
             const fallbackFiltered = SAMPLE_SALONS.filter((s) => isSalonInCategory(s, categoryName));
@@ -299,7 +300,8 @@ export default function CategoryDetailScreen({ goBack, navigate, routeParams = {
       } catch (err) {
         console.warn("Failed to fetch salons for category screen:", err);
         if (isMounted) {
-          if (selectedCity && selectedCity.toLowerCase() !== "brahmapur") {
+          const LIVE_CITIES = ["brahmapur", "bhubaneswar"];
+          if (selectedCity && !LIVE_CITIES.includes(selectedCity.toLowerCase())) {
             setSalons([]);
           } else {
             const fallbackFiltered = SAMPLE_SALONS.filter((s) => isSalonInCategory(s, categoryName));

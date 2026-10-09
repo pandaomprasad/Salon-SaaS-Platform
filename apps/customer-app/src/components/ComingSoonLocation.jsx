@@ -7,7 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import AppleTouchable from "./AppleTouchable";
 import { useLocationStore } from "../store/useLocationStore";
 
-const POPULAR_LIVE_CITIES = ["Brahmapur"];
+const POPULAR_LIVE_CITIES = ["Bhubaneswar", "Brahmapur"];
 
 function ComingSoonLocation({
   city: propCity,

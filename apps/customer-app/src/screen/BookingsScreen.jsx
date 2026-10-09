@@ -391,7 +391,8 @@ export default function BookingsScreen({ navigate, onScroll, onBack }) {
   const selectedCity = useLocationStore((state) => state.selectedCity);
   const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
-  const isCityEmpty = selectedCity && selectedCity.toLowerCase() !== "brahmapur";
+  const LIVE_CITIES = ["brahmapur", "bhubaneswar"];
+  const isCityEmpty = selectedCity && !LIVE_CITIES.includes(selectedCity.toLowerCase());
 
   if (isCityEmpty) {
     return (

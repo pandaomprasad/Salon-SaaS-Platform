@@ -26,7 +26,8 @@ export default function ExploreScreen({ goBack, navigate }) {
   const selectedCity = useLocationStore((state) => state.selectedCity);
   const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
-  const isCityEmpty = selectedCity && selectedCity.toLowerCase() !== "brahmapur";
+  const LIVE_CITIES = ["brahmapur", "bhubaneswar"];
+  const isCityEmpty = selectedCity && !LIVE_CITIES.includes(selectedCity.toLowerCase());
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState({});

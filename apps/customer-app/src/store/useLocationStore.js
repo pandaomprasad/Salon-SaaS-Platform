@@ -6,7 +6,7 @@ import { cleanCityName, getCurrentLocation } from "../services/locationService";
 const STORAGE_CITY_KEY = "@user_selected_city";
 
 export const useLocationStore = create((set, get) => ({
-  selectedCity: "Brahmapur",
+  selectedCity: "Bhubaneswar",
   locationDetails: null,
   isDetecting: false,
   initialized: false,

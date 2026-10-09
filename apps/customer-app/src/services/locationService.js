@@ -25,7 +25,7 @@ export function calculateDistance(lat1, lng1, lat2, lng2) {
  *      "Greater Mumbai Corporation" -> "Mumbai"
  */
 export function cleanCityName(rawName) {
-  if (!rawName) return "Brahmapur";
+  if (!rawName) return "Bhubaneswar";
 
   let name = rawName.trim();
 
