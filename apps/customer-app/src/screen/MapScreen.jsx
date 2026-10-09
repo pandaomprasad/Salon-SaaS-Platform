@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  LayoutAnimation,
+  UIManager,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -26,6 +28,8 @@ import LocationPickerModal from "../components/LocationPickerModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import mapService from "../services/mapService";
+import { storage } from "../services/storage";
+import ComingSoonLocation from "../components/ComingSoonLocation";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH * 0.78;
@@ -33,6 +37,12 @@ const CARD_MARGIN = 10;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_MARGIN * 2;
 
 const TOP_INSET = Platform.OS === "ios" ? 54 : (StatusBar.currentHeight ? StatusBar.currentHeight + 14 : 44);
+
+if (Platform.OS === "android") {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
 const CATEGORIES = [
   { id: "all", label: "All", icon: "✨" },
@@ -46,6 +56,15 @@ const CATEGORIES = [
 // Default fallback location (Brahmapur, Odisha, India)
 const DEFAULT_LAT = 19.3150;
 const DEFAULT_LNG = 84.7941;
+
+const CITY_COORDINATES = {
+  brahmapur: { lat: 19.3150, lng: 84.7941 },
+  berhampur: { lat: 19.3150, lng: 84.7941 },
+  bhubaneswar: { lat: 20.2961, lng: 85.8245 },
+  cuttack: { lat: 20.4625, lng: 85.8828 },
+  puri: { lat: 19.8135, lng: 85.8312 },
+  janla: { lat: 20.2400, lng: 85.7700 },
+};
 
 const MOCK_SALONS = [
   {
@@ -94,8 +113,8 @@ const MOCK_SALONS = [
 
 export default function MapScreen({ navigate, onScroll }) {
   const { isDark } = useTheme();
-  const styles = getStyles(isDark);
   const insets = useSafeAreaInsets();
+  const styles = getStyles(isDark, insets);
   const bottomBarInset = Math.max(insets.bottom, 10) + 68;
 
   const selectedCity = useLocationStore((state) => state.selectedCity);
@@ -106,6 +125,8 @@ export default function MapScreen({ navigate, onScroll }) {
   const [salons, setSalons] = useState(MOCK_SALONS);
   const [selectedSalonId, setSelectedSalonId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
@@ -116,17 +137,60 @@ export default function MapScreen({ navigate, onScroll }) {
     serviceType: "all",
   });
 
+  const toggleSearch = (focused) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsSearchFocused(focused);
+  };
+
   const flatListRef = useRef(null);
   const webViewRef = useRef(null);
 
-  // Determine current center coordinates
-  const userLat = locationDetails?.latitude || DEFAULT_LAT;
-  const userLng = locationDetails?.longitude || DEFAULT_LNG;
-  const locationAddressText = locationDetails?.formattedAddress || locationDetails?.area || `${selectedCity || "6391 Elgin St. Celina, Delaware 10299"}`;
+  // Determine current center coordinates matching selectedCity
+  const cleanCurrentCity = (selectedCity || "Brahmapur").trim().toLowerCase();
+  const isLocationMatching =
+    locationDetails?.city &&
+    locationDetails.city.trim().toLowerCase() === cleanCurrentCity;
+
+  const cityCoords = CITY_COORDINATES[cleanCurrentCity] || { lat: DEFAULT_LAT, lng: DEFAULT_LNG };
+  const userLat = (isLocationMatching && locationDetails?.latitude) ? locationDetails.latitude : cityCoords.lat;
+  const userLng = (isLocationMatching && locationDetails?.longitude) ? locationDetails.longitude : cityCoords.lng;
+  const locationAddressText = isLocationMatching
+    ? (locationDetails?.formattedAddress || locationDetails?.area || selectedCity)
+    : (selectedCity || "Brahmapur");
 
   useEffect(() => {
-    detectCurrentLocation();
-  }, [detectCurrentLocation]);
+    async function loadHistory() {
+      try {
+        const hist = await storage.getItem("map_search_history");
+        if (hist) setRecentSearches(JSON.parse(hist));
+      } catch(e) {}
+    }
+    loadHistory();
+  }, []);
+
+  const saveSearchHistory = async (salon) => {
+    try {
+      const existing = recentSearches.filter(s => s.id !== salon.id);
+      const updated = [salon, ...existing].slice(0, 5);
+      setRecentSearches(updated);
+      await storage.setItem("map_search_history", JSON.stringify(updated));
+    } catch(e) {}
+  };
+
+  const removeSearchHistory = async (salonId) => {
+    try {
+      const updated = recentSearches.filter(s => s.id !== salonId);
+      setRecentSearches(updated);
+      await storage.setItem("map_search_history", JSON.stringify(updated));
+    } catch(e) {}
+  };
+
+  const clearAllHistory = async () => {
+    try {
+      setRecentSearches([]);
+      await storage.setItem("map_search_history", JSON.stringify([]));
+    } catch(e) {}
+  };
 
   // Fetch salons or combine with fallback
   useEffect(() => {
@@ -135,31 +199,60 @@ export default function MapScreen({ navigate, onScroll }) {
       try {
         setLoading(true);
         const res = await browseService.getSalons({ city: selectedCity });
-        const fetchedList = res?.data || res || [];
-        if (isMounted && Array.isArray(fetchedList) && fetchedList.length > 0) {
-          const mapped = fetchedList.map((item, idx) => {
-            const lat = parseFloat(item.latitude || item.address?.latitude || userLat + (idx % 2 === 0 ? 0.005 * (idx + 1) : -0.005 * (idx + 1)));
-            const lng = parseFloat(item.longitude || item.address?.longitude || userLng + (idx % 2 === 0 ? -0.005 * (idx + 1) : 0.005 * (idx + 1)));
-            const dist = calculateDistance(userLat, userLng, lat, lng);
-            return {
-              id: item.id || item._id || `s-${idx}`,
-              name: item.name || "Salon",
-              address: item.address?.formattedAddress || item.address || item.city || "Nearby Address",
-              city: item.city || selectedCity,
-              rating: parseFloat(item.rating?.avgScore || item.rating || 4.8),
-              reviewsCount: item.rating?.totalReviews || item.reviewsCount || 45,
-              startingPrice: item.startingPrice || item.minPrice || 499,
-              latitude: lat,
-              longitude: lng,
-              distanceKm: dist ? parseFloat(dist.toFixed(1)) : 2.0,
-              image: item.coverImage || item.images?.[0] || MOCK_SALONS[idx % MOCK_SALONS.length].image,
-              categories: item.categories || ["Hair", "Beauty"],
-            };
-          });
-          setSalons(mapped);
+        let fetchedList = [];
+        if (Array.isArray(res?.data?.data?.salons)) fetchedList = res.data.data.salons;
+        else if (Array.isArray(res?.data?.salons)) fetchedList = res.data.salons;
+        else if (Array.isArray(res?.data?.data)) fetchedList = res.data.data;
+        else if (Array.isArray(res?.data)) fetchedList = res.data;
+        else if (Array.isArray(res)) fetchedList = res;
+
+        if (isMounted) {
+          if (fetchedList.length === 0) {
+            if (selectedCity && selectedCity.toLowerCase() !== "brahmapur") {
+              setSalons([]);
+            } else {
+              setSalons(MOCK_SALONS);
+            }
+          } else {
+            const mapped = fetchedList.map((item, idx) => {
+              let lat = parseFloat(item.latitude || item.address?.latitude);
+              let lng = parseFloat(item.longitude || item.address?.longitude);
+              
+              if (!lat || !lng) {
+                 const angle = (idx * 137.5) * (Math.PI / 180);
+                 const radius = 0.003 + (idx * 0.0015);
+                 lat = userLat + radius * Math.cos(angle);
+                 lng = userLng + radius * Math.sin(angle);
+              }
+
+              const dist = calculateDistance(userLat, userLng, lat, lng);
+              return {
+                id: item.id || item._id || `s-${idx}`,
+                name: item.name || "Salon",
+                address: item.address?.formattedAddress || item.address || item.city || "Nearby Address",
+                city: item.city || selectedCity,
+                rating: parseFloat(item.rating?.avgScore || item.rating || 5.0),
+                reviewsCount: item.rating?.totalReviews ?? item.reviewsCount ?? item.totalReviews ?? 0,
+                startingPrice: item.startingPrice || item.minPrice || 499,
+                latitude: lat,
+                longitude: lng,
+                distanceKm: dist ? parseFloat(dist.toFixed(1)) : 2.0,
+                image: item.coverImage || item.images?.[0] || MOCK_SALONS[idx % MOCK_SALONS.length].image,
+                categories: item.categories || ["Hair", "Beauty"],
+              };
+            });
+            setSalons(mapped);
+          }
         }
       } catch (err) {
-        console.warn("MapScreen fetch error, using fallback salons:", err?.message);
+        console.warn("MapScreen fetch error:", err?.message);
+        if (isMounted) {
+          if (selectedCity && selectedCity.toLowerCase() !== "brahmapur") {
+            setSalons([]);
+          } else {
+            setSalons(MOCK_SALONS);
+          }
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -185,10 +278,7 @@ export default function MapScreen({ navigate, onScroll }) {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.address.toLowerCase().includes(q) ||
-          s.categories.some((c) => (c.name || c).toLowerCase().includes(q))
+        (s) => (s.name || "").toLowerCase().includes(q)
       );
     }
 
@@ -201,7 +291,7 @@ export default function MapScreen({ navigate, onScroll }) {
         return (
           nameStr.includes(typeStr) ||
           summary.includes(typeStr) ||
-          catList.some((c) => (c.name || c).toString().toLowerCase().includes(typeStr))
+          catList.some((c) => (c?.name || c || "").toString().toLowerCase().includes(typeStr))
         );
       });
     }
@@ -266,21 +356,22 @@ export default function MapScreen({ navigate, onScroll }) {
   const mapHtml = useMemo(() => {
     return mapService.generateMapHtml({
       salons: filteredSalons,
-      centerLat: mapCenterLat,
-      centerLng: mapCenterLng,
-      selectedSalonId: selectedSalon?.id || selectedSalonId,
+      centerLat: userLat,
+      centerLng: userLng,
+      selectedSalonId: null,
       isDark,
       userLat,
       userLng,
     });
-  }, [filteredSalons, mapCenterLat, mapCenterLng, selectedSalon, selectedSalonId, isDark, userLat, userLng]);
+  }, [filteredSalons, isDark, userLat, userLng]);
 
   // Recenter to user's current GPS location via mapService
   const handleRecenterLocation = async () => {
     try {
       await detectCurrentLocation();
-      const targetLat = locationDetails?.latitude || userLat;
-      const targetLng = locationDetails?.longitude || userLng;
+      const freshLoc = useLocationStore.getState().locationDetails;
+      const targetLat = freshLoc?.latitude || userLat;
+      const targetLng = freshLoc?.longitude || userLng;
       mapService.recenterMap({
         webViewRef,
         iframeId: "leaflet-map-iframe",
@@ -337,197 +428,147 @@ export default function MapScreen({ navigate, onScroll }) {
     );
   };
 
+  const isCityEmpty = !loading && salons.length === 0;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-      {/* TOP FLOATING CARD HEADER */}
-      <View style={styles.topFloatingCard}>
-        {/* Location Row */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setLocationModalVisible(true)}
-          style={styles.locationRow}
-        >
-          <Ionicons
-            name="location-outline"
-            size={18}
-            color={isDark ? "#FFFFFF" : "#18181B"}
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {locationAddressText}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Search Capsule with Filter Sliders Icon Inside */}
-        <View style={styles.searchCapsule}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={isDark ? "#A1A1AA" : "#9999A0"}
-            style={{ marginRight: 10 }}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by Salons..."
-            placeholderTextColor={isDark ? "#66666E" : "#B0B0B8"}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 4, marginRight: 4 }}>
-              <Ionicons name="close-circle" size={16} color={isDark ? "#888894" : "#9999A0"} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setFilterModalVisible(true)}
-            style={styles.filterIconButton}
-          >
-            <Ionicons
-              name="options-outline"
-              size={18}
-              color={activeFilterCount > 0 ? "#6C5CE7" : isDark ? "#A1A1AA" : "#2C2C2E"}
-            />
-            {activeFilterCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+      {/* HEADER OVERLAY */}
+      <View style={[styles.headerOverlay, { paddingTop: Math.max(insets?.top || 20, 20) + 12 }]} pointerEvents="box-none">
+        {/* Top Row: Location & Notification */}
+        <View style={styles.topRow} pointerEvents="box-none">
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setLocationModalVisible(true)} style={styles.locationPill}>
+            <Ionicons name="location" size={16} color="#762237" style={{ marginRight: 6 }} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.locationCityText}>{locationAddressText.split(',')[0] || selectedCity || "Brahmapur"}</Text>
+                <Ionicons name="chevron-down" size={12} color="#18181B" style={{ marginLeft: 4 }} />
               </View>
-            )}
+              <Text style={styles.locationAreaText} numberOfLines={1}>{locationAddressText.substring(locationAddressText.indexOf(',') + 1).trim() || selectedCity || "Gandhi Nagar, Dharma Nagar"}</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.8} style={styles.notificationBtn}>
+            <Ionicons name="notifications-outline" size={20} color="#18181B" />
+            <View style={styles.notificationDot} />
           </TouchableOpacity>
         </View>
 
-        {/* Horizontal Category Filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 14 }}
-          contentContainerStyle={{ paddingRight: 10, gap: 8 }}
-        >
-          {CATEGORIES.map((cat) => {
-            const isSelected = filters.serviceType === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => setFilters({ ...filters, serviceType: cat.id })}
-                activeOpacity={0.85}
-                style={[
-                  styles.catPill,
-                  isSelected ? styles.catPillActive : styles.catPillInactive,
-                ]}
-              >
-                <Text style={{ fontSize: 13, marginRight: 5 }}>{cat.icon}</Text>
-                <Text
-                  style={[
-                    styles.catText,
-                    isSelected ? styles.catTextActive : styles.catTextInactive,
-                  ]}
-                >
-                  {cat.label}
+        {!isCityEmpty && (
+          <>
+            {/* Search Pill */}
+            <View style={styles.searchPill}>
+              <Ionicons name="search-outline" size={18} color="#9999A0" style={{ marginRight: 8 }} />
+              <TouchableOpacity activeOpacity={1} onPress={() => navigate("Explore")} style={{ flex: 1, paddingVertical: 14 }}>
+                <Text style={{ fontSize: 14, fontWeight: "400", color: "#9999A0" }}>
+                  Search by salon name, area...
                 </Text>
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setFilterModalVisible(true)} style={styles.filterIconButton}>
+                <Ionicons name="options-outline" size={18} color="#18181B" />
+                {activeFilterCount > 0 && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Categories */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: 10 }}>
+              {CATEGORIES.map((cat) => {
+                const isSelected = filters.serviceType === cat.id;
+                return (
+                  <TouchableOpacity key={cat.id} onPress={() => setFilters({ ...filters, serviceType: cat.id })} activeOpacity={0.85} style={[styles.catPill, isSelected ? styles.catPillActive : styles.catPillInactive]}>
+                    <Text style={{ fontSize: 13, marginRight: 5 }}>{cat.icon}</Text>
+                    <Text style={[styles.catText, isSelected ? styles.catTextActive : styles.catTextInactive]}>{cat.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
       </View>
 
-      {/* INTERACTIVE MAP ENGINE */}
-      <View style={styles.mapContainer}>
-        {Platform.OS === "web" ? (
-          <iframe
-            id="leaflet-map-iframe"
-            title="Salon Interactive Map"
-            srcDoc={mapHtml}
-            style={{ width: "100%", height: "100%", border: "none" }}
-            onLoad={() => {
-              const handleMessage = (e) => {
-                const data = mapService.parseMapMessage(e);
+      {/* MAIN CONTENT AREA */}
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 100 }}>
+          <ActivityIndicator size="small" color="#762237" />
+          <Text style={{ fontSize: 13, color: isDark ? "#A1A1AA" : "#71717A", marginTop: 10 }}>
+            Loading salons in {selectedCity}…
+          </Text>
+        </View>
+      ) : isCityEmpty ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingTop: Math.max(insets?.top || 20, 20) + 70,
+            paddingBottom: bottomBarInset + 20,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={(city) => {
+              setSelectedCity(city);
+            }}
+          />
+        </ScrollView>
+      ) : (
+        /* INTERACTIVE MAP ENGINE */
+        <View style={styles.mapContainer}>
+          {Platform.OS === "web" ? (
+            <iframe
+              id="leaflet-map-iframe"
+              title="Salon Interactive Map"
+              srcDoc={mapHtml}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              onLoad={() => {
+                const handleMessage = (e) => {
+                  const data = mapService.parseMapMessage(e);
+                  if (data?.type === "SELECT_SALON" && data?.id) {
+                    handleSelectSalon(data.id);
+                  } else if (data?.type === "NAVIGATE_SALON" && data?.id) {
+                    const salonItem = filteredSalons.find(s => s.id === data.id) || { id: data.id, name: data.name };
+                    navigate("SalonDetail", { salon: salonItem });
+                  }
+                };
+                window.addEventListener("message", handleMessage);
+              }}
+            />
+          ) : (
+            <WebView
+              ref={webViewRef}
+              originWhitelist={["*"]}
+              source={{ html: mapHtml, baseUrl: "https://localhost" }}
+              style={{ flex: 1, width: "100%", height: "100%", backgroundColor: isDark ? "#121216" : "#EAEAEA" }}
+              onMessage={(event) => {
+                const data = mapService.parseMapMessage(event);
                 if (data?.type === "SELECT_SALON" && data?.id) {
                   handleSelectSalon(data.id);
+                } else if (data?.type === "NAVIGATE_SALON" && data?.id) {
+                  const salonItem = filteredSalons.find(s => s.id === data.id) || { id: data.id, name: data.name };
+                  navigate("SalonDetail", { salon: salonItem });
                 }
-              };
-              window.addEventListener("message", handleMessage);
-            }}
-          />
-        ) : (
-          <WebView
-            ref={webViewRef}
-            originWhitelist={["*"]}
-            source={{ html: mapHtml, baseUrl: "https://localhost" }}
-            style={{ flex: 1, width: "100%", height: "100%", backgroundColor: isDark ? "#121216" : "#EAEAEA" }}
-            onMessage={(event) => {
-              const data = mapService.parseMapMessage(event);
-              if (data?.type === "SELECT_SALON" && data?.id) {
-                handleSelectSalon(data.id);
-              }
-            }}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            scalesPageToFit={false}
-            mixedContentMode="always"
-          />
-        )}
-
-        {/* Floating Map Controls (GPS Recenter Button) */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleRecenterLocation}
-          style={[styles.recenterButton, { bottom: bottomBarInset + (selectedSalon ? 120 : 20) }]}
-        >
-          <Ionicons name="locate-outline" size={22} color="#6C5CE7" />
-        </TouchableOpacity>
-
-        {/* Single Floating Selected Salon Card */}
-        {selectedSalon && (
-          <View style={[styles.singleCardWrapper, { bottom: bottomBarInset + 12 }]}>
-            <TouchableOpacity
-              activeOpacity={0.92}
-              onPress={() => {
-                navigate("SalonDetail", { salonId: selectedSalon.id, salonName: selectedSalon.name });
               }}
-              style={styles.singleSalonCard}
-            >
-              <Image source={{ uri: selectedSalon.image }} style={styles.singleCardImage} />
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              scalesPageToFit={false}
+              mixedContentMode="always"
+            />
+          )}
 
-              <View style={styles.singleCardContent}>
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.salonName} numberOfLines={1}>
-                    {selectedSalon.name}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setSelectedSalonId(null)}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    style={styles.closeCardButton}
-                  >
-                    <Ionicons name="close-circle" size={20} color={isDark ? "#A1A1AA" : "#8E8E93"} />
-                  </TouchableOpacity>
-                </View>
+          {/* Floating Map Controls */}
+          <TouchableOpacity activeOpacity={0.85} onPress={handleRecenterLocation} style={[styles.mapControlButton, { top: Math.max(insets?.top || 20, 20) + 160 }]}>
+            <Ionicons name="locate-outline" size={20} color="#18181B" />
+          </TouchableOpacity>
 
-                <Text style={styles.salonAddress} numberOfLines={1}>
-                  {selectedSalon.address}
-                </Text>
-
-                <View style={styles.cardFooterRow}>
-                  <View style={styles.ratingBadge}>
-                    <Ionicons name="star" size={13} color="#FFB800" />
-                    <Text style={styles.ratingText}>{selectedSalon.rating}</Text>
-                    <Text style={styles.reviewsCountText}>({selectedSalon.reviewsCount})</Text>
-                  </View>
-
-                  <View style={styles.rightFooterMeta}>
-                    <View style={styles.distancePill}>
-                      <Ionicons name="location" size={12} color="#6C5CE7" />
-                      <Text style={styles.distanceText}>{selectedSalon.distanceKm} km</Text>
-                    </View>
-                    <Text style={styles.priceText}>From ₹{selectedSalon.startingPrice}</Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+          <TouchableOpacity activeOpacity={0.85} style={[styles.mapControlButton, { bottom: bottomBarInset + 20, width: 50, height: 50, borderRadius: 25 }]}>
+            <Ionicons name="navigate-sharp" size={24} color="#18181B" style={{ transform: [{ rotate: '45deg' }] }} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* MODALS */}
       <FilterModal
@@ -550,82 +591,119 @@ export default function MapScreen({ navigate, onScroll }) {
   );
 }
 
-function getStyles(isDark) {
+function getStyles(isDark, insets) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: isDark ? "#121216" : "#F8F9FA",
     },
 
-    // Top Docked Header Container
-    topFloatingCard: {
+    // Header Overlay Styles
+    headerOverlay: {
       position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       zIndex: 20,
-      backgroundColor: isDark ? "#1C1C22" : "#FFFFFF",
-      borderBottomLeftRadius: 28,
-      borderBottomRightRadius: 28,
-      paddingHorizontal: 20,
-      paddingTop: TOP_INSET + 16,
-      paddingBottom: 16,
-      shadowColor: "#000000",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: isDark ? 0.35 : 0.08,
-      shadowRadius: 16,
-      elevation: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)",
     },
-    locationRow: {
+    topRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 14,
-      paddingHorizontal: 2,
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      marginBottom: 16,
     },
-    locationText: {
-      flex: 1,
-      fontSize: 13.5,
-      fontWeight: "700",
-      color: isDark ? "#F4F4F5" : "#18181B",
-      letterSpacing: -0.2,
-    },
-    searchCapsule: {
+    locationPill: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: isDark ? "#282830" : "#F6F6F9",
-      borderRadius: 18,
+      backgroundColor: "#FFFFFF",
       paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 24,
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 5,
+      maxWidth: "80%",
+    },
+    locationCityText: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#18181B",
+    },
+    locationAreaText: {
+      fontSize: 12,
+      color: "#71717A",
+      marginTop: 2,
+    },
+    notificationBtn: {
+      width: 44,
       height: 44,
+      borderRadius: 22,
+      backgroundColor: "#FFFFFF",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 5,
+    },
+    notificationDot: {
+      position: "absolute",
+      top: 10,
+      right: 12,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: "#EF4444",
+      borderWidth: 1.5,
+      borderColor: "#FFFFFF",
+    },
+    searchPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#FFFFFF",
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      marginHorizontal: 16,
+      height: 48,
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 4,
     },
     searchInput: {
       flex: 1,
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: "400",
-      color: isDark ? "#FFFFFF" : "#18181B",
+      color: "#18181B",
       paddingVertical: 0,
     },
     filterIconButton: {
-      padding: 4,
+      padding: 6,
       marginLeft: 6,
+      backgroundColor: "#F3F4F6",
+      borderRadius: 16,
       position: "relative",
     },
     filterBadge: {
       position: "absolute",
-      top: -4,
-      right: -4,
-      width: 15,
-      height: 15,
-      borderRadius: 8,
-      backgroundColor: "#FF3B30",
+      top: -2,
+      right: -2,
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      backgroundColor: "#EF4444",
       alignItems: "center",
       justifyContent: "center",
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: "#FFFFFF",
     },
     filterBadgeText: {
-      fontSize: 9,
+      fontSize: 8,
       fontWeight: "800",
       color: "#FFFFFF",
     },
@@ -634,17 +712,20 @@ function getStyles(isDark) {
     catPill: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 15,
-      paddingVertical: 8,
-      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 24,
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
     },
     catPillActive: {
-      backgroundColor: "#6C5CE7",
+      backgroundColor: "#762237",
     },
     catPillInactive: {
-      backgroundColor: isDark ? "#1F1F28" : "#FFFFFF",
-      borderWidth: 1,
-      borderColor: isDark ? "#2C2C38" : "#EBECEF",
+      backgroundColor: "#FFFFFF",
     },
     catText: {
       fontSize: 13,
@@ -654,7 +735,7 @@ function getStyles(isDark) {
       color: "#FFFFFF",
     },
     catTextInactive: {
-      color: isDark ? "#D1D1D6" : "#2C2C34",
+      color: "#4B5563",
     },
 
     // Map Area
@@ -662,47 +743,21 @@ function getStyles(isDark) {
       flex: 1,
       position: "relative",
     },
-    nativeMapCanvas: {
-      flex: 1,
-      backgroundColor: isDark ? "#1A1A22" : "#EAEAEA",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    mapOverlayGrid: {
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 24,
-    },
-    nativeMapText: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: isDark ? "#FFFFFF" : "#18181B",
-      marginTop: 12,
-    },
-    nativeMapSubText: {
-      fontSize: 12.5,
-      fontWeight: "500",
-      color: isDark ? "#A1A1AA" : "#71717A",
-      marginTop: 4,
-    },
-    recenterButton: {
+    mapControlButton: {
       position: "absolute",
-      right: 18,
-      bottom: 140,
+      right: 16,
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: isDark ? "rgba(30, 30, 38, 0.95)" : "#FFFFFF",
+      backgroundColor: "#FFFFFF",
       alignItems: "center",
       justifyContent: "center",
       shadowColor: "#000000",
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.18,
+      shadowOpacity: 0.15,
       shadowRadius: 10,
       elevation: 6,
       zIndex: 15,
-      borderWidth: 1,
-      borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)",
     },
 
     // Single Selected Salon Floating Card Styles

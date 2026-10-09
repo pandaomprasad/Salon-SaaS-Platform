@@ -3,31 +3,68 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Platform,
   StatusBar,
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { C } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import SpringTouchable from "../components/SpringTouchable";
+import { useLocationStore } from "../store/useLocationStore";
+import ComingSoonLocation from "../components/ComingSoonLocation";
+import LocationPickerModal from "../components/LocationPickerModal";
+import { ScrollView } from "react-native";
 
-const TOP_INSET = Platform.OS === "ios" ? 52 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 36);
+const TOP_INSET =
+  Platform.OS === "ios" ? 52 : StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 36;
 
 export default function ShopScreen({ navigate, onScroll }) {
   const { isDark } = useTheme();
   const [notified, setNotified] = useState(false);
+  const selectedCity = useLocationStore((state) => state.selectedCity);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const isCityEmpty = selectedCity && selectedCity.toLowerCase() !== "brahmapur";
 
   const handleNotifyPress = () => {
     setNotified(true);
     Alert.alert(
       "Notification Set! 🎉",
-      "Thank you for your interest! We'll notify you as soon as the ST CUT Shop launches."
+      "We'll notify you as soon as the ST CUT Shop opens."
     );
   };
 
   const styles = getStyles(isDark);
+  const accentColor = C.purple || "#D91C5C";
+
+  if (isCityEmpty) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Shop</Text>
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 20, paddingBottom: 100 }}>
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={(c) => setSelectedCity(c)}
+          />
+        </ScrollView>
+        <LocationPickerModal
+          visible={locationModalVisible}
+          selectedCity={selectedCity}
+          onSelectCity={(city) => {
+            setSelectedCity(city);
+            setLocationModalVisible(false);
+          }}
+          onClose={() => setLocationModalVisible(false)}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -38,224 +75,155 @@ export default function ShopScreen({ navigate, onScroll }) {
         <Text style={styles.headerTitle}>Shop</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-      >
-        {/* Hero Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="bag-handle-outline" size={42} color="#FFFFFF" />
-          </View>
-
-          <View style={styles.comingBadge}>
-            <Text style={styles.comingBadgeText}>LAUNCHING SOON</Text>
-          </View>
-
-          <Text style={styles.heroTitle}>ST CUT Store &amp; Exclusives</Text>
-          <Text style={styles.heroSub}>
-            We are curating a premium collection of salon-grade haircare, luxury styling serums, and beauty essentials from top certified brands.
-          </Text>
-        </View>
-
-        {/* Feature Preview List */}
-        <View style={styles.featuresCard}>
-          <Text style={styles.sectionHeader}>WHAT TO EXPECT</Text>
-
-          <View style={styles.featureRow}>
-            <View style={styles.featureIconBox}>
-              <Ionicons name="sparkles-outline" size={20} color="#6C5CE7" />
-            </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Authentic Salon Products</Text>
-              <Text style={styles.featureSub}>100% genuine products recommended by expert stylists.</Text>
-            </View>
-          </View>
-
-          <View style={styles.featureRow}>
-            <View style={styles.featureIconBox}>
-              <Ionicons name="car-outline" size={20} color="#6C5CE7" />
-            </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Express Doorstep Delivery</Text>
-              <Text style={styles.featureSub}>Fast delivery directly from partner salons in your city.</Text>
-            </View>
-          </View>
-
-          <View style={styles.featureRowNoBorder}>
-            <View style={styles.featureIconBox}>
-              <Ionicons name="gift-outline" size={20} color="#6C5CE7" />
-            </View>
-            <View style={styles.featureTextGroup}>
-              <Text style={styles.featureTitle}>Luxe Rewards &amp; Offers</Text>
-              <Text style={styles.featureSub}>Redeem points for instant discounts on product purchases.</Text>
-            </View>
+      {/* Centered Minimal Coming Soon View */}
+      <View style={styles.content}>
+        <View style={styles.iconRingOuter}>
+          <View style={styles.iconRingInner}>
+            <Ionicons name="bag-handle-outline" size={38} color={accentColor} />
           </View>
         </View>
 
-        {/* Notify Me Button */}
-        <TouchableOpacity
+        <View style={styles.badgePill}>
+          <View style={styles.glowingDot} />
+          <Text style={styles.badgeText}>COMING SOON</Text>
+        </View>
+
+        <Text style={styles.title}>ST CUT Store</Text>
+        <Text style={styles.subtitle}>
+          Our exclusive collection of salon-grade products &amp; beauty essentials is on its way.
+        </Text>
+
+        <SpringTouchable
           style={[styles.notifyBtn, notified && styles.notifyBtnDone]}
           onPress={handleNotifyPress}
-          activeOpacity={0.88}
           disabled={notified}
+          scaleTo={0.96}
         >
           <Ionicons
-            name={notified ? "checkmark-circle" : "notifications"}
-            size={20}
+            name={notified ? "checkmark-circle" : "notifications-outline"}
+            size={18}
             color="#FFFFFF"
             style={{ marginRight: 8 }}
           />
           <Text style={styles.notifyBtnText}>
-            {notified ? "You will be notified!" : "Notify Me When Available"}
+            {notified ? "You'll Be Notified!" : "Notify Me When Available"}
           </Text>
-        </TouchableOpacity>
-      </ScrollView>
+        </SpringTouchable>
+      </View>
     </View>
   );
 }
 
 function getStyles(isDark) {
+  const accentColor = C.purple || "#D91C5C";
+
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: isDark ? "#121216" : "#FFFFFF",
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
     },
     header: {
       paddingTop: TOP_INSET,
       paddingHorizontal: 24,
       paddingBottom: 16,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: isDark ? "#2A2A34" : "#EFEFF4",
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
     },
     headerTitle: {
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: "800",
-      color: isDark ? "#FFFFFF" : "#18181B",
-      letterSpacing: -0.3,
+      color: isDark ? "#FFFFFF" : "#111827",
+      letterSpacing: -0.5,
     },
-    scrollContent: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 110,
-    },
-    heroCard: {
-      alignItems: "center",
-      backgroundColor: isDark ? "#1A1A22" : "#F7F7FA",
-      borderRadius: 24,
-      padding: 24,
-      marginBottom: 20,
-    },
-    iconCircle: {
-      width: 76,
-      height: 76,
-      borderRadius: 24,
-      backgroundColor: "#6C5CE7",
+    content: {
+      flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 16,
-      shadowColor: "#6C5CE7",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 10,
-      elevation: 5,
+      paddingHorizontal: 32,
+      paddingBottom: 100,
     },
-    comingBadge: {
+    iconRingOuter: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.12)" : "#FDF2F5",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 20,
+      borderWidth: 1.5,
+      borderColor: isDark ? "rgba(217, 28, 92, 0.25)" : "#FCE7EC",
+    },
+    iconRingInner: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.2)" : "#FBE6EA",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    badgePill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.15)" : "#FDF2F5",
       paddingHorizontal: 12,
       paddingVertical: 5,
-      borderRadius: 12,
-      backgroundColor: "rgba(108, 92, 231, 0.12)",
-      marginBottom: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(217, 28, 92, 0.3)" : "#FCE7EC",
+      marginBottom: 16,
     },
-    comingBadgeText: {
-      fontSize: 11,
-      fontWeight: "800",
-      color: "#6C5CE7",
-      letterSpacing: 1,
+    glowingDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: accentColor,
+      marginRight: 6,
     },
-    heroTitle: {
-      fontSize: 22,
+    badgeText: {
+      fontSize: 10.5,
       fontWeight: "800",
-      color: isDark ? "#FFFFFF" : "#18181B",
+      color: accentColor,
+      letterSpacing: 0.8,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#111827",
       textAlign: "center",
-      marginBottom: 8,
+      marginBottom: 10,
+      letterSpacing: -0.4,
     },
-    heroSub: {
-      fontSize: 13.5,
+    subtitle: {
+      fontSize: 14,
       fontWeight: "400",
-      color: isDark ? "#9999A0" : "#71717A",
+      color: isDark ? "#9CA3AF" : "#6B7280",
       textAlign: "center",
-      lineHeight: 21,
-    },
-    featuresCard: {
-      backgroundColor: isDark ? "#1A1A22" : "#F7F7FA",
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 20,
-    },
-    sectionHeader: {
-      fontSize: 11,
-      fontWeight: "800",
-      color: "#6C5CE7",
-      letterSpacing: 1,
-      marginBottom: 14,
-    },
-    featureRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: isDark ? "#2A2A34" : "#EFEFF4",
-    },
-    featureRowNoBorder: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 12,
-    },
-    featureIconBox: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: "rgba(108, 92, 231, 0.1)",
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 14,
-    },
-    featureTextGroup: {
-      flex: 1,
-    },
-    featureTitle: {
-      fontSize: 14.5,
-      fontWeight: "700",
-      color: isDark ? "#FFFFFF" : "#18181B",
-      marginBottom: 2,
-    },
-    featureSub: {
-      fontSize: 12.5,
-      fontWeight: "400",
-      color: isDark ? "#9999A0" : "#71717A",
+      lineHeight: 22,
+      marginBottom: 28,
+      maxWidth: 280,
     },
     notifyBtn: {
-      backgroundColor: "#6C5CE7",
+      backgroundColor: accentColor,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      height: 52,
-      borderRadius: 16,
-      shadowColor: "#6C5CE7",
+      paddingHorizontal: 24,
+      height: 48,
+      borderRadius: 24,
+      shadowColor: accentColor,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
-      elevation: 4,
+      elevation: 3,
+      width: "100%",
+      maxWidth: 280,
     },
     notifyBtnDone: {
-      backgroundColor: "#10B981",
+      backgroundColor: isDark ? "#10B981" : "#059669",
+      shadowColor: "#10B981",
     },
     notifyBtnText: {
       color: "#FFFFFF",
-      fontSize: 15,
+      fontSize: 14.5,
       fontWeight: "700",
     },
   });

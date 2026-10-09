@@ -14,8 +14,10 @@ export function getTileUrl(isDark = false) {
     }/{z}/{x}/{y}.png?api_key=${olaApiKey.trim()}`;
   }
 
-  // Standard clean OpenStreetMap tile URL
-  return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  // Premium CartoDB/Esri basemaps (no API key needed)
+  return isDark
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+    : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
 }
 
 /**
@@ -77,11 +79,114 @@ export function generateMapHtml({
         .leaflet-control-container .leaflet-routing-container-hide { display: none; }
         .leaflet-control-attribution { display: none !important; }
 
-        /* Custom Teardrop Pin Marker */
+        /* Custom Popup Tooltip */
+        @keyframes popupSpring {
+          0% {
+            opacity: 0;
+            transform: translateY(15px) scale(0.9);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip-container, .leaflet-container a.leaflet-popup-close-button {
+          animation: popupSpring 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          transform-origin: bottom center;
+        }
+
+        .leaflet-popup-content-wrapper {
+          background: #FFFFFF;
+          border-radius: 12px;
+          padding: 0;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          overflow: hidden;
+        }
+        .leaflet-popup-content {
+          margin: 0;
+          width: 250px !important;
+        }
+        .leaflet-popup-tip {
+          background: #FFFFFF;
+        }
+        .custom-leaflet-popup {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          cursor: pointer;
+          padding: 8px;
+        }
+        .popup-img {
+          width: 60px;
+          height: 60px;
+          border-radius: 8px;
+          background-size: cover;
+          background-position: center;
+          background-color: #EFEFF4;
+        }
+        .popup-content {
+          flex: 1;
+          padding-left: 12px;
+          justify-content: center;
+        }
+        .popup-title {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          color: #18181B;
+          margin-bottom: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .popup-subtitle {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 11px;
+          font-weight: 500;
+          color: #71717A;
+          display: flex;
+          align-items: center;
+        }
+        .popup-chevron-btn {
+          width: 24px;
+          height: 24px;
+          border-radius: 12px;
+          background: #F3F4F6;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: 8px;
+        }
+
+        /* Custom Close Button for Tooltip */
+        .leaflet-container a.leaflet-popup-close-button {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 24px;
+          height: 24px;
+          background: rgba(0, 0, 0, 0.4);
+          color: #FFF !important;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 16px;
+          text-decoration: none;
+          padding: 0;
+          line-height: 1;
+          z-index: 100;
+          transition: background 0.2s ease;
+        }
+        .leaflet-container a.leaflet-popup-close-button:hover {
+          background: rgba(0, 0, 0, 0.6);
+        }
+
+        /* Modern Shop Pin */
         .salon-pin-wrapper {
           position: relative;
-          width: 44px;
-          height: 52px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -89,42 +194,77 @@ export function generateMapHtml({
           transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .salon-pin-wrapper:hover {
-          transform: scale(1.15);
+          transform: scale(1.1);
+          z-index: 999 !important;
         }
         .salon-pin-bubble {
-          width: 42px;
-          height: 42px;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          background: #FFFFFF;
-          box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #762237;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.2);
           display: flex;
           align-items: center;
           justify-content: center;
           border: 2px solid #FFFFFF;
           box-sizing: border-box;
+          transition: all 0.2s ease;
+          position: relative;
         }
-        .salon-pin-wrapper.active .salon-pin-bubble {
-          background: #6C5CE7;
-          border: 2.5px solid #FFFFFF;
-          box-shadow: 0 8px 24px rgba(108, 92, 231, 0.45);
+        .salon-pin-bubble::after {
+          content: "";
+          position: absolute;
+          bottom: -6px;
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 6px solid #FFFFFF;
         }
-        .salon-pin-img {
-          width: 32px;
-          height: 32px;
+        .salon-pin-bubble::before {
+          content: "";
+          position: absolute;
+          bottom: -4px;
+          width: 0;
+          height: 0;
+          border-left: 4px solid transparent;
+          border-right: 4px solid transparent;
+          border-top: 5px solid #762237;
+          z-index: 2;
+        }
+        .salon-pin-wrapper.active {
+          z-index: 1000 !important;
+          transform: scale(1.15);
+        }
+        .salon-pin-wrapper.active::before {
+          content: "";
+          position: absolute;
+          width: 64px;
+          height: 64px;
+          background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, rgba(239, 68, 68, 0) 70%);
           border-radius: 50%;
-          transform: rotate(45deg);
-          object-fit: cover;
+          z-index: -1;
+          animation: pulseGlow 2s infinite;
+        }
+        @keyframes pulseGlow {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          50% { transform: scale(1.2); opacity: 1; }
+          100% { transform: scale(0.8); opacity: 0.8; }
+        }
+        .shop-icon {
+          width: 14px;
+          height: 14px;
+          fill: #FFFFFF;
         }
 
         /* User Current GPS Location Dot Marker */
         .user-gps-dot {
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
           background: #3B82F6;
-          border: 3px solid #FFFFFF;
+          border: 2px solid #FFFFFF;
           border-radius: 50%;
-          box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3);
+          box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.2), 0 0 0 16px rgba(59, 130, 246, 0.1);
         }
       </style>
     </head>
@@ -165,16 +305,41 @@ export function generateMapHtml({
             className: 'custom-pin-container',
             html: '<div class="salon-pin-wrapper ' + (isSelected ? 'active' : '') + '">' +
                     '<div class="salon-pin-bubble">' +
-                      '<img class="salon-pin-img" src="' + s.image + '" alt="' + s.name + '" />' +
+                      '<svg class="shop-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+                        '<path d="M21.9 8.89l-1.05-4.37c-.22-.9-1-1.52-1.91-1.52H5.05c-.9 0-1.69.63-1.9 1.52L2.1 8.89c-.24 1.02-.02 2.06.62 2.88.08.11.19.19.28.29V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-6.94c.09-.09.2-.18.28-.28.64-.82.87-1.86.62-2.89zM5.05 5h13.9l.85 3.5c.05.21.02.43-.1.62-.12.19-.34.33-.56.33-.41 0-.75-.34-.75-.75V7h-2v1.75c0 .41-.34.75-.75.75s-.75-.34-.75-.75V7h-2v1.75c0 .41-.34.75-.75.75s-.75-.34-.75-.75V7h-2v1.75c0 .28-.15.53-.39.66-.24.13-.53.11-.75-.05-.18-.13-.29-.33-.29-.55L4.2 8.5c-.05-.21-.02-.43.1-.62.12-.19.34-.33.56-.33h.19zM19 19H5v-6.03c.16.03.33.03.5 0 .76 0 1.45-.33 1.94-.85.49.52 1.18.85 1.94.85.76 0 1.45-.33 1.94-.85.49.52 1.18.85 1.94.85.76 0 1.45-.33 1.94-.85.49.52 1.18.85 1.94.85.17.03.34.03.5 0V19z"/>' +
+                      '</svg>' +
                     '</div>' +
                   '</div>',
-            iconSize: [44, 52],
-            iconAnchor: [22, 52]
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
           });
 
           var marker = L.marker([s.lat, s.lng], { icon: customIcon }).addTo(map);
 
+          var popupHtml = '<div class="custom-leaflet-popup" onclick="sendNavMessage(&apos;' + s.id + '&apos;)">' +
+                            '<div class="popup-img" style="background-image: url(' + s.image + ')"></div>' +
+                            '<div class="popup-content">' +
+                              '<div class="popup-title">' + (s.name || 'Salon') + '</div>' +
+                              '<div class="popup-subtitle">' +
+                                '<span style="color: #F59E0B; margin-right: 3px;">★</span> ' + 
+                                '<span style="font-weight: 700; color: #18181B; margin-right: 2px;">' + (s.rating || '4.8') + '</span> ' +
+                                '<span>(' + (s.reviewsCount > 999 ? (s.reviewsCount/1000).toFixed(1) + 'k' : (s.reviewsCount || 45)) + ')</span>' +
+                                '<span style="margin: 0 4px; color: #D1D5DB">•</span>' +
+                                '<span>' + (s.distanceKm || '2.0') + ' km</span>' +
+                              '</div>' +
+                            '</div>' +
+                            '<div class="popup-chevron-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></div>' +
+                          '</div>';
+
+          marker.bindPopup(popupHtml, {
+            closeButton: true,
+            className: 'custom-popup-container',
+            offset: [0, -20],
+            minWidth: 220
+          });
+
           marker.on('click', function() {
+            marker.openPopup();
             if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
               window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SELECT_SALON', id: s.id }));
             } else if (window.parent) {
@@ -182,16 +347,18 @@ export function generateMapHtml({
             }
           });
 
-          if (isSelected) {
-            currentCircle = L.circle([s.lat, s.lng], {
-              color: '#6C5CE7',
-              fillColor: '#6C5CE7',
-              fillOpacity: 0.18,
-              weight: 1.5,
-              radius: 700
-            }).addTo(map);
-          }
+
         });
+
+        // Function to send navigation message to React Native when popup is clicked
+        window.sendNavMessage = function(id) {
+          var msg = JSON.stringify({ type: 'NAVIGATE_SALON', id: id });
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.ReactNativeWebView.postMessage(msg);
+          } else if (window.parent) {
+            window.parent.postMessage(msg, '*');
+          }
+        };
 
         // Listen for messages from React Native to animate/pan camera
         window.addEventListener('message', function(event) {

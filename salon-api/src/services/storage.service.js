@@ -9,6 +9,7 @@ const path = require("path");
 const { s3Client, bucketName, publicDomain, isConfigured } = require("../config/r2.config");
 const logger = require("../utils/logger");
 const UploadedFile = require("../models/uploadedFile.model");
+const sharp = require("sharp");
 
 class StorageService {
   /**
@@ -44,9 +45,26 @@ class StorageService {
    * Upload a raw file Buffer to Cloudflare R2
    */
   static async uploadBuffer({ buffer, originalName, mimeType, folder = "uploads", uploadedBy, salonId, branchId }) {
-    const ext = this._getExtension(originalName, mimeType);
+    let finalBuffer = buffer;
+    let finalExt = this._getExtension(originalName, mimeType);
+    let finalMimeType = mimeType;
+
+    // Optimize images with sharp (skip SVGs and PDFs)
+    if (mimeType.startsWith("image/") && mimeType !== "image/svg+xml") {
+      try {
+        finalBuffer = await sharp(buffer)
+          .resize({ width: 1200, withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toBuffer();
+        finalExt = "webp";
+        finalMimeType = "image/webp";
+      } catch (error) {
+        logger.warn(`[StorageService] Image optimization failed for ${originalName}: ${error.message}`);
+      }
+    }
+
     const uniqueHash = crypto.randomBytes(8).toString("hex");
-    const key = `${folder}/${Date.now()}-${uniqueHash}.${ext}`;
+    const key = `${folder}/${Date.now()}-${uniqueHash}.${finalExt}`;
 
     if (!isConfigured || !s3Client) {
       logger.warn(
@@ -56,8 +74,8 @@ class StorageService {
         url: `https://placeholder.yoursalon.com/${key}`,
         key,
         bucket: bucketName,
-        size: buffer ? buffer.length : 0,
-        mimeType,
+        size: finalBuffer ? finalBuffer.length : 0,
+        mimeType: finalMimeType,
         isMock: true,
       };
       if (uploadedBy) {
@@ -65,8 +83,8 @@ class StorageService {
           key,
           url: mockResult.url,
           originalName,
-          mimeType,
-          size: buffer ? buffer.length : 0,
+          mimeType: finalMimeType,
+          size: finalBuffer ? finalBuffer.length : 0,
           folder,
           uploadedBy,
           salonId,
@@ -81,8 +99,8 @@ class StorageService {
       const command = new PutObjectCommand({
         Bucket: bucketName,
         Key: key,
-        Body: buffer,
-        ContentType: mimeType,
+        Body: finalBuffer,
+        ContentType: finalMimeType,
       });
 
       await s3Client.send(command);
@@ -94,8 +112,8 @@ class StorageService {
         url: publicUrl,
         key,
         bucket: bucketName,
-        size: buffer.length,
-        mimeType,
+        size: finalBuffer.length,
+        mimeType: finalMimeType,
         isMock: false,
       };
 
@@ -104,8 +122,8 @@ class StorageService {
           key,
           url: publicUrl,
           originalName,
-          mimeType,
-          size: buffer.length,
+          mimeType: finalMimeType,
+          size: finalBuffer.length,
           folder,
           uploadedBy,
           salonId,

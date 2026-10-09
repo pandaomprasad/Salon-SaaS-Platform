@@ -14,7 +14,12 @@ export const useLocationStore = create((set, get) => ({
   setSelectedCity: async (city) => {
     if (!city) return;
     const cleaned = cleanCityName(city);
-    set({ selectedCity: cleaned });
+    const currentLoc = get().locationDetails;
+    if (currentLoc && currentLoc.city && cleanCityName(currentLoc.city).toLowerCase() !== cleaned.toLowerCase()) {
+      set({ selectedCity: cleaned, locationDetails: null });
+    } else {
+      set({ selectedCity: cleaned });
+    }
     try {
       await storage.setItem(STORAGE_CITY_KEY, cleaned);
     } catch (err) {

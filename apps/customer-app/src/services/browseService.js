@@ -27,6 +27,20 @@ export const browseService = {
     return await apiClient.get(endpoint);
   },
 
+  getBanners: async (params = {}) => {
+    const { bypassCache, ...cityParams } = params;
+    const queryParams = resolveCityParam(cityParams);
+    const query = new URLSearchParams(queryParams).toString();
+    const endpoint = `/banners${query ? `?${query}` : ""}`;
+    return await apiClient.get(endpoint, { bypassCache });
+  },
+
+  trackBannerClick: async (bannerId) => {
+    try {
+      return await apiClient.post(`/banners/${bannerId}/click`);
+    } catch (e) {}
+  },
+
   getSalons: async (params = {}) => {
     const queryParams = resolveCityParam(params);
     const query = new URLSearchParams(queryParams).toString();

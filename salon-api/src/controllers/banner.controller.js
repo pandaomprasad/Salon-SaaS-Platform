@@ -16,14 +16,25 @@ const clearBannerCache = async () => {
 exports.getActiveBanners = async (req, res, next) => {
   try {
     const { city } = req.query;
-    const query = { isActive: true };
+    let query = { isActive: true };
 
     if (city) {
       const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      query.$or = [{ city: { $exists: false } }, { city: '' }, { city: new RegExp(escapedCity, 'i') }];
+      query.$or = [{ city: { $exists: false } }, { city: '' }, { city: null }, { city: new RegExp(escapedCity, 'i') }];
     }
 
-    const banners = await Banner.find(query).sort({ displayOrder: 1, createdAt: -1 });
+    let banners = await Banner.find(query).sort({ displayOrder: 1, createdAt: -1 });
+
+    if (!banners || banners.length === 0) {
+      banners = await Banner.find({ isActive: true }).sort({ displayOrder: 1, createdAt: -1 });
+    }
+
+    console.log(`\n==============================================`);
+    console.log(`📢 [BACKEND DB BANNER FETCH] Found ${banners.length} active banners in MongoDB (city param: "${city || 'ALL'}"):`);
+    banners.forEach((b, i) => {
+      console.log(`   [${i + 1}] ID: ${b._id} | Title: "${b.title}" | Code: "${b.promoCode || 'N/A'}" | Active: ${b.isActive}`);
+    });
+    console.log(`==============================================\n`);
 
     res.status(200).json({
       success: true,

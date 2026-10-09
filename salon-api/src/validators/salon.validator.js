@@ -44,7 +44,7 @@ const updateSalonValidator = [
 
   body('images')
     .optional()
-    .isArray({ max: 5 }).withMessage('Images must be an array of up to 5 URLs'),
+    .isArray({ max: 10 }).withMessage('Images must be an array of up to 10 URLs'),
     
   body('images.*')
     .optional()

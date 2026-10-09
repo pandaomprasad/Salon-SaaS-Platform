@@ -38,7 +38,6 @@ const SERVICE_OPTIONS = [
   { id: "all", label: "All Services", icon: "sparkles-outline" },
   { id: "hair", label: "Hair Care & Cut", icon: "cut-outline" },
   { id: "facial", label: "Facials & Skin", icon: "water-outline" },
-  { id: "nails", label: "Nails & Spa", icon: "color-palette-outline" },
   { id: "makeup", label: "Bridal & Makeup", icon: "rose-outline" },
 ];
 
@@ -48,8 +47,8 @@ export default function FilterModal({
   onApplyFilters,
   onClose,
 }) {
-  const { isDark } = useTheme();
-  const styles = getStyles(isDark);
+  const { theme, isDark } = useTheme();
+  const styles = getStyles(theme, isDark);
 
   const [minRating, setMinRating] = useState(filters.minRating || "all");
   const [priceRange, setPriceRange] = useState(filters.priceRange || "all");
@@ -235,7 +234,7 @@ export default function FilterModal({
                     <Ionicons
                       name={opt.icon}
                       size={14}
-                      color={isSelected ? "#FFFFFF" : "#6C5CE7"}
+                      color={isSelected ? "#FFFFFF" : theme.primary}
                       style={{ marginRight: 6 }}
                     />
                     <Text
@@ -271,7 +270,8 @@ export default function FilterModal({
   );
 }
 
-function getStyles(isDark) {
+function getStyles(theme, isDark) {
+  const primaryColor = theme?.primary || "#C48B36";
   return StyleSheet.create({
     sheetInner: {
       flex: 1,
@@ -290,7 +290,7 @@ function getStyles(isDark) {
     eyebrow: {
       fontSize: 10,
       fontWeight: "800",
-      color: "#6C5CE7",
+      color: primaryColor,
       letterSpacing: 1.2,
       marginBottom: 2,
     },
@@ -304,13 +304,13 @@ function getStyles(isDark) {
       paddingHorizontal: 12,
       paddingVertical: 6,
       marginRight: 8,
-      backgroundColor: isDark ? "rgba(108, 92, 231, 0.15)" : "rgba(108, 92, 231, 0.08)",
+      backgroundColor: isDark ? "rgba(212, 155, 69, 0.15)" : "rgba(196, 139, 54, 0.08)",
       borderRadius: 12,
     },
     resetBtnText: {
       fontSize: 12,
       fontWeight: "700",
-      color: "#6C5CE7",
+      color: primaryColor,
     },
     closeBtn: {
       width: 36,
@@ -350,8 +350,8 @@ function getStyles(isDark) {
       borderRadius: 20,
     },
     chipSelected: {
-      backgroundColor: "#6C5CE7",
-      shadowColor: "#6C5CE7",
+      backgroundColor: primaryColor,
+      shadowColor: primaryColor,
       shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.3,
       shadowRadius: 6,
@@ -379,13 +379,13 @@ function getStyles(isDark) {
       borderTopColor: isDark ? "#282834" : "#EFEFF4",
     },
     applyBtn: {
-      backgroundColor: "#6C5CE7",
+      backgroundColor: primaryColor,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       height: 50,
       borderRadius: 16,
-      shadowColor: "#6C5CE7",
+      shadowColor: primaryColor,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35,
       shadowRadius: 10,

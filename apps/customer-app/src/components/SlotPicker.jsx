@@ -1,9 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO } from "../theme";
 import { toLocalDateStr } from "../services/apiClient";
-
 import AppleTouchable from "./AppleTouchable";
 
 function timeToMinutes(timeStr) {
@@ -30,7 +29,8 @@ export default function SlotPicker({
   const styles = getStyles();
   const currentSlotId = selectedSlotId || selectedSlot?._id || selectedSlot?.id || (typeof selectedSlot === "string" ? selectedSlot : null);
 
-  // Deduplicate slots by unique start time so time slots do not repeat
+  const [timeTab, setTimeTab] = useState("Morning");
+
   const uniqueSlots = useMemo(() => {
     if (!slots || !Array.isArray(slots)) return [];
     const map = new Map();
@@ -56,7 +56,6 @@ export default function SlotPicker({
     return list;
   }, [slots]);
 
-  // Calculate slot availability & consecutive slot coverage for multi-hour services
   const slotAvailabilityMap = useMemo(() => {
     const map = new Map();
     const duration = serviceDurationMinutes > 0 ? serviceDurationMinutes : 30;
@@ -67,7 +66,6 @@ export default function SlotPicker({
       const targetEndMins = startMins + duration;
       const targetEndTimeStr = minutesToTime(targetEndMins);
 
-      // Check single slot status first
       const rawStatus = (slot.status || "").toUpperCase();
       const singleIsBooked =
         rawStatus === "BOOKED" ||
@@ -82,19 +80,16 @@ export default function SlotPicker({
         return;
       }
 
-      // Find all slots required to cover full service duration
       const rangeSlots = uniqueSlots.filter((other) => {
         const otherMins = timeToMinutes(other.startTime || other.time);
         return otherMins >= startMins && otherMins < targetEndMins;
       });
 
-      // Are all slots in the duration range available?
       const allAvailable = rangeSlots.every((other) => {
         const st = (other.status || "").toUpperCase();
         return st === "AVAILABLE" || st === "" || other.isAvailable !== false;
       });
 
-      // Check if slots cover up to targetEndMins
       let maxEndMins = 0;
       rangeSlots.forEach((other) => {
         const endStr = other.endTime;
@@ -121,22 +116,35 @@ export default function SlotPicker({
     return map;
   }, [uniqueSlots, serviceDurationMinutes]);
 
-  // Generate next 7 dates
-  const dates = Array.from({ length: 7 }, (_, i) => {
+  const dates = Array.from({ length: 30 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const isoStr = toLocalDateStr(d);
-    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }); // e.g. "Thu", "Tue", "Mon"
+    const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
     const dayNum = d.getDate();
-    const monthName = d.toLocaleDateString("en-US", { month: "short" });
-    return { isoStr, dayName, dayNum, monthName, isToday: i === 0 };
+    return { isoStr, dayName, dayNum, dateObj: d };
+  });
+
+  const selectedDateObj = useMemo(() => {
+    const d = new Date(selectedDate);
+    return isNaN(d.valueOf()) ? new Date() : d;
+  }, [selectedDate]);
+
+  const currentMonthYear = selectedDateObj.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const filteredSlots = uniqueSlots.filter(slot => {
+    const slotMins = timeToMinutes(slot.startTime || slot.time);
+    if (timeTab === "Morning") return slotMins < 12 * 60;
+    if (timeTab === "Afternoon") return slotMins >= 12 * 60 && slotMins < 17 * 60;
+    if (timeTab === "Evening") return slotMins >= 17 * 60;
+    return false;
   });
 
   return (
     <View style={styles.container}>
-      {/* Date Picker Section */}
-      <View style={styles.sectionHeader}>
+      <View style={styles.dateHeaderRow}>
         <Text style={styles.sectionHeading}>Select Date</Text>
+        <Text style={styles.monthYearText}>{currentMonthYear} &gt;</Text>
       </View>
 
       <ScrollView
@@ -155,43 +163,43 @@ export default function SlotPicker({
               scaleTo={0.94}
               hapticType="selection"
             >
-              <Text
-                style={[
-                  styles.dateWeek,
-                  isSelected && styles.dateWeekSelected,
-                ]}
-              >
+              <Text style={[styles.dateWeek, isSelected && styles.dateWeekSelected]}>
                 {d.dayName}
               </Text>
-              <Text style={[styles.dateNum, isSelected && styles.dateNumSelected]}>{d.dayNum}</Text>
+              <Text style={[styles.dateNum, isSelected && styles.dateNumSelected]}>
+                {d.dayNum}
+              </Text>
             </AppleTouchable>
           );
         })}
       </ScrollView>
 
-      {/* Time Slot Section */}
-      <View style={[styles.sectionHeader, { marginTop: S.md }]}>
-        <Text style={styles.sectionHeading}>SELECT AVAILABLE TIME</Text>
-        {uniqueSlots && uniqueSlots.length > 0 && (
-          <View style={styles.countPill}>
-            <Text style={styles.countPillText}>
-              {uniqueSlots.filter((s) => {
-                const st = (s.status || "").toUpperCase();
-                return st === "AVAILABLE" || st === "" || s.isAvailable !== false;
-              }).length} OPEN
-            </Text>
-          </View>
-        )}
+      <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+        <Text style={styles.sectionHeading}>Select Time</Text>
       </View>
 
-      {(!uniqueSlots || uniqueSlots.length === 0) ? (
+      <View style={styles.timeTabs}>
+        {["Morning", "Afternoon", "Evening"].map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.timeTabBtn, timeTab === tab && styles.timeTabBtnActive]}
+            onPress={() => setTimeTab(tab)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.timeTabTxt, timeTab === tab && styles.timeTabTxtActive]}>
+              {tab}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {(!filteredSlots || filteredSlots.length === 0) ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="time-outline" size={20} color={C.muted} />
-          <Text style={styles.emptyText}>No available slots found for this date.</Text>
+          <Text style={styles.emptyText}>No available slots for {timeTab.toLowerCase()}.</Text>
         </View>
       ) : (
         <View style={styles.slotGrid}>
-          {uniqueSlots.map((slot) => {
+          {filteredSlots.map((slot) => {
             const slotId = slot._id || slot.id;
             const availability = slotAvailabilityMap.get(slotId);
             const isBooked = availability ? availability.isBooked : false;
@@ -203,11 +211,7 @@ export default function SlotPicker({
 
             const handlePress = () => {
               if (isBooked) return;
-              const slotToSelect = {
-                ...slot,
-                endTime: displayEndTime,
-              };
-              onSelectSlot(slotToSelect);
+              onSelectSlot({ ...slot, endTime: displayEndTime });
             };
 
             return (
@@ -223,32 +227,16 @@ export default function SlotPicker({
                 scaleTo={isBooked ? 1 : 0.94}
                 hapticType={isBooked ? "none" : "selection"}
               >
-                <View style={styles.slotChipBody}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.slotStart,
-                      isBooked && styles.slotStartBooked,
-                      isSelected && styles.slotStartSelected,
-                    ]}
-                  >
-                    {slot.startTime || slot.time}
-                  </Text>
-                  {!isBooked && displayEndTime && (
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.slotEnd, isSelected && styles.slotEndSelected]}
-                    >
-                      {displayEndTime}
-                    </Text>
-                  )}
-                  {isBooked && (
-                    <View style={styles.slotBookedRow}>
-                      <Ionicons name="lock-closed" size={9} color={C.muted} />
-                      <Text style={styles.slotEndBooked}>Unavailable</Text>
-                    </View>
-                  )}
-                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.slotStart,
+                    isBooked && styles.slotStartBooked,
+                    isSelected && styles.slotStartSelected,
+                  ]}
+                >
+                  {formatAMPM(slot.startTime || slot.time)}
+                </Text>
               </AppleTouchable>
             );
           })}
@@ -258,187 +246,147 @@ export default function SlotPicker({
   );
 }
 
+function formatAMPM(timeStr) {
+  if (!timeStr) return "";
+  let [h, m] = String(timeStr).trim().split(":").map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  h = h ? h : 12; 
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
 function getStyles() {
   return StyleSheet.create({
     container: {
-      marginVertical: S.xs,
+      paddingBottom: 20,
     },
-    sectionHeader: {
+    dateHeaderRow: {
       flexDirection: "row",
-      alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: S.xs,
+      alignItems: "center",
+      marginBottom: 12,
     },
     sectionHeading: {
       fontSize: 16,
-      fontWeight: "800",
-      color: "#1A1A24",
-      letterSpacing: -0.3,
-    },
-    monthSelectorBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-    },
-    monthSelectorText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: C.purple || "#6C5CE7",
-    },
-    sectionHint: {
-      fontSize: 9,
-      fontWeight: "600",
-      letterSpacing: 0.9,
-      color: C.dustTaupe,
-    },
-    countPill: {
-      backgroundColor: C.bone,
-      borderRadius: R.pill,
-      paddingHorizontal: 9,
-      paddingVertical: 3,
-    },
-    countPillText: {
-      fontSize: 9,
       fontWeight: "700",
-      letterSpacing: 0.7,
-      color: C.ink,
+      color: "#1A1A24",
     },
-
-    // --- Date picker row: cards spread evenly across the full width
-    // (space-between), no border in the resting state, only the
-    // selected card gets a tall rounded outline. Matches the reference.
+    monthYearText: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: "#666666",
+    },
     dateList: {
       flexDirection: "row",
       flexGrow: 0,
     },
     dateListContent: {
-      paddingVertical: 6,
-      paddingHorizontal: 2,
-      justifyContent: "space-between",
-      flexGrow: 1,
+      gap: 12,
+      paddingVertical: 4,
     },
     dateCard: {
-      width: 44,
-      height: 60,
-      borderRadius: 20,
-      backgroundColor: "transparent",
-      borderWidth: 2,
-      borderColor: "transparent",
+      width: 58,
+      height: 70,
+      borderRadius: 12,
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#EBECEF",
       alignItems: "center",
       justifyContent: "center",
-      gap: 3,
+      gap: 4,
     },
     dateCardSelected: {
-      backgroundColor: "transparent",
-      borderColor: C.purple || "#6C5CE7",
+      backgroundColor: "#6F2A3B",
+      borderColor: "#6F2A3B",
     },
     dateWeek: {
-      fontSize: 12,
+      fontSize: 13,
       color: "#8E8E93",
-      fontWeight: "600",
+      fontWeight: "500",
     },
     dateWeekSelected: {
-      color: C.purple || "#6C5CE7",
-      fontWeight: "700",
+      color: "#FFFFFF",
+      fontWeight: "600",
     },
     dateNum: {
-      fontSize: 17,
-      fontWeight: "700",
+      fontSize: 16,
+      fontWeight: "600",
       color: "#1C1C1E",
     },
     dateNumSelected: {
-      color: C.purple || "#6C5CE7",
-      fontWeight: "800",
+      color: "#FFFFFF",
+      fontWeight: "700",
     },
-    dateMonth: {
-      fontSize: 8,
-      fontWeight: "600",
-      letterSpacing: 0.7,
-      color: C.dustTaupe,
-      marginTop: 1,
+    timeTabs: {
+      flexDirection: "row",
+      backgroundColor: "#F6F7FA",
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 16,
+      marginTop: 12,
     },
-    dateMonthSelected: {
-      color: C.bg,
-    },
-
-    emptyContainer: {
-      padding: S.lg,
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
+    timeTabBtn: {
+      flex: 1,
+      paddingVertical: 10,
       alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: C.border,
-      gap: 4,
+      borderRadius: 8,
     },
-    emptyText: {
-      color: C.body,
-      fontSize: FS.bodySm,
+    timeTabBtnActive: {
+      backgroundColor: "#6F2A3B",
+    },
+    timeTabTxt: {
+      fontSize: 14,
+      fontWeight: "500",
+      color: "#8A8A9E",
+    },
+    timeTabTxtActive: {
+      color: "#FFFFFF",
+      fontWeight: "600",
     },
     slotGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: 10,
-      marginTop: 4,
     },
     slotChip: {
-      width: "31%",
-      height: 54,
-      borderRadius: 16,
-      backgroundColor: "#F6F7FA",
-      borderWidth: 1.5,
+      width: "31.3%",
+      height: 48,
+      borderRadius: 8,
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
       borderColor: "#EBECEF",
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 4,
     },
     slotChipSelected: {
-      backgroundColor: "#F4F2FF",
-      borderColor: C.purple || "#6C5CE7",
+      backgroundColor: "#FDF9FA",
+      borderColor: "#6F2A3B",
     },
     slotChipBooked: {
       backgroundColor: "#F4F5F8",
       borderColor: "#E2E8F0",
       opacity: 0.5,
     },
-    slotChipBody: {
-      alignItems: "center",
-      justifyContent: "center",
-    },
     slotStart: {
-      fontSize: 14,
-      fontWeight: "700",
+      fontSize: 13,
+      fontWeight: "600",
       color: "#1A1A24",
-      letterSpacing: -0.2,
     },
     slotStartSelected: {
-      color: C.purple || "#6C5CE7",
+      color: "#6F2A3B",
     },
     slotStartBooked: {
       color: "#8A8A9E",
       textDecorationLine: "line-through",
     },
-    slotEnd: {
-      fontSize: 11,
-      color: "#8A8A9E",
-      marginTop: 1,
-      fontWeight: "500",
-    },
-    slotEndSelected: {
-      color: C.purple || "#6C5CE7",
-      fontWeight: "600",
-    },
-    slotBookedRow: {
-      flexDirection: "row",
+    emptyContainer: {
+      padding: 20,
       alignItems: "center",
-      gap: 3,
-      marginTop: 1,
+      justifyContent: "center",
     },
-    slotEndBooked: {
-      fontSize: 10,
-      fontWeight: "600",
-      letterSpacing: 0.3,
-      color: C.muted,
+    emptyText: {
+      color: "#8A8A9E",
+      fontSize: 14,
     },
   });
 }

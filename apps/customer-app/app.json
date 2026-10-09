@@ -43,7 +43,8 @@
       "expo-apple-authentication",
       "expo-font",
       "expo-splash-screen",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

@@ -1,38 +1,26 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  Platform,
-  Animated,
-  StatusBar,
-  Image,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { C, S, FS, FW, R, TYPO } from "../theme";
-import SlotPicker from "../components/SlotPicker";
-import StaffPicker from "../components/StaffPicker";
-import ErrorCardModal from "../components/ErrorCardModal";
-import ConflictModal from "../components/ConflictModal";
-import { browseService } from "../services/browseService";
-import { appointmentService } from "../services/appointmentService";
-import { paiseToINR, toLocalDateStr } from "../services/apiClient";
-import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
-import VerifyEmailModal from "../components/VerifyEmailModal";
-import SpringTouchable from "../components/SpringTouchable";
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, StatusBar, Image } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { C } from '../theme';
+import SlotPicker from '../components/SlotPicker';
+import ErrorCardModal from '../components/ErrorCardModal';
+import ConflictModal from '../components/ConflictModal';
+import { browseService } from '../services/browseService';
+import { appointmentService } from '../services/appointmentService';
+import { paiseToINR, toLocalDateStr } from '../services/apiClient';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import VerifyEmailModal from '../components/VerifyEmailModal';
 
 export default function BookingScreen({ salon, branch, service, selectedServices, goBack, navigate }) {
   const { isAuthenticated, user } = useAuth();
   const { isDark } = useTheme();
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const insets = useSafeAreaInsets();
-  const isAndroid = Platform.OS === "android";
+  const isAndroid = Platform.OS === 'android';
   const topInset = Math.max(insets.top, isAndroid ? (StatusBar.currentHeight || 24) : 12) + 8;
   const bottomInset = isAndroid ? Math.max(insets.bottom, 36) + 12 : Math.max(insets.bottom, 16) + 8;
   const todayObj = new Date();
@@ -41,41 +29,17 @@ export default function BookingScreen({ salon, branch, service, selectedServices
   const allServices = selectedServices && selectedServices.length > 0 ? selectedServices : (service ? [service] : []);
   const rawTotalPrice = allServices.reduce((sum, s) => sum + (s.price || 0), 0);
   const totalDurationMinutes = allServices.reduce((sum, s) => sum + (s.durationMinutes || s.duration || 30), 0);
-  const servicesSummaryText = allServices.map((s) => s.name).join(" + ");
 
+  const [step, setStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [calendarMonth, setCalendarMonth] = useState(new Date(todayObj.getFullYear(), todayObj.getMonth(), 1));
-  const [selectedStaff, setSelectedStaff] = useState(null);
-  const [staffList, setStaffList] = useState([]);
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [guestCount, setGuestCount] = useState(1);
-  const [customerNotes, setCustomerNotes] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [conflictModalVisible, setConflictModalVisible] = useState(false);
   const [conflictData, setConflictData] = useState(null);
-
-  const minScale = useRef(new Animated.Value(1)).current;
-  const plusScale = useRef(new Animated.Value(1)).current;
-  const countScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!branch) return;
-    const fetchStaff = async () => {
-      try {
-        const branchId = branch._id || branch.id || branch;
-        const res = await browseService.getBranchStaff(branchId);
-        const data = res.data?.staff || (Array.isArray(res.data) ? res.data : []);
-        setStaffList(data);
-      } catch (err) {
-        console.log("Error loading staff:", err.message);
-      }
-    };
-    fetchStaff();
-  }, [branch]);
 
   useEffect(() => {
     if (!branch) return;
@@ -86,9 +50,8 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       setErrorMessage(null);
       try {
         const branchId = branch._id || branch.id || branch;
-        const staffId = selectedStaff ? (selectedStaff.id || selectedStaff._id) : undefined;
         const sId = service ? (service._id || service.id) : undefined;
-        const res = await browseService.getBranchSlots(branchId, selectedDate, staffId, sId);
+        const res = await browseService.getBranchSlots(branchId, selectedDate, undefined, sId);
         if (cancelled) return;
         const raw = res.data?.availability || res.data?.slots || (Array.isArray(res.data) ? res.data : []);
         const slotMap = new Map();
@@ -98,50 +61,33 @@ export default function BookingScreen({ salon, branch, service, selectedServices
               item.slots.forEach((s) => {
                 const timeKey = s.startTime;
                 if (!timeKey) return;
-                const newSlot = {
-                  _id: s.slotId,
-                  startTime: s.startTime,
-                  endTime: s.endTime,
-                  staffName: item.staffName,
-                  status: s.status || "AVAILABLE",
-                };
-                if (!slotMap.has(timeKey)) {
-                  slotMap.set(timeKey, newSlot);
-                } else {
+                const newSlot = { _id: s.slotId, startTime: s.startTime, endTime: s.endTime, staffName: item.staffName, status: s.status || 'AVAILABLE' };
+                if (!slotMap.has(timeKey)) { slotMap.set(timeKey, newSlot); } else {
                   const existing = slotMap.get(timeKey);
-                  const existingAvailable = (existing.status || "").toUpperCase() === "AVAILABLE";
-                  const newAvailable = (newSlot.status || "").toUpperCase() === "AVAILABLE";
-                  if (!existingAvailable && newAvailable) {
-                    slotMap.set(timeKey, newSlot);
-                  }
+                  const existingAvailable = (existing.status || '').toUpperCase() === 'AVAILABLE';
+                  const newAvailable = (newSlot.status || '').toUpperCase() === 'AVAILABLE';
+                  if (!existingAvailable && newAvailable) { slotMap.set(timeKey, newSlot); }
                 }
               });
             } else {
               const timeKey = item.startTime || item.time;
-              if (timeKey && !slotMap.has(timeKey)) {
-                slotMap.set(timeKey, item);
-              }
+              if (timeKey && !slotMap.has(timeKey)) { slotMap.set(timeKey, item); }
             }
           });
         }
-
-        // Filter out past & current hour slots if selectedDate is today
         const now = new Date();
-        const todayStr = now.toISOString().split("T")[0];
+        const todayStr = now.toISOString().split('T')[0];
         const isToday = selectedDate === todayStr;
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
         const filteredSlots = Array.from(slotMap.values()).filter((slot) => {
           if (!isToday) return true;
-          const [h, m] = (slot.startTime || "").split(":").map(Number);
+          const [h, m] = (slot.startTime || '').split(':').map(Number);
           if (isNaN(h)) return true;
-          const slotMinutes = h * 60 + (m || 0);
-          return slotMinutes > currentMinutes;
+          return (h * 60 + (m || 0)) > currentMinutes;
         });
-
         setSlots(filteredSlots);
       } catch (err) {
-        console.log("Error loading slots:", err.message);
         if (!cancelled) setSlots([]);
       } finally {
         if (!cancelled) setLoadingSlots(false);
@@ -149,32 +95,21 @@ export default function BookingScreen({ salon, branch, service, selectedServices
     };
     fetchSlots();
     return () => { cancelled = true; };
-  }, [branch, selectedDate, selectedStaff]);
+  }, [branch, selectedDate]);
 
   const handleConfirmBooking = async () => {
     setErrorMessage(null);
-
-    if (!selectedSlot) {
-      setErrorMessage("Please select an available time slot before proceeding.");
-      return;
-    }
-
     if (!isAuthenticated) {
       if (navigate) {
-        navigate("Login", {
-          redirectTo: "Booking",
-          redirectData: { salon, branch, service, selectedServices: allServices },
-        });
+        navigate('Login', { redirectTo: 'Booking', redirectData: { salon, branch, service, selectedServices: allServices } });
       }
       return;
     }
-
     const isVerified = Boolean(user?.isEmailVerified || user?.email_verified);
     if (user && !isVerified) {
       setShowVerifyModal(true);
       return;
     }
-
     setSubmitting(true);
     try {
       const slotId = selectedSlot._id || selectedSlot.id;
@@ -182,875 +117,467 @@ export default function BookingScreen({ salon, branch, service, selectedServices
       const serviceIds = allServices.map((s) => s._id || s.id).filter(Boolean);
 
       await appointmentService.bookAppointment({
-        slotId,
-        serviceId,
-        serviceIds,
-        customerNotes,
-        guests: guestCount,
+        slotId, serviceId, serviceIds, customerNotes: '', guests: 1,
       });
-
       setBookingSuccess(true);
     } catch (err) {
-      if (
-        err.conflictAppointment ||
-        (err.message && err.message.toLowerCase().includes("already have an appointment"))
-      ) {
-        setConflictData(
-          err.conflictAppointment || {
-            salonName: salon?.name || "Salon Luxe",
-            serviceName: service?.name || "Service",
-            staffName: selectedStaff?.name || "Specialist",
-            date: selectedDate,
-            startTime: selectedSlot?.startTime || "Selected Time",
-          }
-        );
+      if (err.conflictAppointment || (err.message && err.message.toLowerCase().includes('already have an appointment'))) {
+        setConflictData(err.conflictAppointment || { salonName: salon?.name, serviceName: service?.name, date: selectedDate, startTime: selectedSlot?.startTime });
         setConflictModalVisible(true);
       } else {
-        const msg = err.message || err.toString() || "Failed to book appointment";
-        setErrorMessage(msg);
+        setErrorMessage(err.message || err.toString() || 'Failed to book appointment');
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const styles = getStyles(isDark);
+  const styles = getStyles();
+
+
+
+  const primarySvc = allServices[0] || {};
+  const branchName = branch?.name || salon?.name || "Royal Cut Luxury Salon & Spa";
+  const branchAddress = branch?.address?.city || branch?.address?.street || "Brahmapur Main Road";
+  const rawRating =
+    typeof salon?.rating === "number" || typeof salon?.rating === "string"
+      ? salon.rating
+      : salon?.rating?.avgScore ||
+        salon?.avgRating ||
+        salon?.ratingAverage ||
+        salon?.reviewAvg ||
+        branch?.rating ||
+        branch?.avgRating ||
+        5.0;
+
+  const numericRating =
+    typeof rawRating === "number"
+      ? rawRating
+      : parseFloat(rawRating) || 5.0;
+
+  const ratingStr = numericRating.toFixed(1);
+
+  const reviewCount =
+    typeof salon?.reviewCount === "number" && salon.reviewCount > 0
+      ? salon.reviewCount
+      : typeof salon?.totalReviews === "number" && salon.totalReviews > 0
+      ? salon.totalReviews
+      : typeof salon?.reviewsCount === "number" && salon.reviewsCount > 0
+      ? salon.reviewsCount
+      : typeof salon?.rating?.totalReviews === "number" && salon.rating.totalReviews > 0
+      ? salon.rating.totalReviews
+      : Array.isArray(salon?.reviews) && salon.reviews.length > 0
+      ? salon.reviews.length
+      : typeof branch?.reviewCount === "number" && branch.reviewCount > 0
+      ? branch.reviewCount
+      : 0;
+
+  const formattedReviews =
+    reviewCount >= 1000
+      ? (reviewCount / 1000).toFixed(1).replace(/\.0$/, "") + "k"
+      : reviewCount;
+
+  const rating = ratingStr;
+  const distance = branch?.distance ? ` • ${branch.distance} km` : salon?.distance ? ` • ${salon.distance} km` : " • 1.2 km";
+
+  const formattedDate = new Date(selectedDate).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+  const handleShareBooking = async () => {
+    try {
+      const htmlContent = `
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+            <style>
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #111827; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .header h1 { color: #6F2A3B; margin: 0; font-size: 28px; }
+              .header p { color: #6B7280; font-size: 16px; margin-top: 8px; }
+              .card { border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; background: #F9FAFB; }
+              .row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #E5E7EB; }
+              .row:last-child { border-bottom: none; }
+              .label { color: #6B7280; font-weight: 600; font-size: 14px; }
+              .value { font-weight: 700; font-size: 14px; text-align: right; }
+              .value-sub { color: #6B7280; font-size: 12px; font-weight: normal; margin-top: 4px; }
+              .footer { text-align: center; margin-top: 40px; color: #6B7280; font-size: 14px; font-style: italic; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Booking Confirmed!</h1>
+              <p>Your appointment is secured.</p>
+            </div>
+            <div class="card">
+              <div class="row">
+                <div class="label">Service</div>
+                <div class="value">
+                  ${primarySvc.name || "Haircut & Styling"}
+                  <div class="value-sub">${totalDurationMinutes} mins • ${paiseToINR(rawTotalPrice)}</div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="label">Date & Time</div>
+                <div class="value">${formattedDate} • ${selectedSlot?.startTime || '10:30 AM'}</div>
+              </div>
+              <div class="row">
+                <div class="label">Location</div>
+                <div class="value">
+                  ${branchName}
+                  <div class="value-sub">${branchAddress}</div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="label">Stylist</div>
+                <div class="value">Any Available</div>
+              </div>
+            </div>
+            <div class="footer">
+              Thank you for choosing us! Self care is a step towards a happier you.
+            </div>
+          </body>
+        </html>
+      `;
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        setErrorMessage("Sharing is not available on this device.");
+        return;
+      }
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf', dialogTitle: 'Share Booking Receipt' });
+    } catch (error) {
+      console.error("Share error:", error);
+      setErrorMessage(error.message || "Could not generate or share PDF");
+    }
+  };
 
   if (bookingSuccess) {
     return (
-      <View style={styles.successScreenWrapper}>
-        <View style={styles.successCard}>
-          <View style={styles.successCardBody}>
-            {/* Green Checkmark Circle Ring */}
-            <View style={styles.successCheckRing}>
-              <Ionicons name="checkmark" size={30} color="#5CD65C" />
+      <ScrollView contentContainerStyle={[styles.successScreenWrapper, { paddingTop: topInset + 40 }]} showsVerticalScrollIndicator={false}>
+        <View style={styles.successHeader}>
+          <View style={styles.successCheckRing}>
+            <Ionicons name="checkmark" size={44} color="#FFFFFF" />
+          </View>
+          <Text style={styles.successTitle}>Booking Successful!</Text>
+          <Text style={styles.successSub}>
+            Your appointment has been confirmed.{"\n"}We look forward to seeing you!
+          </Text>
+        </View>
+
+        <View style={styles.successDetailsCard}>
+          <View style={styles.successServiceRow}>
+            <Image source={{ uri: primarySvc.image || salon?.coverImage || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500' }} style={styles.successServiceImg} />
+            <View style={styles.successServiceInfo}>
+              <Text style={styles.successServiceName}>{primarySvc.name || "Haircut & Styling"}</Text>
+              <Text style={styles.successServiceDesc}>Professional haircut with styling</Text>
+              <View style={styles.successServiceMeta}>
+                <Ionicons name="time-outline" size={14} color="#6B7280" />
+                <Text style={styles.successServiceMetaText}>{totalDurationMinutes} mins</Text>
+                <Ionicons name="pricetag-outline" size={14} color="#6B7280" style={{ marginLeft: 12 }} />
+                <Text style={styles.successServiceMetaText}>{paiseToINR(rawTotalPrice)}</Text>
+              </View>
             </View>
-
-            {/* Heading */}
-            <Text style={styles.successTitle}>
-              Your appointment{"\n"}booking is successfully.
-            </Text>
-
-            {/* Subheading */}
-            <Text style={styles.successSub}>
-              You can view the appointment booking{"\n"}info in the “Appointment” section.
-            </Text>
           </View>
 
-          {/* Actions */}
-          <View style={styles.successCardFooter}>
-            <TouchableOpacity
-              style={styles.continueBookingBtn}
-              onPress={() => navigate && navigate("Home")}
-              activeOpacity={0.88}
-            >
-              <Text style={styles.continueBookingText}>Continue Booking</Text>
-            </TouchableOpacity>
+          <View style={styles.successDivider} />
 
-            <TouchableOpacity
-              style={styles.goToAppointmentBtn}
-              onPress={() => navigate && navigate("Bookings")}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.goToAppointmentText}>Go to appointment</Text>
+          <View style={styles.successDetailRow}>
+            <View style={[styles.successIconBox, { backgroundColor: '#FDF9FA' }]}>
+              <Ionicons name="person-outline" size={18} color="#6F2A3B" />
+            </View>
+            <View style={styles.successDetailTextWrap}>
+              <Text style={styles.successDetailLabel}>Stylist</Text>
+              <Text style={styles.successDetailValue}>Any Available</Text>
+            </View>
+          </View>
+
+          <View style={styles.successDivider} />
+
+          <View style={styles.successDetailRow}>
+            <View style={[styles.successIconBox, { backgroundColor: '#FDF9FA' }]}>
+              <Ionicons name="calendar-outline" size={18} color="#6F2A3B" />
+            </View>
+            <View style={styles.successDetailTextWrap}>
+              <Text style={styles.successDetailLabel}>Date & Time</Text>
+              <Text style={styles.successDetailValue}>{formattedDate} • {selectedSlot?.startTime || '10:30 AM'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.successDivider} />
+
+          <View style={styles.successDetailRow}>
+            <View style={[styles.successIconBox, { backgroundColor: '#FDF9FA' }]}>
+              <Ionicons name="location-outline" size={18} color="#6F2A3B" />
+            </View>
+            <View style={styles.successDetailTextWrap}>
+              <Text style={styles.successDetailLabel}>Location</Text>
+              <Text style={styles.successDetailValue}>{branchName}</Text>
+              <Text style={styles.successDetailSubValue}>{branchAddress}</Text>
+            </View>
+          </View>
+
+          <View style={styles.successDivider} />
+
+          <View style={styles.successDetailRow}>
+            <View style={[styles.successIconBox, { backgroundColor: '#FDF9FA' }]}>
+              <Ionicons name="document-text-outline" size={18} color="#6F2A3B" />
+            </View>
+            <View style={styles.successDetailTextWrap}>
+              <Text style={styles.successDetailLabel}>Booking ID</Text>
+              <Text style={styles.successDetailValue}>#BG{Math.floor(100000 + Math.random() * 900000)}</Text>
+            </View>
+            <TouchableOpacity style={styles.copyBtn}>
+              <Text style={styles.copyBtnText}>Copy</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+
+        <TouchableOpacity style={styles.viewBookingsBtn} onPress={() => navigate && navigate('Bookings')} activeOpacity={0.88}>
+          <Text style={styles.viewBookingsText}>View My Bookings</Text>
+          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.shareBtn} onPress={handleShareBooking} activeOpacity={0.75}>
+          <Ionicons name="share-outline" size={18} color="#6F2A3B" style={{ marginRight: 8 }} />
+          <Text style={styles.shareBtnText}>Share Booking</Text>
+        </TouchableOpacity>
+
+        <View style={styles.successFooter}>
+          <View style={styles.leafCircle}>
+            <Ionicons name="leaf" size={16} color="#6F2A3B" />
+          </View>
+          <Text style={styles.footerQuote}>Self care is a step{"\n"}towards a happier you!</Text>
+          <View style={styles.heartRow}>
+            <View style={styles.heartLine} />
+            <Ionicons name="heart-outline" size={16} color="#6F2A3B" style={{ marginHorizontal: 8 }} />
+            <View style={styles.heartLine} />
+          </View>
+        </View>
+      </ScrollView>
     );
   }
-  const totalPrice = paiseToINR(service?.price || 49900);
-
-  const maxGuests = 10;
-  const isMin = guestCount <= 1;
-  const isMax = guestCount >= maxGuests;
-
-  const animatePress = (scaleVal) => {
-    Animated.sequence([
-      Animated.spring(scaleVal, { toValue: 0.85, tension: 300, friction: 10, useNativeDriver: true }),
-      Animated.spring(scaleVal, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const animateCount = () => {
-    Animated.sequence([
-      Animated.spring(countScale, { toValue: 1.3, tension: 300, friction: 8, useNativeDriver: true }),
-      Animated.spring(countScale, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const handleMinus = () => {
-    if (isMin) return;
-    animatePress(minScale);
-    animateCount();
-    setGuestCount(Math.max(1, guestCount - 1));
-  };
-
-  const handlePlus = () => {
-    if (isMax) return;
-    animatePress(plusScale);
-    animateCount();
-    setGuestCount(Math.min(maxGuests, guestCount + 1));
-  };
 
   return (
     <View style={styles.container}>
-      <ErrorCardModal
-        visible={!!errorMessage}
-        title="Booking Notice"
-        message={errorMessage}
-        onClose={() => setErrorMessage(null)}
-      />
-
-      <ConflictModal
-        visible={conflictModalVisible}
-        conflictData={conflictData}
-        onClose={() => setConflictModalVisible(false)}
-        onSelectSlot={(slot) => {
-          setSelectedSlot(slot);
-          setConflictModalVisible(false);
-        }}
-      />
+      <ErrorCardModal visible={!!errorMessage} title="Booking Notice" message={errorMessage} onClose={() => setErrorMessage(null)} />
+      <ConflictModal visible={conflictModalVisible} conflictData={conflictData} onClose={() => setConflictModalVisible(false)} onViewAppointments={() => { setConflictModalVisible(false); if (navigate) navigate('Bookings'); }} />
+      <VerifyEmailModal visible={showVerifyModal} email={user?.email} onClose={() => setShowVerifyModal(false)} onVerified={() => setShowVerifyModal(false)} />
 
       <View style={[styles.header, { paddingTop: topInset }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color="#1A1A24" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => step === 2 ? setStep(1) : goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#1A1A24" />
         </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Book Appointment</Text>
-
-        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 120 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Salon Info Header Card matching reference screenshot */}
-        <View style={styles.salonInfoCard}>
-          <Image
-            source={{
-              uri:
-                salon?.coverImage ||
-                salon?.image ||
-                branch?.coverImage ||
-                "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=300&auto=format&fit=crop",
-            }}
-            style={styles.salonCardImage}
-          />
+      <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+        <Text style={styles.pageTitle}>{step === 1 ? "Select Date & Time" : "Booking Summary"}</Text>
+        <Text style={styles.pageSubTitle}>
+          {step === 1 ? "Choose your preferred date and time for the appointment" : "Review your booking details before confirming"}
+        </Text>
 
-          <View style={styles.salonCardContent}>
-            <Text style={styles.salonCardTitle} numberOfLines={1}>
-              {salon?.name || branch?.name || "Bella Rinova Salon"}
-            </Text>
-
-            <Text style={styles.salonCardAddress} numberOfLines={1}>
-              {branch?.address?.formattedAddress ||
-                branch?.address?.street ||
-                branch?.address?.city ||
-                salon?.address ||
-                "8502 Preston Rd. Inglewood"}
-            </Text>
-
-            <View style={styles.salonCardMetaRow}>
-              <View style={styles.salonRatingBox}>
-                {[1, 2, 3, 4].map((star) => (
-                  <Ionicons key={star} name="star" size={13} color="#FFC107" />
-                ))}
-                <Ionicons name="star-half" size={13} color="#FFC107" />
-              </View>
-
-              <View style={styles.salonDistanceBox}>
-                <Ionicons name="location-sharp" size={12} color="#8A8A9E" />
-                <Text style={styles.salonDistanceText}>2.5 km</Text>
-              </View>
+        <View style={styles.salonCard}>
+          <Image source={{ uri: salon?.coverImage || salon?.images?.[0] || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500' }} style={styles.salonImg} />
+          <View style={styles.salonInfo}>
+            <Text style={styles.salonName} numberOfLines={1}>{branchName}</Text>
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={12} color="#FBBF24" />
+              <Text style={styles.ratingTxt}>{rating} ({formattedReviews} reviews)</Text>
+            </View>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={12} color="#8A8A9E" />
+              <Text style={styles.locationTxt} numberOfLines={1}>{branchAddress}{distance}</Text>
             </View>
           </View>
         </View>
 
-        {/* Selected Services Section */}
-        {allServices.length > 0 && (
-          <View style={styles.servicesSection}>
-            <Text style={styles.sectionHeadingTitle}>Services</Text>
-
-            <View style={styles.servicesCard}>
-              {allServices.map((svc, idx) => (
-                <View
-                  key={svc._id || svc.id || idx}
-                  style={[
-                    styles.serviceItemRow,
-                    idx < allServices.length - 1 && styles.serviceItemDivider,
-                  ]}
-                >
-                  <Image
-                    source={{
-                      uri:
-                        svc.image ||
-                        svc.photoUrl ||
-                        (idx % 2 === 0
-                          ? "https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=150&auto=format&fit=crop"
-                          : "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=150&auto=format&fit=crop"),
-                    }}
-                    style={styles.serviceItemThumb}
-                  />
-
-                  <View style={styles.serviceItemInfo}>
-                    <Text style={styles.serviceItemName} numberOfLines={1}>
-                      {svc.name}
-                    </Text>
-                    <Text style={styles.serviceItemSub}>
-                      {svc.durationMinutes || svc.duration || 30} mins
-                    </Text>
-                  </View>
-
-                  <Text style={styles.serviceItemPrice}>
-                    {paiseToINR(svc.price)}
-                  </Text>
-                </View>
-              ))}
+        {step === 1 ? (
+          <>
+            <View style={styles.serviceCard}>
+              <View style={styles.svcIconWrap}><Ionicons name="cut-outline" size={20} color="#6F2A3B" /></View>
+              <View style={styles.svcInfo}>
+                <Text style={styles.svcName} numberOfLines={1}>{primarySvc.name || "Haircut - Classic"}</Text>
+                <Text style={styles.svcSub}>{totalDurationMinutes} mins · Stylist: Any</Text>
+              </View>
+              <Text style={styles.svcPrice}>{paiseToINR(rawTotalPrice)}</Text>
             </View>
 
-            {/* Total Row under Services */}
-            <View style={styles.servicesTotalRow}>
-              <Text style={styles.servicesTotalLabel}>Total</Text>
-              <Text style={styles.servicesTotalPrice}>{paiseToINR(rawTotalPrice)}</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.guestsCard}>
-          <View style={styles.guestsInfo}>
-            <Ionicons name="people-outline" size={16} color={C.muted} />
-            <Text style={styles.guestsLabel}>Guests</Text>
-          </View>
-
-          <View style={styles.stepperContainer}>
-            <TouchableOpacity
-              style={[
-                styles.stepperBtn,
-                isMin && { backgroundColor: C.surface },
-              ]}
-              onPress={handleMinus}
-              activeOpacity={0.7}
-              disabled={isMin}
-            >
-              <Animated.View style={{ transform: [{ scale: minScale }] }}>
-                <Ionicons
-                  name="remove"
-                  size={14}
-                  color={isMin ? C.muted : C.ink}
-                />
-              </Animated.View>
-            </TouchableOpacity>
-
-            <Animated.View style={[styles.stepperValueWrap, { transform: [{ scale: countScale }] }]}>
-              <Text style={styles.stepperValue}>{guestCount}</Text>
-            </Animated.View>
-
-            <TouchableOpacity
-              style={[
-                styles.stepperBtn,
-                styles.stepperBtnAdd,
-                isMax && { backgroundColor: C.border },
-              ]}
-              onPress={handlePlus}
-              activeOpacity={0.7}
-              disabled={isMax}
-            >
-              <Animated.View style={{ transform: [{ scale: plusScale }] }}>
-                <Ionicons
-                  name="add"
-                  size={14}
-                  color={isMax ? C.muted : C.bg}
-                />
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <StaffPicker
-          staffList={staffList}
-          selectedStaff={selectedStaff}
-          onSelectStaff={setSelectedStaff}
-        />
-
-        {loadingSlots ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color={C.main} />
-            <Text style={styles.loadingText}>Fetching available time slots…</Text>
-          </View>
+            {loadingSlots ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="small" color="#6F2A3B" />
+                <Text style={styles.loadingText}>Fetching available time slots…</Text>
+              </View>
+            ) : (
+              <SlotPicker slots={slots} selectedSlot={selectedSlot} serviceDurationMinutes={totalDurationMinutes} onSelectSlot={setSelectedSlot} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+            )}
+          </>
         ) : (
-          <SlotPicker
-            slots={slots}
-            selectedSlot={selectedSlot}
-            serviceDurationMinutes={totalDurationMinutes}
-            onSelectSlot={setSelectedSlot}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-          />
-        )}
+          <>
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>Booking Details</Text>
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="albums-outline" size={16} color="#6F2A3B" style={styles.summaryIcon} />
+                  <Text style={styles.summaryLabel}>Service</Text>
+                  <View style={styles.summaryValWrap}>
+                    <Text style={styles.summaryVal}>{primarySvc.name || "Haircut - Classic"}</Text>
+                    <Text style={styles.summaryValSub}>{totalDurationMinutes} mins</Text>
+                  </View>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="calendar-outline" size={16} color="#6F2A3B" style={styles.summaryIcon} />
+                  <Text style={styles.summaryLabel}>Date</Text>
+                  <Text style={styles.summaryVal}>{formattedDate}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="time-outline" size={16} color="#6F2A3B" style={styles.summaryIcon} />
+                  <Text style={styles.summaryLabel}>Time</Text>
+                  <Text style={styles.summaryVal}>{selectedSlot?.startTime || '10:00 AM'} - {selectedSlot?.endTime || '10:30 AM'}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="person-outline" size={16} color="#6F2A3B" style={styles.summaryIcon} />
+                  <Text style={styles.summaryLabel}>Stylist</Text>
+                  <Text style={styles.summaryVal}>Any Available</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Ionicons name="location-outline" size={16} color="#6F2A3B" style={styles.summaryIcon} />
+                  <Text style={styles.summaryLabel}>Salon Address</Text>
+                  <View style={styles.summaryValWrap}>
+                    <Text style={styles.summaryVal}>{branchName}</Text>
+                    <Text style={styles.summaryValSub}>{branchAddress}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
 
-        <View style={styles.notesSection}>
-          <Text style={styles.notesHeading}>SPECIAL INSTRUCTIONS</Text>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="Add preferences, allergies, or specific requests…"
-            placeholderTextColor={C.dustTaupe}
-            value={customerNotes}
-            onChangeText={setCustomerNotes}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>Price Details</Text>
+              <View style={styles.summaryCard}>
+                <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 4 }]}>
+                  <Text style={styles.priceLabel}>Service Price</Text>
+                  <Text style={styles.priceVal}>{paiseToINR(rawTotalPrice)}</Text>
+                </View>
+                <View style={[styles.summaryRow, { borderBottomWidth: 1, borderBottomColor: "#F4F5F8", paddingBottom: 12, paddingTop: 4 }]}>
+                  <Text style={styles.priceLabel}>Platform Fee <Ionicons name="information-circle-outline" size={12} color="#8A8A9E" /></Text>
+                  <Text style={styles.priceVal}>₹0</Text>
+                </View>
+                <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingTop: 12 }]}>
+                  <Text style={styles.totalLabel}>Total Amount</Text>
+                  <Text style={styles.totalVal}>{paiseToINR(rawTotalPrice)}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.cancellationBanner}>
+              <Ionicons name="checkmark-circle" size={20} color="#059669" />
+              <View style={styles.cancelTextWrap}>
+                <Text style={styles.cancelTitle}>Free Cancellation</Text>
+                <Text style={styles.cancelSub}>Cancel up to 2 hours before your appointment</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#059669" />
+            </View>
+          </>
+        )}
       </ScrollView>
 
-      <View style={[styles.floatingBottomContainer, { bottom: bottomInset }]}>
-        <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backTextBtn}>
-          <Text style={styles.backTextBtnText}>Back</Text>
-        </TouchableOpacity>
-
-        <SpringTouchable
-          style={[styles.continueBtn, (!selectedSlot || submitting) && styles.continueBtnDisabled]}
-          onPress={handleConfirmBooking}
-          disabled={!selectedSlot || submitting}
-          scaleTo={0.95}
-          hapticType="medium"
-        >
-          {submitting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={styles.continueBtnText}>Continue</Text>
-              <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-            </View>
-          )}
-        </SpringTouchable>
+      <View style={[styles.bottomBar, { paddingBottom: bottomInset }]}>
+        {step === 1 ? (
+          <TouchableOpacity 
+            style={[styles.mainBtn, (!selectedSlot || loadingSlots) && styles.btnDisabled]} 
+            disabled={!selectedSlot || loadingSlots} 
+            onPress={() => setStep(2)}
+          >
+            <Text style={styles.mainBtnText}>Continue →</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.mainBtn, submitting && styles.btnDisabled]} 
+            disabled={submitting} 
+            onPress={handleConfirmBooking}
+          >
+            {submitting ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.mainBtnText}>Proceed to Payment →</Text>}
+          </TouchableOpacity>
+        )}
       </View>
-
-      <VerifyEmailModal
-        visible={showVerifyModal}
-        email={user?.email}
-        onClose={() => setShowVerifyModal(false)}
-        onVerified={() => setShowVerifyModal(false)}
-      />
     </View>
   );
 }
 
-function getStyles(isDark) {
+function getStyles() {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: C.bg,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingTop: Platform.OS === "android" ? 44 : 52,
-      paddingHorizontal: S.md,
-      paddingBottom: S.md,
-      backgroundColor: C.bg,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    headerCenter: {
-      alignItems: "center",
-      flex: 1,
-      paddingHorizontal: S.xs,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: "800",
-      color: "#1A1A24",
-      letterSpacing: -0.3,
-    },
-    headerSub: {
-      fontSize: FS.caption,
-      color: C.muted,
-    },
-    contentContainer: {
-      paddingHorizontal: S.md,
-      paddingTop: S.md,
-      paddingBottom: 160,
-    },
-    salonInfoCard: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: "#FFFFFF",
-      borderRadius: 20,
-      padding: 12,
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: "#EBECEF",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.04,
-      shadowRadius: 10,
-      elevation: 2,
-    },
-    salonCardImage: {
-      width: 76,
-      height: 76,
-      borderRadius: 16,
-      backgroundColor: "#E2E8F0",
-      marginRight: 14,
-    },
-    salonCardContent: {
-      flex: 1,
-      justifyContent: "center",
-    },
-    salonCardTitle: {
-      fontSize: 17,
-      fontWeight: "800",
-      color: "#1A1A24",
-      letterSpacing: -0.3,
-    },
-    salonCardAddress: {
-      fontSize: 12,
-      color: "#8A8A9E",
-      marginTop: 4,
-      marginBottom: 6,
-    },
-    salonCardMetaRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    salonRatingBox: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 2,
-    },
-    salonDistanceBox: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 3,
-    },
-    salonDistanceText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: "#8A8A9E",
-    },
-    servicesSection: {
-      marginBottom: 20,
-    },
-    sectionHeadingTitle: {
-      fontSize: 16,
-      fontWeight: "800",
-      color: "#1A1A24",
-      letterSpacing: -0.3,
-      marginBottom: 12,
-    },
-    servicesCard: {
-      // backgroundColor: "#ffffffff",
-      borderRadius: 20,
-      borderWidth: 0,
-      borderColor: "#EBECEF",
-      paddingHorizontal: 0,
-      paddingVertical: 0,
-    },
-    serviceItemRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 12,
-    },
-    serviceItemDivider: {
-      borderBottomWidth: 1,
-      borderBottomColor: "#F4F5F8",
-    },
-    serviceItemThumb: {
-      width: 38,
-      height: 38,
-      borderRadius: 10,
-      backgroundColor: "#E2E8F0",
-      marginRight: 12,
-    },
-    serviceItemInfo: {
-      flex: 1,
-    },
-    serviceItemName: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: "#1A1A24",
-    },
-    serviceItemSub: {
-      fontSize: 12,
-      color: "#8A8A9E",
-      marginTop: 2,
-    },
-    serviceItemPrice: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: C.purple || "#6C5CE7",
-    },
-    servicesTotalRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingTop: 12,
-      marginTop: 8,
-      borderTopWidth: 1,
-      borderTopColor: "#EBECEF",
-    },
-    servicesTotalLabel: {
-      fontSize: 16,
-      fontWeight: "800",
-      color: "#1A1A24",
-    },
-    servicesTotalPrice: {
-      fontSize: 17,
-      fontWeight: "800",
-      color: C.purple || "#6C5CE7",
-    },
-    calendarCard: {
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
-      padding: S.md,
-      marginBottom: S.md,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    calendarHeaderRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: S.md,
-    },
-    monthTitle: {
-      fontSize: FS.body,
-      fontWeight: FW.semiBold,
-      color: C.ink,
-    },
-    monthNavBtns: {
-      flexDirection: "row",
-      gap: S.xs,
-    },
-    monthNavArrow: {
-      width: 32,
-      height: 32,
-      borderRadius: R.md,
-      backgroundColor: C.bg,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    daysOfWeekRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      marginBottom: S.xs,
-    },
-    dayOfWeekText: {
-      width: "14.28%",
-      textAlign: "center",
-      fontSize: FS.caption,
-      fontWeight: FW.medium,
-      color: C.muted,
-    },
-    daysGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-    },
-    dayCellEmpty: {
-      width: "14.28%",
-      height: 40,
-    },
-    dayCell: {
-      width: "14.28%",
-      height: 40,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 20,
-    },
-    dayCellSelected: {
-      backgroundColor: C.ink,
-    },
-    dayCellText: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-      color: C.ink,
-    },
-    dayCellTextPast: {
-      color: C.borderDark,
-      opacity: 0.4,
-    },
-    dayCellTextSelected: {
-      color: C.bg,
-      fontWeight: FW.bold,
-    },
-    guestsCard: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: C.surface,
-      borderRadius: R.md,
-      paddingHorizontal: S.md,
-      paddingVertical: S.sm,
-      marginBottom: S.sm,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    guestsInfo: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: S.xs,
-    },
-    guestsLabel: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-      color: C.ink,
-    },
-    stepperContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
-    stepperBtn: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: C.heart,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    stepperBtnAdd: {
-      backgroundColor: C.green,
-      borderColor: C.green,
-    },
-    stepperValueWrap: {
-      minWidth: 24,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    stepperValue: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.bold,
-      color: C.ink,
-      fontVariant: ["tabular-nums"],
-    },
-    loadingBox: {
-      padding: S.lg,
-      alignItems: "center",
-    },
-    loadingText: {
-      marginTop: S.xs,
-      fontSize: FS.bodySm,
-      color: C.muted,
-    },
-    notesSection: {
-      marginTop: S.sm,
-    },
-    notesHeading: {
-      ...TYPO.eyebrow,
-      color: "#1A1A24",
-      marginBottom: S.xxs,
-    },
-    notesInput: {
-      backgroundColor: C.surface,
-      borderRadius: R.md,
-      padding: S.sm,
-      fontSize: FS.bodySm,
-      color: C.ink,
-      borderWidth: 1,
-      borderColor: C.border,
-      minHeight: 70,
-      textAlignVertical: "top",
-    },
-    floatingBottomContainer: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 999,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
-      paddingHorizontal: 24,
-      paddingTop: 16,
-      paddingBottom: Platform.OS === "ios" ? 20 : 20,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      borderTopWidth: 1,
-      borderTopColor: isDark ? "#2A2A2C" : "#F0F1F5",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 10,
-    },
-    backTextBtn: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-    },
-    backTextBtnText: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: "#8A8A9E",
-    },
-    continueBtn: {
-      height: 52,
-      paddingHorizontal: 32,
-      borderRadius: 26,
-      backgroundColor: C.purple || "#6C5CE7",
-      alignItems: "center",
-      justifyContent: "center",
-      shadowColor: C.purple || "#6C5CE7",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      elevation: 6,
-    },
-    continueBtnDisabled: {
-      opacity: 0.5,
-    },
-    continueBtnText: {
-      color: "#FFFFFF",
-      fontSize: 16,
-      fontWeight: "700",
-    },
-    floatingBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: C.surface,
-      borderRadius: 20,
-      paddingLeft: S.md + 2,
-      paddingRight: 8,
-      paddingVertical: 8,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    floatingPriceBlock: {
-      justifyContent: "center",
-    },
-    floatingPriceLabel: {
-      fontSize: 11,
-      color: C.muted,
-      marginBottom: 1,
-    },
-    floatingPriceAmount: {
-      fontSize: 17,
-      fontWeight: "700",
-      color: C.ink,
-      letterSpacing: -0.3,
-    },
-    bookBtnTouchable: {
-      borderRadius: 15,
-      overflow: "hidden",
-    },
-    bookNowBtnDisabled: {
-      opacity: 0.5,
-    },
-    bookMainBtn: {
-      borderRadius: 15,
-      paddingVertical: 14,
-      paddingHorizontal: 26,
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-      backgroundColor: C.ink,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
-    bookMainBtnText: {
-      color: C.bg,
-      fontSize: 15,
-      fontWeight: "600",
-      letterSpacing: 0.2,
-    },
-    successScreenWrapper: {
-      flex: 1,
-      backgroundColor: isDark ? "#0A0A0C" : "#EDEDEF",
-      paddingHorizontal: 16,
-      paddingVertical: Platform.OS === "android" ? 36 : 48,
-    },
-    successCard: {
-      flex: 1,
-      backgroundColor: isDark ? "#1C1C1E" : R.background,
-      borderRadius: 32,
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 36,
-      justifyContent: "space-between",
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.4 : 0.05,
-      shadowRadius: 20,
-      elevation: 5,
-    },
-    successCardBody: {
-      alignItems: "center",
-      width: "100%",
-      marginTop: 20,
-    },
-    successCheckRing: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      borderWidth: 2,
-      borderColor: "#66CC66",
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 28,
-      backgroundColor: "transparent",
-    },
-    successTitle: {
-      fontSize: 21,
-      fontWeight: "700",
-      color: isDark ? "#FFFFFF" : "#111111",
-      textAlign: "center",
-      lineHeight: 28,
-      marginBottom: 16,
-      letterSpacing: -0.3,
-    },
-    successSub: {
-      fontSize: 13.5,
-      fontWeight: "400",
-      color: isDark ? "#A0A09C" : "#666666",
-      textAlign: "center",
-      lineHeight: 20,
-    },
-    successCardFooter: {
-      width: "100%",
-      alignItems: "center",
-      marginBottom: 10,
-    },
-    continueBookingBtn: {
-      backgroundColor: "#635BFF",
-      width: "100%",
-      height: 52,
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 16,
-    },
-    continueBookingText: {
-      color: "#FFFFFF",
-      fontSize: 14.5,
-      fontWeight: "600",
-    },
-    goToAppointmentBtn: {
-      paddingVertical: 6,
-      paddingHorizontal: 16,
-    },
-    goToAppointmentText: {
-      color: "#635BFF",
-      fontSize: 13.5,
-      fontWeight: "500",
-      textAlign: "center",
-    },
+    container: { flex: 1, backgroundColor: "#FAF9F6" },
+    header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingBottom: 10, backgroundColor: "#FAF9F6" },
+    backBtn: { width: 36, height: 36, justifyContent: "center" },
+    contentContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 140 },
+    pageTitle: { fontSize: 26, fontWeight: "800", color: "#1A1A24", marginBottom: 4 },
+    pageSubTitle: { fontSize: 13, color: "#8A8A9E", marginBottom: 24, lineHeight: 18 },
+    salonCard: { flexDirection: "row", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: "#F0EFEA" },
+    salonImg: { width: 60, height: 60, borderRadius: 12, marginRight: 12 },
+    salonInfo: { flex: 1, justifyContent: "center" },
+    salonName: { fontSize: 15, fontWeight: "700", color: "#1A1A24", marginBottom: 4 },
+    ratingRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
+    ratingTxt: { fontSize: 12, color: "#666", marginLeft: 4, fontWeight: "500" },
+    locationRow: { flexDirection: "row", alignItems: "center" },
+    locationTxt: { fontSize: 12, color: "#8A8A9E", marginLeft: 4 },
+    serviceCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#FDF9FA", borderRadius: 16, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: "#F6EEF0" },
+    svcIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#F3E6E8", alignItems: "center", justifyContent: "center", marginRight: 12 },
+    svcInfo: { flex: 1, flexShrink: 1, paddingRight: 8 },
+    svcName: { fontSize: 15, fontWeight: "600", color: "#1A1A24", marginBottom: 2 },
+    svcSub: { fontSize: 12, color: "#8A8A9E" },
+    svcPrice: { fontSize: 15, fontWeight: "700", color: "#1A1A24", flexShrink: 0 },
+    summarySection: { marginBottom: 24 },
+    sectionTitle: { fontSize: 16, fontWeight: "700", color: "#1A1A24", marginBottom: 12 },
+    summaryCard: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#F0EFEA" },
+    summaryRow: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F9F9F9" },
+    summaryIcon: { width: 24, marginTop: 2 },
+    summaryLabel: { flex: 1, fontSize: 14, color: "#8A8A9E", marginTop: 1 },
+    summaryValWrap: { flex: 2, alignItems: "flex-end" },
+    summaryVal: { fontSize: 14, fontWeight: "600", color: "#1A1A24", textAlign: "right" },
+    summaryValSub: { fontSize: 12, color: "#8A8A9E", marginTop: 2, textAlign: "right" },
+    priceLabel: { flex: 1, fontSize: 14, color: "#8A8A9E" },
+    priceVal: { fontSize: 15, fontWeight: "600", color: "#1A1A24" },
+    totalLabel: { flex: 1, fontSize: 16, fontWeight: "700", color: "#1A1A24" },
+    totalVal: { fontSize: 18, fontWeight: "800", color: "#1A1A24" },
+    cancellationBanner: { flexDirection: "row", alignItems: "center", backgroundColor: "#ECFDF5", padding: 16, borderRadius: 12, borderWidth: 1, borderColor: "#D1FAE5", marginBottom: 20 },
+    cancelTextWrap: { flex: 1, marginLeft: 10 },
+    cancelTitle: { fontSize: 13, fontWeight: "700", color: "#065F46", marginBottom: 2 },
+    cancelSub: { fontSize: 11, color: "#047857" },
+    bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#FAF9F6", paddingHorizontal: 20, paddingTop: 16 },
+    mainBtn: { backgroundColor: "#6F2A3B", height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+    btnDisabled: { opacity: 0.5 },
+    mainBtnText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+    loadingBox: { padding: 40, alignItems: "center" },
+    loadingText: { marginTop: 12, color: "#8A8A9E", fontSize: 14 },
+    successScreenWrapper: { flexGrow: 1, backgroundColor: "#FFFFFF", paddingHorizontal: 20, paddingTop: 30, paddingBottom: 30, alignItems: "center" },
+    successHeader: { alignItems: "center", marginBottom: 24, marginTop: 10 },
+    successCheckRing: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#6F2A3B", alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 6, borderColor: "#F3E6E8" },
+    successTitle: { fontSize: 22, fontWeight: "800", color: "#111827", textAlign: "center", marginBottom: 6 },
+    successSub: { fontSize: 13, color: "#6B7280", textAlign: "center", lineHeight: 20 },
+    successDetailsCard: { width: "100%", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "#F3F4F6" },
+    successServiceRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+    successServiceImg: { width: 50, height: 50, borderRadius: 10, marginRight: 12 },
+    successServiceInfo: { flex: 1 },
+    successServiceName: { fontSize: 15, fontWeight: "700", color: "#111827", marginBottom: 2 },
+    successServiceDesc: { fontSize: 12, color: "#6B7280", marginBottom: 6 },
+    successServiceMeta: { flexDirection: "row", alignItems: "center" },
+    successServiceMetaText: { fontSize: 12, color: "#4B5563", marginLeft: 4, fontWeight: "500" },
+    successDivider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 12 },
+    successDetailRow: { flexDirection: "row", alignItems: "center" },
+    successIconBox: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", marginRight: 12 },
+    successDetailTextWrap: { flex: 1 },
+    successDetailLabel: { fontSize: 12, fontWeight: "600", color: "#111827", marginBottom: 2 },
+    successDetailValue: { fontSize: 13, color: "#4B5563" },
+    successDetailSubValue: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
+    copyBtn: { backgroundColor: "#FDF9FA", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    copyBtnText: { color: "#6F2A3B", fontSize: 11, fontWeight: "600" },
+    viewBookingsBtn: { width: "100%", height: 52, borderRadius: 26, backgroundColor: "#6F2A3B", flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+    viewBookingsText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
+    shareBtn: { width: "100%", height: 52, borderRadius: 26, backgroundColor: "#FDF9FA", flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 30 },
+    shareBtnText: { fontSize: 15, fontWeight: "700", color: "#6F2A3B" },
+    successFooter: { alignItems: "center", marginTop: "auto" },
+    leafCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#FDF9FA", alignItems: "center", justifyContent: "center", marginBottom: 8 },
+    footerQuote: { fontSize: 12, color: "#6F2A3B", textAlign: "center", fontWeight: "500", lineHeight: 16, marginBottom: 10 },
+    heartRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", opacity: 0.5 },
+    heartLine: { width: 24, height: 1, backgroundColor: "#6F2A3B" }
   });
 }
+

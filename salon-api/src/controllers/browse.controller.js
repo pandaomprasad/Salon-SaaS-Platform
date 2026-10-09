@@ -25,6 +25,132 @@ function createCityQuery(cleanCity) {
   }
 }
 
+async function getRatingsMapForSalons(salonIds) {
+  if (!Array.isArray(salonIds) || salonIds.length === 0) return {}
+  try {
+    const stringIds = salonIds.map((id) => (id ? id.toString() : null)).filter(Boolean)
+    const objectIds = stringIds.map((id) => {
+      try { return new mongoose.Types.ObjectId(id) } catch (e) { return null }
+    }).filter(Boolean)
+
+    const branches = await Branch.find({
+      $or: [
+        { salonId: { $in: objectIds } },
+        { salonId: { $in: stringIds } }
+      ]
+    }).select('_id salonId').lean()
+
+    const branchToSalonMap = {}
+    const branchObjectIds = []
+    const branchStringIds = []
+
+    branches.forEach((b) => {
+      if (b._id) {
+        const bStr = b._id.toString()
+        const sStr = b.salonId ? b.salonId.toString() : null
+        if (sStr) {
+          branchToSalonMap[bStr] = sStr
+          branchStringIds.push(bStr)
+          try {
+            branchObjectIds.push(new mongoose.Types.ObjectId(bStr))
+          } catch (e) {}
+        }
+      }
+    })
+
+    const apptMatch = {
+      $or: [
+        { salonId: { $in: objectIds } },
+        { salonId: { $in: stringIds } }
+      ],
+      'rating.score': { $ne: null, $gt: 0 }
+    }
+
+    if (branchStringIds.length > 0) {
+      apptMatch.$or.push(
+        { branchId: { $in: branchObjectIds } },
+        { branchId: { $in: branchStringIds } }
+      )
+    }
+
+    const appointments = await Appointment.find(apptMatch)
+      .select('rating salonId branchId')
+      .lean()
+
+    const map = {}
+    appointments.forEach((app) => {
+      let sId = app.salonId ? app.salonId.toString() : null
+      if (!sId && app.branchId) {
+        sId = branchToSalonMap[app.branchId.toString()]
+      }
+      if (sId) {
+        if (!map[sId]) {
+          map[sId] = { totalScore: 0, totalReviews: 0 }
+        }
+        map[sId].totalScore += app.rating.score
+        map[sId].totalReviews += 1
+      }
+    })
+
+    const result = {}
+    Object.keys(map).forEach((sId) => {
+      const item = map[sId]
+      if (item.totalReviews > 0) {
+        result[sId] = {
+          avgScore: Math.round((item.totalScore / item.totalReviews) * 10) / 10,
+          totalReviews: item.totalReviews
+        }
+      }
+    })
+
+    return result
+  } catch (err) {
+    console.warn('[browse.controller] Rating aggregation error:', err.message)
+    return {}
+  }
+}
+
+function resolveSalonRating(salon, ratingMap = {}) {
+  const sid = salon._id ? salon._id.toString() : (salon.id ? salon.id.toString() : null)
+  const apptRating = sid ? ratingMap[sid] : null
+
+  if (apptRating && apptRating.totalReviews > 0) {
+    return {
+      avgScore: apptRating.avgScore,
+      totalReviews: apptRating.totalReviews,
+      reviewsCount: apptRating.totalReviews
+    }
+  }
+
+  if (salon.rating !== undefined && salon.rating !== null) {
+    if (typeof salon.rating === 'object') {
+      const score = salon.rating.avgScore || salon.rating.average || salon.rating.score || 5.0
+      const reviews = (typeof salon.rating.totalReviews === 'number')
+        ? salon.rating.totalReviews
+        : ((typeof salon.rating.reviewsCount === 'number') ? salon.rating.reviewsCount : 0)
+      return {
+        avgScore: score,
+        totalReviews: reviews,
+        reviewsCount: reviews
+      }
+    }
+    if (typeof salon.rating === 'number' && salon.rating > 0) {
+      const revCount = typeof salon.reviewsCount === 'number' ? salon.reviewsCount : (typeof salon.totalReviews === 'number' ? salon.totalReviews : 0)
+      return {
+        avgScore: salon.rating,
+        totalReviews: revCount,
+        reviewsCount: revCount
+      }
+    }
+  }
+
+  return {
+    avgScore: 5.0,
+    totalReviews: 0,
+    reviewsCount: 0
+  }
+}
+
 // ================================
 // GET /api/v1/browse/initial-load
 // public — consolidated initial dataset for fast startup
@@ -78,10 +204,11 @@ const getInitialLoad = async (req, res, next) => {
 
     const salons = await Salon.find(salonFilter)
       .populate('owner', 'name')
-      .select('name description contactEmail contactPhone logo banner coverImage images')
+      .select('name description contactEmail contactPhone logo banner coverImage images rating')
       .lean()
 
     const salonIds = salons.map((s) => s._id)
+    const ratingMap = await getRatingsMapForSalons(salonIds)
 
     const branches = await Branch.find(branchFilter)
       .populate('salonId', 'name logo')
@@ -172,8 +299,12 @@ const getInitialLoad = async (req, res, next) => {
       const sid = s._id.toString()
       const minPaise = minPriceBySalon[sid]
       const startingPrice = minPaise ? Math.round(minPaise / 100) : null
+      const ratingInfo = resolveSalonRating(s, ratingMap)
       return {
         ...s,
+        rating: ratingInfo,
+        totalReviews: ratingInfo.totalReviews,
+        reviewsCount: ratingInfo.totalReviews,
         branches: branchesBySalon[sid] || [],
         minServicePrice: startingPrice,
         startingPrice: startingPrice
@@ -293,7 +424,7 @@ const browseSalons = async (req, res, next) => {
     const [salons, total, branchCounts, branches] = await Promise.all([
       Salon.find(filter)
         .populate('owner', 'name')
-        .select('name description contactEmail contactPhone logo coverImage images')
+        .select('name description contactEmail contactPhone logo coverImage images rating')
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
@@ -306,6 +437,9 @@ const browseSalons = async (req, res, next) => {
         .select('salonId name address.city address.street address.coordinates')
         .lean()
     ])
+
+    const salonIds = salons.map((s) => s._id)
+    const ratingMap = await getRatingsMapForSalons(salonIds)
 
     const branchIds = branches.map((branch) => branch._id)
     const lowestServicePrices = branchIds.length
@@ -340,8 +474,12 @@ const browseSalons = async (req, res, next) => {
       const sid = s._id.toString()
       const minPaise = minPriceBySalon[sid]
       const startingPrice = minPaise ? Math.round(minPaise / 100) : null
+      const ratingInfo = resolveSalonRating(s, ratingMap)
       return {
         ...s,
+        rating: ratingInfo,
+        totalReviews: ratingInfo.totalReviews,
+        reviewsCount: ratingInfo.totalReviews,
         branchCount: branchCountMap[sid] || 0,
         branches: branchesBySalon[sid] || [],
         minServicePrice: startingPrice,
@@ -386,12 +524,15 @@ const getSalonPublic = async (req, res, next) => {
     }
 
     const salon = await Salon.findOne({ _id: salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
-      .select('name description contactEmail contactPhone logo coverImage images')
+      .select('name description contactEmail contactPhone logo coverImage images rating')
       .lean()
 
     if (!salon) {
       return next(new AppError('Salon not found', 404))
     }
+
+    const ratingMap = await getRatingsMapForSalons([salon._id])
+    const ratingInfo = resolveSalonRating(salon, ratingMap)
 
     const branches = await Branch.find({ salonId, isActive: true, deactivatedByAdmin: { $ne: true } })
       .select('name address contactPhone contactEmail workingHours slotDurationMinutes')
@@ -400,6 +541,9 @@ const getSalonPublic = async (req, res, next) => {
     const resultData = {
       salon: {
         ...salon,
+        rating: ratingInfo,
+        totalReviews: ratingInfo.totalReviews,
+        reviewsCount: ratingInfo.totalReviews,
         branches
       }
     }
@@ -815,8 +959,25 @@ const getBranchReviewsPublic = async (req, res, next) => {
       return res.status(200).json({ success: true, cached: true, data: cached });
     }
 
+    const branch = await Branch.findById(branchId).lean();
+    const salonId = branch ? branch.salonId : null;
+
+    const matchOr = [
+      { branchId },
+      { branchId: branchId.toString() }
+    ];
+    if (mongoose.Types.ObjectId.isValid(branchId)) {
+      matchOr.push({ branchId: new mongoose.Types.ObjectId(branchId) });
+    }
+    if (salonId) {
+      matchOr.push({ salonId }, { salonId: salonId.toString() });
+      if (mongoose.Types.ObjectId.isValid(salonId)) {
+        matchOr.push({ salonId: new mongoose.Types.ObjectId(salonId) });
+      }
+    }
+
     const appointments = await Appointment.find({
-      branchId,
+      $or: matchOr,
       'rating.score': { $ne: null }
     })
       .populate('customerId', 'name avatar')
@@ -860,8 +1021,22 @@ const getSalonReviewsPublic = async (req, res, next) => {
       return res.status(200).json({ success: true, cached: true, data: cached });
     }
 
+    const branches = await Branch.find({ salonId }).select('_id').lean();
+    const branchIds = branches.map((b) => b._id);
+
+    const matchOr = [
+      { salonId },
+      { salonId: salonId.toString() }
+    ];
+    if (mongoose.Types.ObjectId.isValid(salonId)) {
+      matchOr.push({ salonId: new mongoose.Types.ObjectId(salonId) });
+    }
+    if (branchIds.length > 0) {
+      matchOr.push({ branchId: { $in: branchIds } });
+    }
+
     const appointments = await Appointment.find({
-      salonId,
+      $or: matchOr,
       'rating.score': { $ne: null }
     })
       .populate('customerId', 'name avatar')

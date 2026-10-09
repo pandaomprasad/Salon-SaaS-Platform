@@ -23,7 +23,7 @@ const { width, height } = Dimensions.get("window");
 
 const ONBOARDING_KEY = "@salon_app_has_onboarded";
 
-// ── Design Tokens (Flat Black & White + #BD4444) ──────────────────
+// ── Design Tokens (Global Brand Theme #B3261E) ──────────────────
 const COLORS = {
   canvas: C.bg,
   canvasSoft: C.lifted,
@@ -32,19 +32,19 @@ const COLORS = {
   body: C.textSecondary,
   muted: C.muted,
   mutedSoft: C.dustTaupe,
-  primary: C.main,
-  primaryActive: C.mainDark,
-  onPrimary: C.bg,
+  primary: C.main || "#B3261E",
+  primaryActive: C.mainDark || "#8C1D17",
+  onPrimary: "#FFFFFF",
   hairline: C.border,
   hairlineSoft: C.borderLight,
   hairlineStrong: C.borderDark,
   surfaceStrong: C.bone,
-  // Monochrome decorations (hex so alpha suffixes concatenate cleanly)
-  thinking: "#E0E0E0",
-  grep: "#E0E0E0",
-  read: "#E0E0E0",
-  edit: "#E0E0E0",
-  done: "#BD4444",
+  // Brand crimson decorations
+  thinking: "#FDF2F2",
+  grep: "#FCE8E8",
+  read: "#F9D5D5",
+  edit: "#F4B8B8",
+  done: C.main || "#B3261E",
 };
 
 const SLIDES = [
@@ -684,7 +684,7 @@ export default function OnboardingScreen({ onFinish, navigate }) {
 
             const backgroundColor = scrollX.interpolate({
               inputRange,
-              outputRange: [COLORS.hairlineStrong, C.blue, COLORS.hairlineStrong],
+              outputRange: [COLORS.hairlineStrong, C.main || "#B3261E", COLORS.hairlineStrong],
               extrapolate: "clamp",
             });
 
@@ -797,7 +797,7 @@ function getStyles() {
     skipText: {
       fontSize: 13,
       fontWeight: "500",
-      color: C.blue,
+      color: C.main || "#B3261E",
     },
 
     // ── Carousel Wrapper ──────────────────────────────────────
@@ -956,7 +956,7 @@ function getStyles() {
       width: "100%",
       height: 52,
       borderRadius: 8,
-      backgroundColor: C.blue,
+      backgroundColor: C.main || "#B3261E",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",

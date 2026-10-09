@@ -5,16 +5,26 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import AppleTouchable from "./AppleTouchable";
+import { useLocationStore } from "../store/useLocationStore";
 
-const POPULAR_LIVE_CITIES = ["Brahmapur", "Bangalore", "Bhubaneswar", "Mumbai"];
+const POPULAR_LIVE_CITIES = ["Brahmapur"];
 
 function ComingSoonLocation({
-  city = "your city",
+  city: propCity,
   onChangeLocation,
   onSelectQuickCity,
 }) {
   const { theme, isDark } = useTheme();
   const styles = getStyles(theme, isDark);
+  const storeCity = useLocationStore((state) => state.selectedCity);
+  const city = propCity || storeCity || "your city";
+
+  const handleQuickCityPress = (c) => {
+    useLocationStore.getState().setSelectedCity(c);
+    if (onSelectQuickCity) {
+      onSelectQuickCity(c);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -68,7 +78,7 @@ function ComingSoonLocation({
               <AppleTouchable
                 key={c}
                 style={styles.quickCityChip}
-                onPress={() => onSelectQuickCity(c)}
+                onPress={() => handleQuickCityPress(c)}
                 scaleTo={0.92}
                 hapticType="light"
               >

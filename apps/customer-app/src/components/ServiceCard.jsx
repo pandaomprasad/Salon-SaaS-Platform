@@ -1,6 +1,6 @@
 // src/components/ServiceCard.jsx
 import React, { memo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
@@ -20,9 +20,8 @@ function getCategoryIcon(catName) {
 function ServiceCard({ service, selected, onSelect, onViewCombo }) {
   const { theme, isDark } = useTheme();
   const styles = getStyles();
-  const categoryName = (service.category || "General").toUpperCase();
   const duration = service.durationMinutes || service.duration || 30;
-  const iconName = getCategoryIcon(service.category);
+  const imageUrl = service.image || "https://images.unsplash.com/photo-1599305090598-fe179d501227?q=80&w=200&auto=format&fit=crop";
   const isCombo =
     service.category?.toLowerCase() === "combo" ||
     Boolean(service.includedServices && service.includedServices.length > 0);
@@ -45,68 +44,34 @@ function ServiceCard({ service, selected, onSelect, onViewCombo }) {
       activeOpacity={0.88}
     >
       <View style={styles.cardInnerRow}>
-        {/* Soft Circular Icon Badge */}
-        <View style={[styles.iconCircle, { backgroundColor: theme.goldTint }]}>
-          <Ionicons name={iconName} size={20} color={theme.primary} />
-        </View>
-
-        {/* Info Column */}
         <View style={styles.infoCol}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={[styles.categoryEyebrow, { color: theme.primary }]}>
-              {categoryName}  •  {duration} mins
-            </Text>
-            {isCombo && (
-              <View style={{ backgroundColor: isDark ? "rgba(245, 158, 11, 0.2)" : "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, borderWidth: 1, borderColor: isDark ? "rgba(245, 158, 11, 0.4)" : "#FDE68A" }}>
-                <Text style={{ fontSize: 9.5, fontWeight: "800", color: isDark ? "#FBBF24" : "#B45309" }}>✦ Bundle</Text>
-              </View>
-            )}
-          </View>
-
-          <Text style={[styles.name, { color: theme.ink, fontFamily: FONT_FAMILY.serif }]}>
+          <Text style={[styles.name, { color: theme.ink }]}>
             {service.name}
           </Text>
-
-          {service.packageOfferTag ? (
-            <Text style={{ fontSize: 11, fontWeight: "600", color: isDark ? "#FBBF24" : "#D97706", marginBottom: 2 }}>
-              🏷️ {service.packageOfferTag}
+          
+          <View style={styles.priceDurationRow}>
+            <Text style={[styles.price, { color: C.price }]}>
+              {paiseToINR(service.price)}
             </Text>
-          ) : null}
+            <View style={styles.dotSeparator} />
+            <Ionicons name="time-outline" size={13} color="#888888" />
+            <Text style={styles.durationText}>{duration} mins</Text>
+          </View>
 
-          {service.description ? (
-            <Text style={[styles.description, { color: theme.muted }]} numberOfLines={2}>
-              {service.description}
-            </Text>
-          ) : null}
-
-          {isCombo && (
-            <Text style={{ fontSize: 10.5, fontWeight: "700", color: theme.primary, marginTop: 4 }}>
-              Tap to view included services ↗
-            </Text>
-          )}
-        </View>
-
-        {/* Price & Add Action Button Column */}
-        <View style={styles.actionCol}>
-          <Text style={[styles.price, { color: theme.ink }]}>
-            {paiseToINR(service.price)}
+          <Text style={[styles.description, { color: "#666666" }]} numberOfLines={2}>
+            {service.description || "Premium service tailored for you"}
           </Text>
-
-          <TouchableOpacity
-            style={styles.addBtnRow}
-            onPress={() => onSelect && onSelect(service)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.addBtnText, { color: selected ? theme.primary : theme.primary }]}>
-              {selected ? "Added" : "Add"}
-            </Text>
-            <Ionicons
-              name={selected ? "checkmark-circle" : "add-circle-outline"}
-              size={18}
-              color={theme.primary}
-            />
-          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={[styles.addBtn, selected ? styles.addBtnSelected : styles.addBtnDefault]}
+          onPress={() => onSelect && onSelect(service)}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.addBtnText, selected ? styles.addBtnTextSelected : styles.addBtnTextDefault]}>
+            {selected ? "Added" : "Add"}
+          </Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -117,61 +82,78 @@ export default memo(ServiceCard);
 function getStyles() {
   return StyleSheet.create({
     card: {
-      borderRadius: 18,
-      padding: S.sm,
-      marginBottom: S.sm,
-      borderWidth: 1,
+      paddingVertical: 18,
+      borderBottomWidth: 1,
+      borderBottomColor: "#F0F0F0",
+      backgroundColor: "#FFFFFF",
     },
     cardInnerRow: {
       flexDirection: "row",
-      alignItems: "flex-start",
-      gap: S.sm,
-    },
-    iconCircle: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
       alignItems: "center",
-      justifyContent: "center",
-      display: 'none'
+      justifyContent: "space-between",
+      gap: 16,
     },
     infoCol: {
       flex: 1,
-    },
-    categoryEyebrow: {
-      fontSize: 10,
-      fontWeight: FW.bold,
-      letterSpacing: 1.0,
-      marginBottom: 3,
+      justifyContent: "center",
     },
     name: {
-      fontSize: 14,
-      fontWeight: FW.bold,
-      marginBottom: 3,
+      fontSize: 15.5,
+      fontWeight: "700",
+      marginBottom: 6,
+      lineHeight: 22,
+      letterSpacing: -0.2,
     },
-    description: {
-      fontSize: 11,
-      lineHeight: 17,
-    },
-    actionCol: {
-      alignItems: "flex-end",
-      justifyContent: "space-between",
-      height: "100%",
-      minHeight: 52,
-    },
-    price: {
-      fontSize: 16,
-      fontWeight: FW.bold,
-    },
-    addBtnRow: {
+    priceDurationRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      marginTop: 8,
+      marginBottom: 8,
+    },
+    price: {
+      fontSize: 15,
+      fontWeight: "800",
+      letterSpacing: 0.2,
+    },
+    dotSeparator: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "#D1D5DB",
+      marginHorizontal: 8,
+    },
+    durationText: {
+      fontSize: 12.5,
+      color: "#6B7280",
+      fontWeight: "500",
+      marginLeft: 4,
+    },
+    description: {
+      fontSize: 12.5,
+      lineHeight: 18,
+    },
+    addBtn: {
+      paddingHorizontal: 18,
+      paddingVertical: 8,
+      borderRadius: 8,
+      justifyContent: "center",
+      alignItems: "center",
+      minWidth: 72,
+    },
+    addBtnDefault: {
+      backgroundColor: C.crimsonTint || "#FCE8E8", // Light crimson tint
+    },
+    addBtnSelected: {
+      backgroundColor: C.button, // Solid #B3261E
     },
     addBtnText: {
-      fontSize: 12,
-      fontWeight: FW.bold,
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    addBtnTextDefault: {
+      color: C.crimsonDark, // #8C1D2A text
+    },
+    addBtnTextSelected: {
+      color: "#FFFFFF",
     },
   });
 }

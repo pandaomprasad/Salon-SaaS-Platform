@@ -16,23 +16,23 @@ import { C } from "../theme";
 
 const { width, height } = Dimensions.get("window");
 
-// ── Flat B&W tokens (monochrome + #BD4444 highlight) ─────
+// ── Global Brand Theme Tokens (#B3261E Crimson) ─────
 const COLORS = {
   canvas: C.bg,
   surface: C.surface,
   ink: C.ink,
   body: C.textSecondary,
   muted: C.textMuted,
-  primary: "#BD4444",
-  primaryActive: "#9E3232",
-  onPrimary: C.bg,
+  primary: C.main || "#B3261E",
+  primaryActive: C.mainDark || "#8C1D17",
+  onPrimary: "#FFFFFF",
   hairline: C.border,
-  // Monochrome soft orbs/dots
-  thinking: "#D9D9D9",
-  grep: "#D9D9D9",
-  read: "#D9D9D9",
-  edit: "#D9D9D9",
-  done: "#BD4444",
+  // Crimson soft accents
+  thinking: "#FDF2F2",
+  grep: "#FCE8E8",
+  read: "#F9D5D5",
+  edit: "#F4B8B8",
+  done: C.main || "#B3261E",
 };
 
 export default function SplashScreen({ onFinish }) {

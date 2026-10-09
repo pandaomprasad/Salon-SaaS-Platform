@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../theme";
@@ -31,27 +32,9 @@ export default function ReviewsSection({
   const { theme, isDark } = useTheme();
   const styles = getStyles(theme, isDark);
 
-  const [userRating, setUserRating] = useState(0); // Starts with 0 filled stars initially
+  const [userRating, setUserRating] = useState(0);
   const [commentText, setCommentText] = useState("");
-  const [attachedPhotos, setAttachedPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Mock sample photos for demonstration when user clicks image upload icon
-  const SAMPLE_PHOTOS = [
-    "https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=300&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=300&auto=format&fit=crop",
-  ];
-
-  const handleAddPhoto = () => {
-    if (attachedPhotos.length < 3) {
-      const nextPhoto = SAMPLE_PHOTOS[attachedPhotos.length % SAMPLE_PHOTOS.length];
-      setAttachedPhotos((prev) => [...prev, nextPhoto]);
-    }
-  };
-
-  const handleRemovePhoto = (index) => {
-    setAttachedPhotos((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const handleSubmit = async () => {
     if (!commentText.trim()) return;
@@ -61,11 +44,9 @@ export default function ReviewsSection({
         await onSubmitReview({
           rating: userRating || 5,
           comment: commentText,
-          photos: attachedPhotos,
         });
       }
       setCommentText("");
-      setAttachedPhotos([]);
       setUserRating(0);
     } catch (e) {
       console.warn("Submit review failed:", e);
@@ -75,257 +56,231 @@ export default function ReviewsSection({
   };
 
   const displayCount = reviews.length > 0 ? reviews.length : totalReviews;
+  const reviewListToRender = reviews.length > 0 ? reviews : MOCK_REVIEWS;
 
   return (
     <View style={styles.container}>
-      {/* 1. Write Your Review Header & Card */}
-      <View style={styles.writeReviewBlock}>
-        <View style={styles.writeHeaderRow}>
-          <Text style={styles.writeTitle}>Write your review</Text>
-        </View>
-
-        {/* Seamless Unified Input Card */}
-        <View style={styles.inputCard}>
-          {/* Main Comment Text Area */}
-          <TextInput
-            style={styles.textInput}
-            placeholder="Leave your experience..."
-            placeholderTextColor={isDark ? "#64748B" : "#A0A4B0"}
-            value={commentText}
-            onChangeText={setCommentText}
-            multiline={true}
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-
-          {/* Attached Photo Thumbnails */}
-          {attachedPhotos.length > 0 && (
-            <View style={styles.photosRow}>
-              {attachedPhotos.map((imgUri, index) => (
-                <View key={index} style={styles.thumbWrapper}>
-                  <Image source={{ uri: imgUri }} style={styles.photoThumb} />
-                  <TouchableOpacity
-                    style={styles.removePhotoBadge}
-                    onPress={() => handleRemovePhoto(index)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="close" size={12} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Bottom Action Bar inside Card: Photo Icon, 5 Stars Bar, Send Button */}
-          <View style={styles.inputBottomRow}>
-            <TouchableOpacity
-              style={styles.imagePickBtn}
-              onPress={handleAddPhoto}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="image-outline" size={20} color={isDark ? "#94A3B8" : "#4A4A5A"} />
-            </TouchableOpacity>
-
-            {/* Interactive 5-Star Rating Selector + Dynamic Label (e.g. 1 star = "Poor") */}
-            <View style={styles.overallStarRow}>
-              <View style={styles.starsIconStrip}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => setUserRating(star)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
-                  >
-                    <Ionicons
-                      name={userRating > 0 && star <= userRating ? "star" : "star-outline"}
-                      size={20}
-                      color={userRating > 0 && star <= userRating ? "#FFC107" : isDark ? "#4A4A4D" : "#D1D5DB"}
-                      style={{ marginHorizontal: 1 }}
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Dynamic Rating Label text display */}
-              {userRating > 0 ? (
-                <Text
-                  style={[
-                    styles.ratingTextLabel,
-                    userRating === 1 && styles.ratingTextPoor,
-                  ]}
-                >
-                  {RATING_LABELS[userRating]}
-                </Text>
-              ) : null}
-            </View>
-
-            <SpringTouchable
-              style={[
-                styles.sendBtn,
-                !commentText.trim() && styles.sendBtnDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={!commentText.trim() || isSubmitting}
-              scaleTo={0.9}
-            >
-              <Ionicons
-                name="send"
-                size={16}
-                color="#FFFFFF"
-                style={{ marginLeft: 2 }}
-              />
-            </SpringTouchable>
-          </View>
-        </View>
-      </View>
-
-      {/* 2. All Reviews List Header */}
-      <View style={styles.allReviewsHeader}>
-        <Text style={styles.allReviewsTitle}>
-          All reviews({displayCount})
-        </Text>
-      </View>
-
-      {/* 3. Reviews List Items */}
-      {reviews.length > 0 ? (
-        <View style={styles.reviewsListContainer}>
-          {reviews.slice(0, 5).map((rev, index) => {
-            const ratingNum = rev.rating || rev.score || 5;
-            const dateStr = rev.date || rev.createdAt || "Recently";
-
-            return (
-              <ReviewCardItem
-                key={rev._id || rev.id || index}
-                rev={rev}
-                ratingNum={ratingNum}
-                dateStr={dateStr}
-                styles={styles}
-                isDark={isDark}
-              />
-            );
-          })}
-        </View>
-      ) : (
-        /* Default Mock Reviews matching reference screenshot exactly */
-        <View style={styles.reviewsListContainer}>
-          <DefaultMockReviewItem
-            name="Vicky Pirachel"
-            time="2 days ago"
-            rating={5}
-            comment="The people working here are just so nice and helpful and make you feel so comfortable!"
-            avatar="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop"
-            styles={styles}
-            isDark={isDark}
-          />
-          <DefaultMockReviewItem
-            name="Natalia Wierz"
-            time="5 days ago"
-            rating={4}
-            comment="The actual salon is very nice and the workers are professional."
-            avatar="https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=120&auto=format&fit=crop"
-            styles={styles}
-            isDark={isDark}
-          />
-          <DefaultMockReviewItem
-            name="Rina Baldwin"
-            time="1 month ago"
-            rating={4}
-            comment="The place is very clean and beautiful. Amazing stuff very welcoming."
-            avatar="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=120&auto=format&fit=crop"
-            styles={styles}
-            isDark={isDark}
-          />
-        </View>
-      )}
-    </View>
-  );
-}
-
-function ReviewCardItem({ rev, ratingNum, dateStr, styles, isDark }) {
-  return (
-    <View style={styles.reviewItemCard}>
-      <View style={styles.reviewUserRow}>
-        <Image
-          source={{
-            uri:
-              rev.userAvatar ||
-              rev.customerAvatar ||
-              "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop",
-          }}
-          style={styles.avatar}
-        />
-
-        <View style={styles.userInfoCol}>
-          <Text style={styles.userName}>
-            {rev.userName || rev.customerName || rev.user?.name || "Customer"}
-          </Text>
-          <View style={styles.itemStarsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name={star <= ratingNum ? "star" : "star-outline"}
-                size={13}
-                color={star <= ratingNum ? "#FFC107" : isDark ? "#4A4A4D" : "#D1D5DB"}
-                style={{ marginRight: 2 }}
-              />
-            ))}
-          </View>
-        </View>
-
-        <Text style={styles.reviewTimeAgo}>
-          {typeof dateStr === "string" ? dateStr : "Recently"}
-        </Text>
-      </View>
-
-      {rev.comment ? <Text style={styles.commentContent}>{rev.comment}</Text> : null}
-
-      {Array.isArray(rev.photos) && rev.photos.length > 0 && (
-        <View style={styles.reviewPhotosRow}>
-          {rev.photos.map((pUrl, pIdx) => (
-            <Image key={pIdx} source={{ uri: pUrl }} style={styles.reviewPhotoThumb} />
+      {/* 1. Overall Rating Summary Banner */}
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryScoreNum}>{overallRating}</Text>
+        <View style={styles.summaryStarsRow}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <Ionicons
+              key={star}
+              name={star <= Math.round(parseFloat(overallRating)) ? "star" : "star-half"}
+              size={16}
+              color="#F59E0B"
+              style={{ marginRight: 3 }}
+            />
           ))}
         </View>
-      )}
+        <Text style={styles.summarySubtext}>{displayCount} Verified Reviews</Text>
+      </View>
+
+      {/* 2. Write Your Review Card */}
+      <View style={styles.writeReviewCard}>
+        <View style={styles.writeHeaderRow}>
+          <Text style={styles.writeTitle}>Write your review</Text>
+          {userRating > 0 && (
+            <View style={styles.ratingBadge}>
+              <Text style={styles.ratingBadgeText}>{RATING_LABELS[userRating]}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Interactive Star Rating Bar */}
+        <View style={styles.starRatingBar}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity
+              key={star}
+              onPress={() => setUserRating(star)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+            >
+              <Ionicons
+                name={userRating > 0 && star <= userRating ? "star" : "star-outline"}
+                size={28}
+                color={userRating > 0 && star <= userRating ? "#F59E0B" : isDark ? "#475569" : "#CBD5E1"}
+                style={{ marginHorizontal: 4 }}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Comment Text Input Box */}
+        <TextInput
+          style={styles.textInputBox}
+          placeholder="Leave your experience..."
+          placeholderTextColor={isDark ? "#64748B" : "#94A3B8"}
+          value={commentText}
+          onChangeText={setCommentText}
+          multiline={true}
+          numberOfLines={3}
+          textAlignVertical="top"
+        />
+
+        {/* Submit Review Action Button */}
+        <View style={styles.submitBtnRow}>
+          <SpringTouchable
+            style={[
+              styles.postReviewBtn,
+              !commentText.trim() && styles.postReviewBtnDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={!commentText.trim() || isSubmitting}
+            scaleTo={0.96}
+          >
+            <Ionicons name="send" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.postReviewBtnText}>Submit Review</Text>
+          </SpringTouchable>
+        </View>
+      </View>
+
+      {/* 3. All Reviews List Header */}
+      <View style={styles.allReviewsHeader}>
+        <Text style={styles.allReviewsTitle}>All reviews ({displayCount})</Text>
+      </View>
+
+      {/* 4. Reviews List Cards */}
+      <ScrollView
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={true}
+        style={styles.reviewsScrollBox}
+        contentContainerStyle={styles.reviewsListContainer}
+      >
+        {reviewListToRender.map((rev, index) => {
+          const revId = rev._id || rev.id || index;
+          const ratingNum = rev.rating || rev.score || 5;
+          const dateStr = rev.date || rev.createdAt || rev.time || "Recently";
+
+          return (
+            <View key={revId} style={styles.reviewItemCard}>
+              <View style={styles.reviewUserRow}>
+                <Image
+                  source={{
+                    uri:
+                      rev.avatar ||
+                      rev.userAvatar ||
+                      rev.customerAvatar ||
+                      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop",
+                  }}
+                  style={styles.avatar}
+                />
+
+                <View style={styles.userInfoCol}>
+                  <View style={styles.userNameBadgeRow}>
+                    <Text style={styles.userName}>
+                      {rev.name || rev.userName || rev.customerName || rev.user?.name || "Customer"}
+                    </Text>
+                    <View style={styles.verifiedBadge}>
+                      <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                      <Text style={styles.verifiedText}>Verified</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.itemStarsRow}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Ionicons
+                        key={star}
+                        name={star <= ratingNum ? "star" : "star-outline"}
+                        size={13}
+                        color={star <= ratingNum ? "#F59E0B" : isDark ? "#475569" : "#CBD5E1"}
+                        style={{ marginRight: 2 }}
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                <Text style={styles.reviewTimeAgo}>
+                  {typeof dateStr === "string" ? dateStr : "Recently"}
+                </Text>
+              </View>
+
+              {rev.comment ? <Text style={styles.commentContent}>{rev.comment}</Text> : null}
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
-function DefaultMockReviewItem({ name, time, rating, comment, avatar, styles, isDark }) {
-  return (
-    <View style={styles.reviewItemCard}>
-      <View style={styles.reviewUserRow}>
-        <Image source={{ uri: avatar }} style={styles.avatar} />
-        <View style={styles.userInfoCol}>
-          <Text style={styles.userName}>{name}</Text>
-          <View style={styles.itemStarsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name={star <= rating ? "star" : "star-outline"}
-                size={13}
-                color={star <= rating ? "#FFC107" : isDark ? "#4A4A4D" : "#D1D5DB"}
-                style={{ marginRight: 2 }}
-              />
-            ))}
-          </View>
-        </View>
-        <Text style={styles.reviewTimeAgo}>{time}</Text>
-      </View>
-      <Text style={styles.commentContent}>{comment}</Text>
-    </View>
-  );
-}
+const MOCK_REVIEWS = [
+  {
+    id: "m1",
+    name: "Pooja Das",
+    time: "Recently",
+    rating: 5,
+    comment: "Loved the hair spa & keratine treatment! Clean ambiance and polite staff.",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop",
+  },
+  {
+    id: "m2",
+    name: "Rahul Patnaik",
+    time: "Recently",
+    rating: 5,
+    comment: "Top-notch haircut at Royal Cut! Stylist Amit was very attentive to detail. Highly recommend!",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120&auto=format&fit=crop",
+  },
+  {
+    id: "m3",
+    name: "Rina Baldwin",
+    time: "1 month ago",
+    rating: 4,
+    comment: "The place is very clean and beautiful. Amazing staff, very welcoming experience.",
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=120&auto=format&fit=crop",
+  },
+];
 
 function getStyles(theme, isDark) {
   const accentColor = C.purple || "#6C5CE7";
 
   return StyleSheet.create({
     container: {
-      paddingVertical: 12,
+      paddingVertical: 14,
     },
 
-    // Write Review Block
-    writeReviewBlock: {
+    // 1. Overall Rating Summary Banner
+    summaryCard: {
+      backgroundColor: isDark ? "#1E1B2E" : "#F8F7FF",
+      borderRadius: 18,
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      borderWidth: 1,
+      borderColor: isDark ? "#332D56" : "#EBE7FF",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 20,
+    },
+    summaryScoreNum: {
+      fontSize: 28,
+      fontWeight: "900",
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      letterSpacing: -0.5,
+    },
+    summaryStarsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    summarySubtext: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: isDark ? "#A0A0B8" : "#64748B",
+    },
+
+    // 2. Write Review Card
+    writeReviewCard: {
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderRadius: 20,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.25 : 0.04,
+      shadowRadius: 10,
+      elevation: 3,
       marginBottom: 24,
     },
     writeHeaderRow: {
@@ -335,120 +290,69 @@ function getStyles(theme, isDark) {
       marginBottom: 12,
     },
     writeTitle: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: "800",
       color: isDark ? "#FFFFFF" : "#1A1A24",
       letterSpacing: -0.3,
     },
-    rateAspectsLinkText: {
+    ratingBadge: {
+      backgroundColor: isDark ? "rgba(108, 92, 231, 0.2)" : "#F0EDFF",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    ratingBadgeText: {
       fontSize: 12,
-      fontWeight: "600",
-      color: accentColor,
-    },
-    overallStarRow: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    starsIconStrip: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    ratingTextLabel: {
-      fontSize: 11,
       fontWeight: "700",
       color: accentColor,
-      marginTop: 2,
     },
-    ratingTextPoor: {
-      color: "#EF4444",
-    },
-
-    // Input Card Container
-    inputCard: {
-      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 24,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: isDark ? "#2A2A2C" : "#EBECEF",
-      shadowColor: accentColor,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: isDark ? 0.2 : 0.06,
-      shadowRadius: 14,
-      elevation: 4,
-    },
-    textInput: {
-      fontSize: 15,
-      color: isDark ? "#FFFFFF" : "#1A1A24",
-      minHeight: 72,
-      paddingTop: 4,
-      paddingBottom: 8,
-      lineHeight: 22,
-    },
-    inputBottomRow: {
+    starRatingBar: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingTop: 8,
+      justifyContent: "center",
+      paddingVertical: 8,
+      marginBottom: 12,
     },
-    imagePickBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 12,
-      backgroundColor: isDark ? "#2A2A2C" : "#F4F5F8",
+    textInputBox: {
+      backgroundColor: isDark ? "#252528" : "#F8F9FA",
+      borderRadius: 16,
+      padding: 14,
+      fontSize: 14,
+      color: isDark ? "#FFFFFF" : "#1A1A24",
+      minHeight: 80,
+      borderWidth: 1,
+      borderColor: isDark ? "#3A3A3D" : "#E2E8F0",
+      lineHeight: 20,
+      marginBottom: 14,
+    },
+    submitBtnRow: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+    },
+    postReviewBtn: {
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-    },
-    sendBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
       backgroundColor: accentColor,
-      alignItems: "center",
-      justifyContent: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 24,
       shadowColor: accentColor,
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
+      shadowOpacity: 0.35,
       shadowRadius: 8,
       elevation: 4,
-      marginTop: 2,
     },
-    sendBtnDisabled: {
+    postReviewBtnDisabled: {
       opacity: 0.4,
     },
-    photosRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      marginTop: 12,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: isDark ? "#2A2A2C" : "#EBECEF",
-    },
-    thumbWrapper: {
-      position: "relative",
-    },
-    photoThumb: {
-      width: 58,
-      height: 58,
-      borderRadius: 16,
-      backgroundColor: isDark ? "#2A2A2C" : "#E2E8F0",
-    },
-    removePhotoBadge: {
-      position: "absolute",
-      top: -4,
-      right: -4,
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: "#1A1A24",
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1.5,
-      borderColor: "#FFFFFF",
+    postReviewBtnText: {
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontWeight: "700",
     },
 
-    // All Reviews List Header
+    // 3. Header
     allReviewsHeader: {
       marginBottom: 16,
     },
@@ -459,68 +363,85 @@ function getStyles(theme, isDark) {
       letterSpacing: -0.3,
     },
 
-    // Reviews List
+    reviewsScrollBox: {
+      maxHeight: 580,
+      paddingRight: 2,
+    },
     reviewsListContainer: {
-      gap: 20,
+      gap: 16,
+      paddingBottom: 24,
     },
     reviewItemCard: {
       backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 20,
+      borderRadius: 18,
       padding: 16,
       borderWidth: 1,
       borderColor: isDark ? "#2A2A2C" : "#F0F1F5",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
-      shadowRadius: 6,
-      elevation: 1,
+      shadowOpacity: isDark ? 0.2 : 0.04,
+      shadowRadius: 8,
+      elevation: 2,
     },
     reviewUserRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 8,
+      marginBottom: 10,
     },
     avatar: {
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: isDark ? "#2A2A2C" : "#E2E8F0",
+      borderWidth: 1.5,
+      borderColor: isDark ? "#3A3A3D" : "#E2E8F0",
     },
     userInfoCol: {
       flex: 1,
       marginLeft: 12,
     },
+    userNameBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 3,
+    },
     userName: {
       fontSize: 15,
       fontWeight: "800",
       color: isDark ? "#FFFFFF" : "#1A1A24",
-      marginBottom: 2,
+      marginRight: 6,
+    },
+    verifiedBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 8,
+    },
+    verifiedText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: "#10B981",
+      marginLeft: 2,
     },
     itemStarsRow: {
       flexDirection: "row",
       alignItems: "center",
     },
     reviewTimeAgo: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: isDark ? "#94A3B8" : "#A0A4B0",
+      fontSize: 11,
+      fontWeight: "600",
+      color: isDark ? "#64748B" : "#94A3B8",
+      backgroundColor: isDark ? "#2A2A2C" : "#F8FAFC",
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
     },
     commentContent: {
       fontSize: 14,
       fontWeight: "400",
-      color: isDark ? "#CBD5E1" : "#4A4A5A",
-      lineHeight: 21,
-    },
-    reviewPhotosRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      marginTop: 12,
-    },
-    reviewPhotoThumb: {
-      width: 64,
-      height: 64,
-      borderRadius: 16,
+      color: isDark ? "#CBD5E1" : "#475569",
+      lineHeight: 22,
     },
   });
 }

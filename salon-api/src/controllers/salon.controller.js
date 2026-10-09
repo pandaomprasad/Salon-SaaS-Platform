@@ -132,7 +132,7 @@ const updateSalon = async (req, res, next) => {
     }
 
     // only allow safe fields to be updated
-    const allowed = ['name', 'description', 'contactEmail', 'contactPhone', 'logo']
+    const allowed = ['name', 'description', 'contactEmail', 'contactPhone', 'logo', 'coverImage', 'images']
     allowed.forEach((field) => {
       if (updates[field] !== undefined) salon[field] = updates[field]
     })

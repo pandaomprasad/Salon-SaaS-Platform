@@ -15,6 +15,7 @@ import {
   Animated,
   Easing,
   Linking,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
@@ -228,6 +229,24 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const [loading, setLoading] = useState(true);
   const [fetchingSalon, setFetchingSalon] = useState(false);
   const [salonData, setSalonData] = useState(salon);
+  const MAIN_TABS = useMemo(() => ["About", "Services", "Reviews"], []);
+  const [activeMainTab, setActiveMainTab] = useState("About");
+  const [tabRowWidth, setTabRowWidth] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH);
+  const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
+
+  const handleTabChange = useCallback((tab) => {
+    if (tab === activeMainTab) return;
+    const nextIndex = MAIN_TABS.indexOf(tab);
+    setActiveMainTab(tab);
+
+    Animated.spring(tabIndicatorAnim, {
+      toValue: nextIndex,
+      useNativeDriver: true,
+      tension: 62,
+      friction: 11,
+    }).start();
+  }, [activeMainTab, MAIN_TABS, tabIndicatorAnim]);
   const [error, setError] = useState(null);
   const [showAmenitiesModal, setShowAmenitiesModal] = useState(false);
   const [reviewsList, setReviewsList] = useState([]);
@@ -336,11 +355,74 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     }
   };
 
-  const reviewAvg = useMemo(() => {
-    if (reviewsList.length === 0) return "0.0";
-    const total = reviewsList.reduce((sum, r) => sum + (r.score || r.rating || 0), 0);
-    return (total / reviewsList.length).toFixed(1);
-  }, [reviewsList]);
+  const displayRating = useMemo(() => {
+    const rawAvg = salonData?.rating?.avgScore || salonData?.rating?.score || (typeof salonData?.rating === "number" ? salonData.rating : null) || salonData?.avgScore;
+    if (typeof rawAvg === "number" && !isNaN(rawAvg) && rawAvg > 0) return rawAvg.toFixed(1);
+    if (reviewsList.length > 0) {
+      const total = reviewsList.reduce((sum, r) => sum + (r.score || r.rating || 0), 0);
+      return (total / reviewsList.length).toFixed(1);
+    }
+    return "5.0";
+  }, [salonData, reviewsList]);
+
+  const displayReviewCount = useMemo(() => {
+    const rawCount = salonData?.totalReviews ?? salonData?.reviewsCount ?? salonData?.reviewCount ?? salonData?.rating?.totalReviews;
+    if (typeof rawCount === "number") return rawCount;
+    if (reviewsList.length > 0) return reviewsList.length;
+    return 0;
+  }, [salonData, reviewsList]);
+
+  const addressText = useMemo(() => {
+    const target = selectedBranch || salonData;
+    if (!target) return "Silk City Road, Brahmapur, Odisha";
+    if (typeof target.address === "string" && target.address.trim()) return target.address;
+    if (target.address && typeof target.address === "object") {
+      const parts = [target.address.street, target.address.city, target.address.state].filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+    }
+    return target.name || "Brahmapur, Odisha";
+  }, [selectedBranch, salonData]);
+
+  const weeklySchedule = useMemo(() => {
+    const workingHours = selectedBranch?.workingHours || salonData?.workingHours;
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const todayIdx = new Date().getDay();
+
+    if (Array.isArray(workingHours) && workingHours.length > 0) {
+      return [1, 2, 3, 4, 5, 6, 0].map((dayNum) => {
+        const found = workingHours.find((w) => w.day === dayNum);
+        const isToday = dayNum === todayIdx;
+        return {
+          dayName: dayNames[dayNum],
+          isOpen: found ? found.isOpen !== false : true,
+          openTime: found?.openTime || "09:00 AM",
+          closeTime: found?.closeTime || "09:00 PM",
+          isToday,
+        };
+      });
+    }
+
+    return [1, 2, 3, 4, 5, 6, 0].map((dayNum) => ({
+      dayName: dayNames[dayNum],
+      isOpen: true,
+      openTime: "09:00 AM",
+      closeTime: "09:00 PM",
+      isToday: dayNum === todayIdx,
+    }));
+  }, [selectedBranch, salonData]);
+
+  const galleryImages = useMemo(() => {
+    const branchImgs = selectedBranch?.images || [];
+    const salonImgs = salonData?.images || [];
+    const combined = [...branchImgs, ...salonImgs];
+    if (combined.length > 0) return combined;
+    return [
+      "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=800&auto=format&fit=crop",
+    ];
+  }, [selectedBranch, salonData]);
 
   const handleBack = useCallback(() => {
     if (goBack) goBack();
@@ -526,7 +608,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
       }
     }
 
-    return { isOpen: true };
+    return { isOpen: true, closeTime: todayWorking?.closeTime };
   }, [selectedBranch, salonData]);
 
   const handleSelectService = useCallback((svc) => {
@@ -544,6 +626,8 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
   const handleBranchChange = useCallback((b) => {
     setSelectedBranch(b);
     setSelectedServices([]);
+    setServices([]);
+    setReviewsList([]);
   }, []);
 
   const handleBookNow = useCallback(() => {
@@ -556,14 +640,31 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
     const targetServices = selectedServices.length > 0 ? selectedServices : (services.length > 0 ? [services[0]] : []);
     if (targetServices.length === 0) return;
     if (navigate) {
+      const currentRating = displayRating && displayRating !== "0.0" ? parseFloat(displayRating) : (salonData?.rating?.avgScore || salonData?.rating || 5.0);
+      const currentReviewCount = displayReviewCount || reviewsList?.length || salonData?.reviewCount || salonData?.totalReviews || 0;
+
       navigate("Booking", {
-        salon: salonData,
+        salon: {
+          ...salonData,
+          rating: currentRating,
+          reviewCount: currentReviewCount,
+        },
         branch: selectedBranch,
         service: targetServices[0],
         selectedServices: targetServices,
       });
     }
-  }, [selectedServices, services, selectedBranch, navigate, salonData, user]);
+  }, [selectedServices, services, selectedBranch, navigate, salonData, user, displayRating, displayReviewCount, reviewsList]);
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out ${salonData?.name || 'this salon'} on our app! It's amazing.`,
+      });
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -580,144 +681,119 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         scrollEventThrottle={16}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 160 },
+          { paddingBottom: Math.max(insets.bottom + 80, 100) },
         ]}
       >
         <View style={styles.heroCardContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleScrollImage}
-            scrollEventThrottle={16}
-            style={{ width: SCREEN_WIDTH, height: '100%' }}
-          >
-            {carouselImages.map((imgUri, idx) => (
-              <Image 
-                key={idx} 
-                source={{ uri: imgUri }} 
-                style={[styles.heroImage, { width: SCREEN_WIDTH }]} 
-                resizeMode="cover" 
-              />
-            ))}
-          </ScrollView>
+          <Image
+            source={{ uri: carouselImages[0] }}
+            style={[styles.heroImage, { width: SCREEN_WIDTH }]}
+            resizeMode="cover"
+          />
 
-          {/* Bottom scrim so overlaid content stays legible on any photo */}
           <View style={styles.heroScrim} pointerEvents="none" />
 
-          <View style={styles.priceOverlayPill}>
-            <Text style={styles.priceOverlayIcon}>✦</Text>
-            <Text style={styles.priceOverlayAmount}>₹{lowestServicePrice}</Text>
+          {/* Top Actions Row */}
+          <View style={[styles.topActionsRow, { top: Math.max(insets.top, 20) + 10 }]}>
+            <TouchableOpacity style={styles.circleBtn} onPress={handleBack} activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={22} color="#1E1E1E" />
+            </TouchableOpacity>
+
+
           </View>
 
-          <TouchableOpacity style={styles.circleBackBtn} onPress={handleBack} activeOpacity={0.8}>
-            <Ionicons name="chevron-back" size={19} color="#000000ff" />
-          </TouchableOpacity>
-
-          {/* Squeezing Open/Closed Badge on Top Hero Image */}
-          <SqueezingOpenBadge isOpen={isOpenStatus.isOpen} styles={styles} />
-
-          <TouchableOpacity
-            style={styles.circleHeartBtn}
-            onPress={() => toggleFavorite(salonData)}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={favorited ? "heart" : "heart-outline"}
-              size={17}
-              color={favorited ? C.herat : "#000000ff"}
-            />
-          </TouchableOpacity>
-
-          {carouselImages.length > 1 && (
-            <View style={styles.dotsRow}>
-              {carouselImages.map((_, idx) => (
-                <View
-                  key={idx}
-                  style={[styles.dot, idx === activeImageIndex && styles.dotActive]}
-                />
-              ))}
+          {/* Bottom Pills Row */}
+          <View style={styles.bottomPillsRow}>
+            <View style={styles.mediaPill}>
+              <Ionicons name="image-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.mediaPillText}>1/10 Photos</Text>
             </View>
-          )}
+            <View style={styles.mediaPill}>
+              <Ionicons name="play-circle-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.mediaPillText}>Watch Video</Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.titleSection}>
-          <Text style={styles.eyebrowLabel}>SALON & SPA</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <Text style={styles.salonTitle}>{salonData?.name}</Text>
-            <VerifiedBadge size={20} color={C.verified} />
+          <View style={styles.titleRow}>
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[styles.salonTitle, { flexShrink: 1 }]} numberOfLines={1}>{selectedBranch?.name || salonData?.name}</Text>
+              <VerifiedBadge size={20} color={C.verified} />
+            </View>
+            <View style={styles.headerRatingBlock}>
+              <Ionicons name="star" size={16} color="#FBBF24" />
+              <Text style={styles.headerRatingText}>{displayRating}</Text>
+            </View>
           </View>
 
-          <View style={styles.locationRatingRow}>
+          <View style={styles.locationRow}>
             <View style={styles.locationBlock}>
-              <Ionicons name="location-sharp" size={13} color={C.muted} />
+              <Ionicons name="location-outline" size={14} color="#666666" />
               <Text style={styles.locationText} numberOfLines={1}>
                 {selectedBranch?.address?.city || selectedBranch?.name}
+                {selectedBranch?.distance ? ` • ${selectedBranch.distance} km` : salonData?.distance ? ` • ${salonData.distance} km` : ""}
               </Text>
             </View>
-
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              {/* Squeezing Open / Closed Status Badge in Header */}
-              {/* <SqueezingOpenBadge isOpen={isOpenStatus.isOpen} styles={styles} isHeaderPill={true} /> */}
-
-              <View style={styles.ratingBlock}>
-                <Ionicons name="star" size={13} color={GOLD} />
-                <Text style={styles.ratingText}>{reviewAvg}</Text>
-                <Text style={styles.ratingSubtext}>({reviewsList.length})</Text>
-              </View>
-            </View>
+            <Text style={styles.headerReviewCount}>
+              ({displayReviewCount >= 1000
+                ? (displayReviewCount / 1000).toFixed(1).replace(/\.0$/, '') + "k"
+                : displayReviewCount} reviews)
+            </Text>
           </View>
 
-          {/* Closed Salon Alert Banner */}
-          {!isOpenStatus.isOpen && (
-            <View style={styles.closedAlertBanner}>
-              <View style={styles.closedAlertIconCircle}>
-                <Ionicons name="time" size={18} color="#FF3B30" />
-              </View>
-              <View style={styles.closedAlertTextStack}>
-                <Text style={styles.closedAlertTitle}>Salon is Currently Closed</Text>
-                <Text style={styles.closedAlertSub}>
-                  {isOpenStatus.nextOpenText || "Closed right now. You can still schedule an advance appointment."}
-                </Text>
-              </View>
-            </View>
-          )}
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: isOpenStatus.isOpen ? "#10B981" : "#EF4444" }]} />
+            <Text style={styles.statusText}>
+              <Text style={{ color: isOpenStatus.isOpen ? "#10B981" : "#EF4444" }}>
+                {isOpenStatus.isOpen ? "Open" : "Closed"}
+              </Text>
+              {isOpenStatus.isOpen && isOpenStatus.closeTime ? ` • Closes at ${isOpenStatus.closeTime}` : ""}
+              {!isOpenStatus.isOpen && isOpenStatus.nextOpenText ? ` • ${isOpenStatus.nextOpenText}` : ""}
+            </Text>
+          </View>
 
-          {/* Quick Actions: Call & Directions */}
-          <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={styles.quickActionBtn} onPress={handleCallSalon} activeOpacity={0.85}>
-              <Ionicons name="call-outline" size={16} color={C.ink} />
-              <Text style={styles.quickActionText}>Call Salon</Text>
+          {/* Action Buttons Row */}
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity style={styles.actionBtnContainer} onPress={handleCallSalon}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="call" size={20} color="#1E1E1E" />
+              </View>
+              <Text style={styles.actionBtnLabel}>Call</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.quickActionBtn} onPress={handleGetDirections} activeOpacity={0.85}>
-              <Ionicons name="navigate-outline" size={16} color={C.ink} />
-              <Text style={styles.quickActionText}>Directions</Text>
+            <TouchableOpacity style={styles.actionBtnContainer} onPress={handleGetDirections}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="location" size={20} color="#1E1E1E" />
+              </View>
+              <Text style={styles.actionBtnLabel}>Directions</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionBtnContainer} onPress={() => toggleFavorite(salonData)}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons
+                  name={favorited ? "heart" : "heart-outline"}
+                  size={20}
+                  color={favorited ? C.main : "#1E1E1E"}
+                />
+              </View>
+              <Text style={styles.actionBtnLabel}>Save</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionBtnContainer} onPress={handleShare}>
+              <View style={styles.actionIconCircle}>
+                <Ionicons name="share-outline" size={20} color="#1E1E1E" />
+              </View>
+              <Text style={styles.actionBtnLabel}>Share</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.hairline} />
+        {/* <View style={styles.hairline} /> */}
 
-
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>About</Text>
-          <Text style={styles.aboutText}>
-            {salonData?.description ||
-              "This is a perfect place to experience luxury salon services & spa treatments. Comes with private rooms, master stylists, and premium organic products."}
-          </Text>
-
-          {/* <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
-            {GALLERY_THUMBNAILS.map((imgUrl, i) => (
-              <View key={i} style={styles.galleryThumbWrap}>
-                <Image source={{ uri: imgUrl }} style={styles.galleryThumb} resizeMode="cover" />
-              </View>
-            ))}
-          </ScrollView> */}
-        </View>
 
         {/* Select Branch */}
-        {(salonData?.branches || []).length > 0 ? (
+        {(salonData?.branches || []).length > 1 ? (
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionLabel}>Select location</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.branchRow}>
@@ -752,103 +828,205 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
           </View>
         ) : null}
 
+        {/* Main Tabs Row */}
+        {(() => {
+          const segmentWidth = tabRowWidth ? tabRowWidth / MAIN_TABS.length : 0;
+          const indicatorTranslateX = tabIndicatorAnim.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [0, segmentWidth, segmentWidth * 2],
+          });
 
-
-        {/* Services Menu Accordion per reference design */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>Services menu</Text>
-
-          {loading ? (
-            <View style={{ gap: S.xs }}>
-              <ServiceCardSkeleton />
-              <ServiceCardSkeleton />
-              <ServiceCardSkeleton />
-            </View>
-          ) : (
-            <CategoryAccordionList
-              services={services}
-              selectedServices={selectedServices}
-              onSelectService={handleSelectService}
-              onViewComboService={setActiveComboService}
-            />
-          )}
-        </View>
-
-        {/* Address & Interactive Map Component */}
-        {/* <View style={styles.sectionBlock}>
-          <Text style={styles.addressHeaderTitle}>Address</Text>
-          <Text style={styles.addressBodyText}>
-            {selectedBranch?.address?.street ||
-              selectedBranch?.address?.full ||
-              salonData?.address?.street ||
-              (salonData?.address?.city ? `${salonData?.address?.city}, Odisha` : null) ||
-              "6391 Elgin St. Celina, Delaware 10299"}
-          </Text>
-
-          <TouchableOpacity
-            style={styles.addressMapCard}
-            onPress={handleGetDirections}
-            activeOpacity={0.92}
-          >
-            <Image
-              source={{ uri: "https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1000&auto=format&fit=crop" }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-            <View style={styles.addressMapOverlay} />
-
-            <View style={styles.addressMapPinCenter}>
-              <View style={styles.addressPinBadge}>
-                <Ionicons name="location-sharp" size={20} color="#FFFFFF" />
-              </View>
-            </View>
-
-            <View style={styles.tapToNavigatePill}>
-              <Ionicons name="navigate-outline" size={13} color="#FFFFFF" />
-              <Text style={styles.tapToNavigateText}>Tap for Directions</Text>
-            </View>
-          </TouchableOpacity>
-        </View> */}
-
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionLabel}>Amenities</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.amenitiesScroll}>
-            {AMENITIES.slice(0, 4).map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.amenityItem}
-                onPress={() => setShowAmenitiesModal(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.amenityIconCircle}>
-                  <Ionicons name={item.icon} size={17} color={C.ink} />
-                </View>
-                <Text style={styles.amenityLabel} numberOfLines={1}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.amenityItem}
-              onPress={() => setShowAmenitiesModal(true)}
-              activeOpacity={0.7}
+          return (
+            <View
+              style={styles.mainTabsRow}
+              onLayout={(e) => setTabRowWidth(e.nativeEvent.layout.width)}
             >
-              <View style={[styles.amenityIconCircle, styles.moreAmenityCircle]}>
-                <Text style={styles.moreAmenityText}>+{AMENITIES.length - 4}</Text>
-              </View>
-              <Text style={styles.amenityLabel}>More</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+              {MAIN_TABS.map((tab) => {
+                const isSelected = activeMainTab === tab;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    style={styles.mainTabBtn}
+                    onPress={() => handleTabChange(tab)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.mainTabLabel, isSelected && styles.mainTabLabelActive]}>
+                      {tab}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {segmentWidth > 0 && (
+                <Animated.View
+                  style={[
+                    styles.animatedUnderline,
+                    {
+                      width: segmentWidth,
+                      transform: [{ translateX: indicatorTranslateX }],
+                    },
+                  ]}
+                />
+              )}
+            </View>
+          );
+        })()}
+
+        {/* Smooth 3-Page Synchronized Sliding Tab Content Container */}
+        {(() => {
+          const cWidth = containerWidth || SCREEN_WIDTH;
+          const contentTranslateX = tabIndicatorAnim.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [0, -cWidth, -cWidth * 2],
+          });
+
+          return (
+            <View
+              style={{ overflow: "hidden", width: "100%" }}
+              onLayout={(e) => {
+                const w = e.nativeEvent?.layout?.width;
+                if (w && w !== containerWidth) setContainerWidth(w);
+              }}
+            >
+              <Animated.View
+                style={{
+                  flexDirection: "row",
+                  width: cWidth * 3,
+                  alignItems: "flex-start",
+                  transform: [{ translateX: contentTranslateX }],
+                }}
+              >
+                {/* Page 0: About */}
+                <View style={{ width: cWidth, height: activeMainTab === "About" ? undefined : 0, overflow: "hidden" }}>
+                  {/* About Description */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.aboutText}>
+                      {selectedBranch?.description || salonData?.description ||
+                        "Premier luxury styling, hair treatment & wellness sanctuary in Brahmapur."}
+                    </Text>
+                  </View>
+
+                  {/* Amenities Section inside About tab */}
+                  <View style={[styles.sectionBlock, { marginTop: 16 }]}>
+                    <Text style={styles.sectionLabel}>Amenities & Facilities</Text>
+                    <View style={styles.amenitiesContainer}>
+                      {AMENITIES.slice(0, 4).map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.amenityItem}
+                          onPress={() => setShowAmenitiesModal(true)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.amenityIconCircle}>
+                            <Ionicons name={item.icon} size={18} color={isDark ? "#FFFFFF" : "#1E1E1E"} />
+                          </View>
+                          <Text style={styles.amenityLabel} numberOfLines={1}>
+                            {item.label === "Air conditioning" ? "AC" : item.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                      <TouchableOpacity
+                        style={styles.amenityItem}
+                        onPress={() => setShowAmenitiesModal(true)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.amenityIconCircle, styles.moreAmenityCircle]}>
+                          <Text style={styles.moreAmenityText}>+{AMENITIES.length - 4}</Text>
+                        </View>
+                        <Text style={styles.amenityLabel}>More</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
 
 
-        {/* Reviews Section */}
-        <View style={{ paddingHorizontal: S.md }}>
-          <ReviewsSection
-            reviews={reviewsList}
-            overallRating={reviewAvg}
-            totalReviews={reviewsList.length}
-            onOpenAddReview={() => setShowReviewModal(true)}
-          />
-        </View>
+                  {/* Opening Hours Schedule */}
+                  <View style={[styles.sectionBlock, { marginTop: 20 }]}>
+                    <Text style={styles.sectionLabel}>Opening Hours</Text>
+                    <View style={styles.workingHoursCard}>
+                      {weeklySchedule.map((item, idx) => (
+                        <View key={idx} style={[styles.hoursRow, item.isToday && styles.hoursRowToday]}>
+                          <View style={styles.dayCol}>
+                            <Text style={[styles.dayText, item.isToday && styles.dayTextToday]}>
+                              {item.dayName}
+                            </Text>
+                            {item.isToday && (
+                              <View style={styles.todayBadge}>
+                                <Text style={styles.todayBadgeText}>Today</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.timeText, !item.isOpen && styles.timeClosedText]}>
+                            {item.isOpen ? `${item.openTime} - ${item.closeTime}` : "Closed"}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                </View>
+
+                {/* Page 1: Services */}
+                <View style={{ width: cWidth, height: activeMainTab === "Services" ? undefined : 0, overflow: "hidden" }}>
+                  {/* Category Pills */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryPillsScroll} contentContainerStyle={{ paddingHorizontal: 16, alignItems: "center" }}>
+                    {categories.map((cat, idx) => {
+                      const isCatSelected = selectedCategory === cat;
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[styles.categoryPill, isCatSelected ? styles.categoryPillActive : styles.categoryPillInactive]}
+                          onPress={() => {
+                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                            setSelectedCategory(cat);
+                          }}
+                        >
+                          <Text style={[styles.categoryPillText, isCatSelected ? styles.categoryPillTextActive : styles.categoryPillTextInactive]}>
+                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+
+                  <ScrollView
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                    style={styles.servicesScrollBox}
+                    contentContainerStyle={styles.servicesListContainer}
+                  >
+                    {loading ? (
+                      <View style={{ gap: 12 }}>
+                        <ServiceCardSkeleton />
+                        <ServiceCardSkeleton />
+                      </View>
+                    ) : (
+                      <>
+                        {filteredServices.map(svc => (
+                          <ServiceCard
+                            key={svc._id || svc.id}
+                            service={svc}
+                            selected={selectedServices.some(s => (s._id || s.id) === (svc._id || svc.id))}
+                            onSelect={handleSelectService}
+                            onViewCombo={setActiveComboService}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </ScrollView>
+                </View>
+
+                {/* Page 2: Reviews */}
+                <View style={{ width: cWidth, paddingHorizontal: 16, height: activeMainTab === "Reviews" ? undefined : 0, overflow: "hidden" }}>
+                  <ReviewsSection
+                    reviews={reviewsList}
+                    overallRating={displayRating}
+                    totalReviews={displayReviewCount}
+                    onOpenAddReview={() => setShowReviewModal(true)}
+                  />
+                </View>
+              </Animated.View>
+            </View>
+          );
+        })()}
       </ScrollView>
 
       <AddReviewModal
@@ -935,7 +1113,7 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
         <BlurView
           intensity={Platform.OS === "ios" ? 40 : 60}
           tint={isDark ? "dark" : "light"}
-          style={styles.floatingBottomBar}
+          style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}
         >
           {/* Solid tint on top of the blur — hides content bleed-through, gives that frosted-white look */}
           <View
@@ -948,16 +1126,14 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
 
           <View style={styles.bookRow}>
             <View style={styles.totalBlock}>
-              <Text style={styles.totalLabel} numberOfLines={1}>
-                {selectedServices.length === 1
-                  ? selectedServices[0]?.name || "Service"
-                  : selectedServices.length > 1
-                    ? `${selectedServices.length} services`
-                    : "Total"}
-              </Text>
+              <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalAmount}>
                 {selectedServices.length > 0 ? paiseToINR(totalPrice) : "₹0.00"}
               </Text>
+              <View style={styles.totalDurationRow}>
+                <Ionicons name="time-outline" size={12} color="#666666" />
+                <Text style={styles.totalDurationText}>1 hr 15 mins</Text>
+              </View>
             </View>
 
             <SpringTouchable
@@ -966,7 +1142,8 @@ function SalonDetailScreen({ salon, goBack, navigate, onScroll }) {
               scaleTo={0.95}
               hapticType="medium"
             >
-              <Text style={styles.animatedBookBtnText}>Book now</Text>
+              <Text style={styles.animatedBookBtnText}>Book Now</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
             </SpringTouchable>
           </View>
         </BlurView>
@@ -1104,80 +1281,222 @@ function getStyles(isDark) {
     heroTextClosed: {
       color: "#B91C1C",
     },
-    priceOverlayPill: {
+    topActionsRow: {
       position: "absolute",
-      bottom: S.md,
-      right: S.md,
+      top: Platform.OS === 'ios' ? 50 : 20,
+      left: 16,
+      right: 16,
       flexDirection: "row",
+      justifyContent: "space-between",
       alignItems: "center",
-      backgroundColor: "rgba(15, 15, 13, 0.78)",
-      paddingHorizontal: S.sm + 3,
-      paddingVertical: 8,
-      borderRadius: R.lg,
-      gap: 7,
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.14)",
+      zIndex: 10,
     },
-    priceOverlayIcon: {
-      fontSize: 12,
-      color: GOLD,
-    },
-    priceOverlayAmount: {
-      color: "#FFFFFF",
-      fontSize: FS.bodySm,
-      fontWeight: FW.semiBold,
-      lineHeight: 16,
-    },
-    priceOverlayUnit: {
-      color: "rgba(255, 255, 255, 0.65)",
-      fontSize: 10,
-      lineHeight: 12,
-    },
-    dotsRow: {
-      position: "absolute",
-      bottom: S.md,
-      left: S.md,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      display: "none",
-    },
-    dot: {
-      width: 5,
-      height: 5,
-      borderRadius: 2.5,
-      backgroundColor: "rgba(255,255,255,0.5)",
-    },
-    dotActive: {
+    circleBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: "#FFFFFF",
-      width: 14,
-      height: 5,
-      borderRadius: 2.5,
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    bottomPillsRow: {
+      position: "absolute",
+      bottom: 16,
+      left: 16,
+      right: 16,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    mediaPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.6)",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+      gap: 6,
+    },
+    mediaPillText: {
+      color: "#FFFFFF",
+      fontSize: 12,
+      fontWeight: "600",
     },
     titleSection: {
       paddingHorizontal: S.md,
       marginTop: S.lg,
       marginBottom: S.md,
     },
-    eyebrowLabel: {
-      fontSize: 10.5,
-      fontWeight: FW.bold,
-      color: GOLD,
-      letterSpacing: 1.6,
-      marginBottom: 6,
-    },
-    salonTitle: {
-      fontFamily: FONT_FAMILY.serif,
-      fontSize: 26,
-      fontWeight: FW.bold,
-      color: C.ink,
-      letterSpacing: -0.3,
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       marginBottom: 8,
     },
-    locationRatingRow: {
+    salonTitle: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: "#1E1E1E",
+    },
+    headerRatingBlock: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    headerRatingText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#1E1E1E",
+    },
+    locationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 6,
+    },
+    locationBlock: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    locationText: {
+      fontSize: 13,
+      color: "#666666",
+    },
+    headerReviewCount: {
+      fontSize: 12,
+      color: "#666666",
+    },
+    statusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 16,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    statusText: {
+      fontSize: 13,
+      color: "#666666",
+    },
+    actionButtonsRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
+      marginTop: 8,
+      paddingHorizontal: 8,
+    },
+    actionBtnContainer: {
+      alignItems: "center",
+      gap: 8,
+    },
+    actionIconCircle: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: "#F5F5F5",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    actionBtnLabel: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: "#333333",
+    },
+    mainTabsRow: {
+      flexDirection: "row",
+      borderBottomWidth: 1,
+      borderBottomColor: "#F0F0F0",
+      position: "relative",
+    },
+    mainTabBtn: {
+      flex: 1,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    mainTabLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#666666",
+    },
+    mainTabLabelActive: {
+      color: C.main,
+      fontWeight: "700",
+    },
+    animatedUnderline: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      height: 2.5,
+      borderRadius: 1.5,
+      backgroundColor: C.main,
+    },
+    categoryPillsScroll: {
+      marginTop: 16,
+      marginBottom: 12,
+      flexGrow: 0,
+      height: 40,
+    },
+    categoryPill: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginRight: 8,
+      height: 34,
+      alignSelf: "flex-start",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    categoryPillActive: {
+      backgroundColor: C.main,
+    },
+    categoryPillInactive: {
+      backgroundColor: "#F5F5F5",
+    },
+    categoryPillText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    categoryPillTextActive: {
+      color: "#FFFFFF",
+    },
+    categoryPillTextInactive: {
+      color: "#666666",
+    },
+    servicesScrollBox: {
+      maxHeight: 580,
+      marginHorizontal: 16,
+      borderRadius: 16,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderWidth: 1,
+      borderColor: isDark ? "#2A2A2C" : "#F0F0F0",
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    servicesListContainer: {
+      paddingBottom: 20,
+    },
+    viewAllServicesBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#FCE8E8",
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 20,
+      gap: 6,
+    },
+    viewAllServicesText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: "#8C1D2A",
     },
     statusBadgePill: {
       flexDirection: "row",
@@ -1296,7 +1615,7 @@ function getStyles(isDark) {
     },
     sectionBlock: {
       paddingHorizontal: S.md,
-      marginBottom: S.lg + 2,
+      // marginBottom: S.lg + 2,
     },
     sectionLabel: {
       fontFamily: FONT_FAMILY.serif,
@@ -1371,45 +1690,103 @@ function getStyles(isDark) {
       fontSize: 11.5,
       fontWeight: "600",
     },
-    amenitiesScroll: {
+    amenitiesContainer: {
       flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      paddingTop: 8,
     },
     amenityItem: {
+      flex: 1,
       alignItems: "center",
-      width: 66,
-      marginRight: S.sm,
     },
     amenityIconCircle: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: C.surface,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: isDark ? "#22222D" : C.surface,
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1,
-      borderColor: C.border,
+      borderColor: isDark ? "#2A2A36" : C.border,
       marginBottom: 6,
     },
     moreAmenityCircle: {
-      backgroundColor: C.ink,
-      borderColor: C.ink,
+      backgroundColor: isDark ? "#3F3F46" : C.ink,
+      borderColor: isDark ? "#3F3F46" : C.ink,
     },
     amenityLabel: {
       fontSize: 11,
-      color: C.body,
+      color: isDark ? "#A1A1AA" : C.body,
       fontWeight: FW.medium,
       textAlign: "center",
     },
     moreAmenityText: {
       fontSize: FS.bodySm,
       fontWeight: FW.semiBold,
-      color: C.bg,
+      color: "#FFFFFF",
     },
     aboutText: {
       fontSize: FS.bodySm,
       color: C.body,
       lineHeight: 22,
-      marginBottom: S.md,
+      marginBottom: S.xs,
+      marginTop: S.xs,
+    },
+    workingHoursCard: {
+      backgroundColor: isDark ? "#1E1E24" : "#F9F9FB",
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C34" : "#EAEAEA",
+    },
+    hoursRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 9,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: isDark ? "#2C2C34" : "#EBEBEB",
+    },
+    hoursRowToday: {
+      backgroundColor: isDark ? "rgba(179, 38, 30, 0.15)" : "rgba(179, 38, 30, 0.06)",
+      marginHorizontal: -8,
+      paddingHorizontal: 8,
+      borderRadius: 10,
+    },
+    dayCol: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    dayText: {
+      fontSize: 13.5,
+      fontWeight: "500",
+      color: isDark ? "#D4D4D8" : "#3F3F46",
+    },
+    dayTextToday: {
+      fontWeight: "700",
+      color: C.main,
+    },
+    todayBadge: {
+      backgroundColor: C.main,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+    },
+    todayBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: "#FFFFFF",
+    },
+    timeText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: isDark ? "#E4E4E7" : "#18181B",
+    },
+    timeClosedText: {
+      color: isDark ? "#71717A" : "#A1A1AA",
+      fontWeight: "400",
     },
     galleryScroll: {
       marginTop: S.xs,
@@ -1545,36 +1922,44 @@ function getStyles(isDark) {
       justifyContent: "center",
     },
     totalLabel: {
-      fontSize: 12.5,
-      color: isDark ? "#94A3B8" : "#64748B",
-      fontWeight: "600",
+      fontSize: 12,
+      color: "#666666",
       marginBottom: 2,
     },
     totalAmount: {
-      fontSize: 20,
-      fontWeight: FW.bold,
-      color: C.ink,
-      letterSpacing: -0.3,
+      fontSize: 24,
+      fontWeight: "700",
+      color: C.price,
+    },
+    totalDurationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 2,
+    },
+    totalDurationText: {
+      fontSize: 12,
+      color: "#666666",
     },
     animatedBookBtn: {
       height: 52,
-      paddingHorizontal: 28,
+      paddingHorizontal: 24,
       borderRadius: 26,
-      backgroundColor: C.purple || "#6C5CE7",
+      backgroundColor: C.button,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      shadowColor: C.purple || "#6C5CE7",
-      shadowOffset: { width: 0, height: 6 },
+      gap: 6,
+      shadowColor: C.button,
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
-      shadowRadius: 10,
+      shadowRadius: 8,
       elevation: 6,
     },
     animatedBookBtnText: {
       color: "#FFFFFF",
       fontSize: 16,
-      fontWeight: FW.bold,
-      letterSpacing: 0.2,
+      fontWeight: "700",
     },
     modalOverlay: {
       flex: 1,

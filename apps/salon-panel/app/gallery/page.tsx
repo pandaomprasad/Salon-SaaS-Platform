@@ -78,7 +78,7 @@ export default function GalleryPage() {
     }
 
     // @ts-ignore
-    const salonId = salon?._id || (user as { salonId?: string })?.salonId || (user as { salon?: { _id: string } })?.salon?._id;
+    const salonId = salon?._id || (user as any)?.salonId || (user as any)?.salon?._id || (typeof (user as any)?.salon === 'string' ? (user as any).salon : null);
     if (!salonId) {
       setError("Salon ID not found. Please refresh the page.");
       return;
@@ -114,7 +114,7 @@ export default function GalleryPage() {
 
       // Update salon in redux store
       if (res.data?.data) {
-         dispatch(loginSuccess({ user: user!, token: token!, salon: res.data.data }));
+         dispatch(loginSuccess({ user: user!, token: token!, salon: res.data.data.salon || res.data.data }));
       }
 
       handleResetForm();
@@ -135,7 +135,7 @@ export default function GalleryPage() {
     if (!confirm("Are you sure you want to remove this image?")) return;
 
     // @ts-ignore
-    const salonId = salon?._id || (user as { salonId?: string })?.salonId || (user as { salon?: { _id: string } })?.salon?._id;
+    const salonId = salon?._id || (user as any)?.salonId || (user as any)?.salon?._id || (typeof (user as any)?.salon === 'string' ? (user as any).salon : null);
     if (!salonId) return;
 
     try {

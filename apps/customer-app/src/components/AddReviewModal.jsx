@@ -47,13 +47,13 @@ export default function AddReviewModal({
 
   const salonName =
     propSalonName ||
-    appointment?.salon?.name ||
-    (typeof appointment?.salonId === "object" ? appointment.salonId?.name : null) ||
+    (appointment && appointment.salon && appointment.salon.name) ||
+    (appointment && typeof appointment.salonId === "object" && appointment.salonId ? appointment.salonId.name : null) ||
     "Salon Studio";
 
   const serviceName =
-    appointment?.service?.name ||
-    (typeof appointment?.serviceId === "object" ? appointment.serviceId?.name : null) ||
+    (appointment && appointment.service && appointment.service.name) ||
+    (appointment && typeof appointment.serviceId === "object" && appointment.serviceId ? appointment.serviceId.name : null) ||
     "your appointment";
 
   const handleStarPress = (termId, starVal) => {

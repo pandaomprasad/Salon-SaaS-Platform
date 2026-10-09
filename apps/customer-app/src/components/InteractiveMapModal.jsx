@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { C } from "../theme";
 import { getCurrentLocation, calculateDistance } from "../services/locationService";
 import { paiseToINR } from "../services/apiClient";
+import ComingSoonLocation from "./ComingSoonLocation";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -79,6 +80,9 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
           distanceKm = calculateDistance(userCoords.lat, userCoords.lng, bLat, bLng);
         }
 
+        const rawScore = typeof salon.rating === "number" ? salon.rating : (salon.rating?.avgScore || salon.rating?.score || salon.avgScore || 4.8);
+        const ratingVal = typeof rawScore === "number" && !isNaN(rawScore) ? rawScore.toFixed(1) : "4.8";
+
         list.push({
           id: b._id || b.id,
           branchName: b.name || salon.name,
@@ -90,7 +94,7 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
           lat: bLat,
           lng: bLng,
           distanceKm: distanceKm !== null ? distanceKm : 2.5,
-          rating: (salon.rating || 4.8).toFixed(1),
+          rating: ratingVal,
           coverImage: salon.coverImage || salon.image || "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop",
         });
       });
@@ -186,6 +190,10 @@ export default function InteractiveMapModal({ visible, onClose, salons = [], onS
               <ActivityIndicator size="small" color={C.bg} />
               <Text style={styles.loadingText}>Acquiring GPS location...</Text>
             </View>
+          ) : (salons.length === 0 || studioBranches.length === 0) ? (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 40 }}>
+              <ComingSoonLocation onChangeLocation={onClose} />
+            </ScrollView>
           ) : (
             <View style={styles.mapGraphicContainer}>
               <Image

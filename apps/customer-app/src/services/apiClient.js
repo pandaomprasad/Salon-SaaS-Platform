@@ -7,9 +7,9 @@ const getBaseUrl = () => {
   // 1. Try Expo host URI (automatically gets your PC's IP address on Wi-Fi/Expo Go)
   try {
     const hostUri =
-      Constants.expoConfig?.hostUri ||
-      Constants.manifest2?.extra?.expoGo?.developer?.manifest?.debuggerHost ||
-      Constants.manifest?.debuggerHost;
+      Constants?.expoConfig?.hostUri ||
+      Constants?.manifest2?.extra?.expoGo?.developer?.manifest?.debuggerHost ||
+      Constants?.manifest?.debuggerHost;
 
     if (hostUri) {
       const ip = hostUri.split(":")[0];

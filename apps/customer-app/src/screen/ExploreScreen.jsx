@@ -1,567 +1,393 @@
-// src/screen/ExploreScreen.jsx
-import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   TextInput,
-  ActivityIndicator,
+  TouchableOpacity,
+  ScrollView,
+  FlatList,
   StyleSheet,
-  Animated,
-  Easing,
-  Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
-import SalonCard from "../components/SalonCard";
-import FloatingSearchCapsule from "../components/FloatingSearchCapsule";
-import LocationPickerModal from "../components/LocationPickerModal";
-import FilterModal from "../components/FilterModal";
-import ComingSoonLocation from "../components/ComingSoonLocation";
-import { SalonCardSkeleton } from "../components/SkeletonLoader";
-import { browseService } from "../services/browseService";
-import { customerService } from "../services/customerService";
 import { storage } from "../services/storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FilterModal from "../components/FilterModal";
 import { useLocationStore } from "../store/useLocationStore";
-import { cleanCityName } from "../services/locationService";
+import ComingSoonLocation from "../components/ComingSoonLocation";
+import LocationPickerModal from "../components/LocationPickerModal";
 
-const IS_IOS = Platform.OS === "ios";
+const HISTORY_KEY = "@recent_searches";
 
-const CATEGORIES = [
-  { id: "all", label: "All", icon: "✨" },
-  { id: "combo", label: "Combos", icon: "🎁" },
-  { id: "hair", label: "Haircut", icon: "✂️" },
-  { id: "facial", label: "Facials", icon: "🧴" },
-  { id: "nails", label: "Nails", icon: "💅" },
-  { id: "spa", label: "Spa", icon: "🌿" },
-];
-
-const SUGGESTIONS = [
-  { icon: "💇", label: "Haircut & Styling" },
-  { icon: "🌿", label: "Spa & Massage" },
-  { icon: "💅", label: "Manicure & Pedicure" },
-  { icon: "🎀", label: "Bridal Makeup" },
-  { icon: "✨", label: "Hair Spa & Detox" },
-];
-
-const DEBOUNCE_MS = 350;
-
-function EditorialHeader({
-  styles,
-  theme,
-  isDark,
-  toggleTheme,
-  toggleAnim,
-  selectedCity,
-  onLocationClick,
-  hasUnread,
-  search,
-  onSearchChange,
-  onFilterPress,
-  selectedCategory,
-  onSelectCategory,
-  navigate,
-  hasSalons = true,
-}) {
-  const sunOpacity = toggleAnim
-    ? toggleAnim.interpolate({
-      inputRange: [0, 0.5, 1],
-      outputRange: [1, 0, 0],
-    })
-    : isDark ? 0 : 1;
-
-  const moonOpacity = toggleAnim
-    ? toggleAnim.interpolate({
-      inputRange: [0, 0.5, 1],
-      outputRange: [0, 0, 1],
-    })
-    : isDark ? 1 : 0;
-
-  return (
-    <View style={[styles.header, { backgroundColor: theme.canvas }]}>
-      {/* Search Input Bar with Integrated Filter Button & Category Pills */}
-      {hasSalons ? (
-        <View style={{ marginBottom: 4 }}>
-          <FloatingSearchCapsule
-            value={search}
-            onChangeText={onSearchChange}
-            placeholder="Search by salon name or service..."
-            showDropdown={false}
-            onFilterPress={onFilterPress}
-            selectedCity={selectedCity}
-            onLocationClick={onLocationClick}
-          />
-
-          {/* Category Filter Pills */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginTop: 10 }}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 6 }}
-          >
-            {CATEGORIES.map((cat) => {
-              const isSelected = selectedCategory === cat.id;
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => onSelectCategory && onSelectCategory(cat.id)}
-                  activeOpacity={0.85}
-                  style={[
-                    styles.catPill,
-                    isSelected ? styles.catPillActive : styles.catPillInactive,
-                  ]}
-                >
-                  <Text style={{ fontSize: 13, marginRight: 5 }}>{cat.icon}</Text>
-                  <Text
-                    style={[
-                      styles.catText,
-                      isSelected ? styles.catTextActive : styles.catTextInactive,
-                    ]}
-                  >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-/* ═════════════════ ExploreScreen ═════════════════ */
-
-const BRAHMAPUR_FALLBACK_SALONS = [
-  {
-    id: "b-1",
-    _id: "b-1",
-    name: "Royal Cut Luxury Salon & Spa",
-    description: "Premier luxury styling, hair treatment & wellness sanctuary in Brahmapur.",
-    address: { formattedAddress: "Silk City Road, Near Old Bus Stand, Brahmapur", street: "Silk City Road", city: "Brahmapur" },
-    city: "Brahmapur",
-    rating: { avgScore: 4.9, totalReviews: 142 },
-    startingPrice: 500,
-    minPrice: 500,
-    coverImage: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80",
-    images: ["https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80"],
-    categories: ["Haircut", "Styling", "Facial", "Spa"],
-  },
-  {
-    id: "b-2",
-    _id: "b-2",
-    name: "Urban Edge Unisex Salon",
-    description: "Modern trendsetting salon for precision haircuts, hair coloring & grooming.",
-    address: { formattedAddress: "Engineering School Square, College Road, Brahmapur", street: "Engineering School Square", city: "Brahmapur" },
-    city: "Brahmapur",
-    rating: { avgScore: 4.8, totalReviews: 98 },
-    startingPrice: 400,
-    minPrice: 400,
-    coverImage: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80",
-    images: ["https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80"],
-    categories: ["Haircut", "Beard Trim", "Hair Color"],
-  },
-];
-
-function ExploreScreen({ navigate, routeParams, onScroll }) {
-  const { theme, isDark, toggleTheme, toggleAnim } = useTheme();
+export default function ExploreScreen({ goBack, navigate }) {
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const selectedCity = useLocationStore((state) => state.selectedCity);
   const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
-  const initLocation = useLocationStore((state) => state.initLocation);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [filters, setFilters] = useState({
-    minRating: "all",
-    priceRange: "all",
-    sortBy: "recommended",
-    serviceType: "all",
-  });
-  const [hasUnread, setHasUnread] = useState(false);
-  const [search, setSearch] = useState(routeParams?.search || "");
-  const [debouncedSearch, setDebouncedSearch] = useState(routeParams?.search || "");
-  const [selectedCategory, setSelectedCategory] = useState(routeParams?.category || "all");
-  const [salons, setSalons] = useState(BRAHMAPUR_FALLBACK_SALONS);
-  const [loading, setLoading] = useState(false);
-  const debounceRef = useRef(null);
+  const isCityEmpty = selectedCity && selectedCity.toLowerCase() !== "brahmapur";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({});
+  const [history, setHistory] = useState([
+    "Royal Cut Salon",
+    "Haircut near me",
+    "Facial in Brahmapur",
+    "Unisex salon"
+  ]);
 
   useEffect(() => {
-    initLocation();
-  }, [initLocation]);
-
-  useEffect(() => {
-    if (routeParams?.search !== undefined || routeParams?.category !== undefined || routeParams?.openFilter) {
-      setSearch(routeParams?.search || "");
-      setDebouncedSearch(routeParams?.search || "");
-      setSelectedCategory(routeParams?.category || "all");
-      setFilters({
-        minRating: "all",
-        priceRange: "all",
-        sortBy: "recommended",
-        serviceType: "all",
-      });
-      if (routeParams?.openFilter) {
-        setFilterModalVisible(true);
-      }
-    }
-  }, [routeParams?.search, routeParams?.category, routeParams?.openFilter]);
-
-  const handleCitySelect = useCallback((city) => {
-    setSelectedCity(city);
-    setLocationModalVisible(false);
-  }, [setSelectedCity]);
-
-  useEffect(() => {
-    let active = true;
-    const checkUnread = async () => {
-      try {
-        const res = await customerService.getUnreadCount();
-        const count = typeof res?.data?.count === "number" ? res.data.count : (res?.data?.unreadCount || 0);
-        if (active) setHasUnread(count > 0);
-      } catch (err) {
-        try {
-          const res = await customerService.getNotifications();
-          const list = res?.data?.notifications || (Array.isArray(res?.data) ? res.data : []);
-          const unread = list.some((n) => !n.isRead);
-          if (active) setHasUnread(unread);
-        } catch (e) { }
-      }
-    };
-    checkUnread();
-    return () => { active = false; };
+    loadHistory();
   }, []);
 
-  const handleSearchChange = useCallback((text) => {
-    setSearch(text);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setDebouncedSearch(text);
-    }, DEBOUNCE_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      setFilters({
-        minRating: "all",
-        priceRange: "all",
-        sortBy: "recommended",
-        serviceType: "all",
-      });
-      setSearch("");
-      setDebouncedSearch("");
-      setSelectedCategory("all");
-    };
-  }, []);
-
-  const fetchSalons = useCallback(async (silent = false) => {
-    if (!silent && salons.length === 0) {
-      setLoading(true);
-    }
+  const loadHistory = async () => {
     try {
-      const cleanCity = cleanCityName(selectedCity);
-      const params = { city: cleanCity };
-      if (debouncedSearch.trim()) {
-        params.search = debouncedSearch.trim();
-      } else if (selectedCategory !== "all") {
-        params.category = selectedCategory;
+      const data = await storage.getItem(HISTORY_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setHistory(parsed);
+        }
       }
-      const res = await browseService.getSalons(params);
-      const salonList = res.data?.salons || (Array.isArray(res.data) ? res.data : []);
-      if (salonList.length > 0) {
-        setSalons(salonList);
-      } else {
-        setSalons(BRAHMAPUR_FALLBACK_SALONS);
-      }
-    } catch (err) {
-      console.log("Failed to fetch salons:", err.message);
-      setSalons(BRAHMAPUR_FALLBACK_SALONS);
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.warn("Failed to load history", e);
     }
-  }, [selectedCity, debouncedSearch, selectedCategory]);
+  };
 
-  useEffect(() => {
-    fetchSalons(false);
-  }, [fetchSalons]);
-
-  // Apply Price, Rating, Sort & Service Filters
-  const filteredSalons = useMemo(() => {
-    let list = [...salons];
-
-    // 1. Min Rating Filter
-    if (filters.minRating && filters.minRating !== "all") {
-      const minVal = parseFloat(filters.minRating);
-      list = list.filter((s) => {
-        const r = parseFloat(s.rating || s.branches?.[0]?.rating?.avgScore || 4.5);
-        return r >= minVal;
-      });
+  const saveHistory = async (newHistory) => {
+    try {
+      setHistory(newHistory);
+      await storage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+    } catch (e) {
+      console.warn("Failed to save history", e);
     }
+  };
 
-    // 2. Price Range Filter
-    if (filters.priceRange && filters.priceRange !== "all") {
-      list = list.filter((s) => {
-        const startingPrice = s.startingPrice || s.minPrice || 600;
-        if (filters.priceRange === "budget") return startingPrice < 500;
-        if (filters.priceRange === "moderate") return startingPrice >= 500 && startingPrice <= 1500;
-        if (filters.priceRange === "luxury") return startingPrice > 1500;
-        return true;
-      });
-    }
+  const handleExecuteSearch = (queryText) => {
+    const q = (queryText || searchQuery).trim();
+    if (!q) return;
+    const filtered = history.filter(item => item.toLowerCase() !== q.toLowerCase());
+    const newHistory = [q, ...filtered].slice(0, 15);
+    saveHistory(newHistory);
+    setSearchQuery(q);
+  };
 
-    // 3. Service Type Filter
-    if (filters.serviceType && filters.serviceType !== "all") {
-      const typeStr = filters.serviceType.toLowerCase();
-      list = list.filter((s) => {
-        const catList = s.categories || s.services || [];
-        const summary = (s.servicesSummary || s.description || "").toLowerCase();
-        const nameStr = (s.name || "").toLowerCase();
-        return (
-          nameStr.includes(typeStr) ||
-          summary.includes(typeStr) ||
-          catList.some((c) => (c.name || c).toString().toLowerCase().includes(typeStr))
-        );
-      });
-    }
-
-    // 4. Sort By
-    if (filters.sortBy === "rating") {
-      list.sort((a, b) => {
-        const rA = parseFloat(a.rating || a.branches?.[0]?.rating?.avgScore || 0);
-        const rB = parseFloat(b.rating || b.branches?.[0]?.rating?.avgScore || 0);
-        return rB - rA;
-      });
-    } else if (filters.sortBy === "price_low") {
-      list.sort((a, b) => (a.startingPrice || 500) - (b.startingPrice || 500));
-    } else if (filters.sortBy === "price_high") {
-      list.sort((a, b) => (b.startingPrice || 500) - (a.startingPrice || 500));
-    }
-
-    return list;
-  }, [salons, filters]);
-
-  const handleSalonPress = useCallback((salon) => {
-    if (navigate) navigate("SalonDetail", { salon });
-  }, [navigate]);
-
-  const styles = buildEditorialStyles(isDark);
+  const handleClearAll = () => {
+    saveHistory([]);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
-      <EditorialHeader
-        styles={styles}
-        theme={theme}
-        isDark={isDark}
-        toggleTheme={toggleTheme}
-        toggleAnim={toggleAnim}
-        selectedCity={selectedCity}
-        onLocationClick={() => setLocationModalVisible(true)}
-        hasUnread={hasUnread}
-        search={search}
-        onSearchChange={handleSearchChange}
-        onFilterPress={() => setFilterModalVisible(true)}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-        navigate={navigate}
-        hasSalons={loading || salons.length > 0}
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.canvas} />
+
+      {/* Main Content Area with ScrollView */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(insets.top || 20, 20) + 8 }
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header Bar */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backButton} onPress={goBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="arrow-back" size={24} color={isDark ? "#FFFFFF" : "#18181B"} />
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={[styles.headerTitle, { color: isDark ? "#FFFFFF" : "#18181B" }]}>Search Salons</Text>
+            <Text style={[styles.headerSubtitle, { color: isDark ? "#A1A1AA" : "#71717A" }]}>
+              Find your favorite salons and services
+            </Text>
+          </View>
+        </View>
+
+        {isCityEmpty ? (
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={(c) => setSelectedCity(c)}
+          />
+        ) : (
+          <>
+            {/* Search Bar Input */}
+            <View style={[styles.searchPill, { backgroundColor: isDark ? "#1E1E24" : "#F4F4F6" }]}>
+              <Ionicons name="search-outline" size={20} color="#9999A0" style={{ marginRight: 10 }} />
+              <TextInput
+                style={[styles.searchInput, { color: isDark ? "#FFFFFF" : "#18181B" }]}
+                placeholder="Search by salon name, area or service..."
+                placeholderTextColor="#9999A0"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={() => handleExecuteSearch(searchQuery)}
+                returnKeyType="search"
+                autoFocus={false}
+              />
+              {searchQuery.length > 0 ? (
+                <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 4, marginRight: 6 }}>
+                  <Ionicons name="close-circle" size={18} color="#9999A0" />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity 
+                style={[styles.filterButton, { backgroundColor: isDark ? "#2D2D35" : "#FFFFFF" }]}
+                activeOpacity={0.8}
+                onPress={() => setIsFilterOpen(true)}
+              >
+                <Ionicons name="options-outline" size={18} color={isDark ? "#D4D4D8" : "#3F3F46"} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Recent Searches */}
+            {history.length > 0 && (
+              <View style={styles.sectionContainer}>
+                <View style={styles.historyHeader}>
+                  <Text style={[styles.sectionTitle, { color: isDark ? "#FFFFFF" : "#18181B" }]}>Recent Searches</Text>
+                  <TouchableOpacity onPress={handleClearAll} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.clearText}>Clear All</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.historyCard, { backgroundColor: isDark ? "#18181B" : "#FFFFFF", borderColor: isDark ? "#27272A" : "#F4F4F6" }]}>
+                  {history.map((item, index) => (
+                    <TouchableOpacity
+                      key={`${item}-${index}`}
+                      style={[
+                        styles.historyItem,
+                        index < history.length - 1 && {
+                          borderBottomWidth: 1,
+                          borderBottomColor: isDark ? "#27272A" : "#F4F4F6"
+                        }
+                      ]}
+                      onPress={() => handleExecuteSearch(item)}
+                      activeOpacity={0.6}
+                    >
+                      <Ionicons name="time-outline" size={19} color={isDark ? "#A1A1AA" : "#52525B"} style={{ marginRight: 12 }} />
+                      <Text style={[styles.historyText, { color: isDark ? "#FFFFFF" : "#18181B" }]} numberOfLines={1}>
+                        {item}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={18} color={isDark ? "#52525B" : "#A1A1AA"} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Empty State / Center Illustration */}
+            <View style={styles.illustrationContainer}>
+              <View style={styles.graphicWrapper}>
+                <View style={styles.blobBackgroundLarge} />
+                <View style={styles.blobBackgroundSmall} />
+                <View style={styles.magnifierCircle}>
+                  <Ionicons name="search-outline" size={44} color="#9E7779" />
+                </View>
+              </View>
+              <Text style={[styles.illustrationTitle, { color: isDark ? "#FFFFFF" : "#18181B" }]}>Search for Salons</Text>
+              <Text style={[styles.illustrationSubtitle, { color: isDark ? "#A1A1AA" : "#71717A" }]}>
+                Type a salon name, service or area{"\n"}to find the best results
+              </Text>
+            </View>
+          </>
+        )}
+
+      </ScrollView>
+
+      {/* Filter Modal */}
+      <FilterModal
+        visible={isFilterOpen}
+        filters={filters}
+        onApplyFilters={(newFilters) => {
+          setFilters(newFilters);
+          setIsFilterOpen(false);
+        }}
+        onClose={() => setIsFilterOpen(false)}
       />
 
       <LocationPickerModal
         visible={locationModalVisible}
         selectedCity={selectedCity}
-        onSelectCity={handleCitySelect}
+        onSelectCity={(city) => {
+          setSelectedCity(city);
+          setLocationModalVisible(false);
+        }}
         onClose={() => setLocationModalVisible(false)}
       />
-
-      <FilterModal
-        visible={filterModalVisible}
-        filters={filters}
-        onApplyFilters={setFilters}
-        onClose={() => setFilterModalVisible(false)}
-      />
-
-      {/* Salon Results List */}
-      <ScrollView
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-      >
-        {loading ? (
-          <View>
-            <SalonCardSkeleton variant="compact" />
-            <SalonCardSkeleton variant="compact" />
-            <SalonCardSkeleton variant="compact" />
-          </View>
-        ) : salons.length === 0 ? (
-          <ComingSoonLocation
-            city={selectedCity}
-            onChangeLocation={() => setLocationModalVisible(true)}
-            onSelectQuickCity={handleCitySelect}
-          />
-        ) : filteredSalons.length === 0 ? (
-          <View style={[styles.centerContainer, { backgroundColor: theme.surface, borderColor: theme.hairline }]}>
-            <Ionicons name="sparkles-outline" size={24} color={theme.primary} />
-            <Text style={[styles.emptyTitle, { color: theme.ink }]}>No studios found</Text>
-            <Text style={[styles.emptySub, { color: theme.muted }]}>Try adjusting your search, rating, or price filter.</Text>
-          </View>
-        ) : (
-          filteredSalons.map((salon, idx) => (
-            <SalonCard key={salon._id || salon.id} salon={salon} index={idx} onPress={handleSalonPress} variant="compact" />
-          ))
-        )}
-      </ScrollView>
     </View>
   );
 }
 
-export default memo(ExploreScreen);
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  backButton: {
+    paddingRight: 14,
+    paddingTop: 4,
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: "400",
+    marginTop: 2,
+  },
+  searchPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 24,
+    paddingLeft: 16,
+    paddingRight: 6,
+    height: 48,
+    marginBottom: 24,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "400",
+    paddingVertical: 0,
+  },
+  filterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sectionContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  popularRow: {
+    paddingRight: 20,
+  },
+  popularPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 10,
+  },
+  pillIconBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  popularText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  clearText: {
+    fontSize: 13,
+    color: "#C56B5D",
+    fontWeight: "600",
+  },
+  historyCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  historyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  historyText: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 1,
+  },
+  illustrationContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    paddingVertical: 20,
+  },
+  graphicWrapper: {
+    width: 140,
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  blobBackgroundLarge: {
+    position: "absolute",
+    width: 100,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FAF0ED",
+    transform: [{ rotate: "-15deg" }],
+    top: 10,
+    right: 10,
+  },
+  blobBackgroundSmall: {
+    position: "absolute",
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#F5E8E4",
+    bottom: 5,
+    left: 15,
+  },
+  magnifierCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 5,
+    borderColor: "#9E7779",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+    transform: [{ rotate: "-10deg" }],
+  },
+  illustrationTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  illustrationSubtitle: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+});
 
-function buildEditorialStyles(isDark) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    header: {
-      paddingTop: Platform.OS === "ios" ? 54 : 44,
-      paddingHorizontal: S.md,
-      paddingBottom: S.sm,
-    },
-    topBar: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: S.sm + 2,
-    },
-    locationChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: S.sm,
-      paddingVertical: 6,
-      borderRadius: R.md,
-      borderWidth: 1,
-    },
-    locationCity: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.medium,
-    },
-    topBarActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    themeBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: R.md,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-    },
-    notifBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: R.md,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      position: "relative",
-    },
-    notifBadgeDot: {
-      position: "absolute",
-      top: 8,
-      right: 8,
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-    },
-    headerTitleRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      marginBottom: S.sm + 2,
-    },
-    eyebrow: {
-      fontSize: 11,
-      fontWeight: FW.bold,
-      letterSpacing: 1.2,
-      marginBottom: 2,
-    },
-    title: {
-      fontSize: 30,
-      fontWeight: FW.bold,
-      letterSpacing: -0.3,
-    },
-    subtitle: {
-      fontSize: 13,
-      marginTop: 2,
-    },
-    notifBadgeDot: {
-      position: "absolute",
-      top: 10,
-      right: 10,
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-    },
-
-    categoryRow: {
-      marginTop: S.xs,
-    },
-    categoryContent: {
-      paddingRight: S.sm,
-    },
-    catPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 15,
-      paddingVertical: 8,
-      borderRadius: 20,
-    },
-    catPillActive: {
-      backgroundColor: C.blue,
-    },
-    catPillInactive: {
-      backgroundColor: isDark ? "#1F1F28" : "#FFFFFF",
-      borderWidth: 1,
-      borderColor: isDark ? "#2C2C38" : "#EBECEF",
-    },
-    catText: {
-      fontSize: 13,
-      fontWeight: "600",
-    },
-    catTextActive: {
-      color: "#FFFFFF",
-    },
-    catTextInactive: {
-      color: isDark ? "#D1D1D6" : "#2C2C34",
-    },
-
-    listContainer: {
-      paddingHorizontal: S.md,
-      paddingTop: 2,
-      paddingBottom: 130,
-    },
-    centerContainer: {
-      padding: S.xl,
-      alignItems: "center",
-      borderRadius: R.lg,
-      marginHorizontal: S.md,
-      borderWidth: 1,
-      marginTop: S.md,
-      gap: 8,
-    },
-    emptyTitle: {
-      fontSize: FS.titleSm,
-      fontWeight: FW.bold,
-    },
-    emptySub: {
-      fontSize: FS.bodySm,
-      textAlign: "center",
-    },
-  });
-}

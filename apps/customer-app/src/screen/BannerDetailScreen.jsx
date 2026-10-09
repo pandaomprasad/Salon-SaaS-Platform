@@ -17,10 +17,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { C, S, FS, FW, R, TYPO, FONT_FAMILY } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocationStore } from "../store/useLocationStore";
+import ComingSoonLocation from "../components/ComingSoonLocation";
+import LocationPickerModal from "../components/LocationPickerModal";
 
 export default function BannerDetailScreen({ routeParams, onBack, navigate }) {
   const { theme, isDark } = useTheme();
   const styles = getStyles(theme, isDark);
+  const selectedCity = useLocationStore((state) => state.selectedCity);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const isCityEmpty = selectedCity && selectedCity.toLowerCase() !== "brahmapur";
 
   const [copied, setCopied] = useState(false);
 
@@ -76,10 +83,19 @@ export default function BannerDetailScreen({ routeParams, onBack, navigate }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
-      >
+      {isCityEmpty ? (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 20, paddingBottom: 100 }}>
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={(c) => setSelectedCity(c)}
+          />
+        </ScrollView>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
+        >
         {/* Banner Hero Image */}
         <View style={styles.heroWrapper}>
           <Image
@@ -164,21 +180,34 @@ export default function BannerDetailScreen({ routeParams, onBack, navigate }) {
             </Text>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Bottom CTA Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.primaryCtaBtn}
-          onPress={handleApplyOffer}
-          activeOpacity={0.88}
-        >
-          <Text style={styles.primaryCtaText}>
-            {banner.promoCode ? `Book Now with ${banner.promoCode}` : "Explore Salons"}
-          </Text>
-          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      {!isCityEmpty && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.primaryCtaBtn}
+            onPress={handleApplyOffer}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.primaryCtaText}>
+              {banner.promoCode ? `Book Now with ${banner.promoCode}` : "Explore Salons"}
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <LocationPickerModal
+        visible={locationModalVisible}
+        selectedCity={selectedCity}
+        onSelectCity={(city) => {
+          setSelectedCity(city);
+          setLocationModalVisible(false);
+        }}
+        onClose={() => setLocationModalVisible(false)}
+      />
     </View>
   );
 }

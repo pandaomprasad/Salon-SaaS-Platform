@@ -38,6 +38,7 @@ import ShopScreen from "../screen/ShopScreen";
 import MapScreen from "../screen/MapScreen";
 import OnboardingScreen from "../screen/OnboardingScreen";
 import SplashScreen from "../screen/SplashScreen";
+import CategoryDetailScreen from "../screen/CategoryDetailScreen";
 import AndroidExpandingTabBar from "../components/AndroidExpandingTabBar";
 import { FavoritesProvider } from "../context/FavoritesContext";
 import { storage } from "../services/storage";
@@ -54,14 +55,14 @@ const Stack = createNativeStackNavigator();
 const navigationRef = createNavigationContainerRef();
 
 const TABS = [
-  { id: "Explore", label: "Map", iconActive: "location", iconInactive: "location-outline" },
-  { id: "Salons", label: "Salons", iconActive: "storefront", iconInactive: "storefront-outline" },
   { id: "Home", label: "Home", iconActive: "home", iconInactive: "home-outline" },
+  { id: "Bookings", label: "Bookings", iconActive: "calendar", iconInactive: "calendar-outline" },
+  { id: "Map", label: "Map", iconActive: "location", iconInactive: "location-outline" },
   { id: "Shop", label: "Shop", iconActive: "bag-handle", iconInactive: "bag-handle-outline" },
   { id: "Profile", label: "Profile", iconActive: "person", iconInactive: "person-outline" },
 ];
 
-const TAB_ORDER = ["Explore", "Salons", "Home", "Shop", "Profile"];
+const TAB_ORDER = ["Home", "Bookings", "Map", "Shop", "Profile"];
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const MainTabsScreen = React.memo(function MainTabsScreen({
@@ -82,17 +83,16 @@ const MainTabsScreen = React.memo(function MainTabsScreen({
         }}
       >
         <View style={{ width: SCREEN_WIDTH }}>
-          <MapScreen navigate={navigate} onScroll={handleScroll} />
+          <HomeScreen navigate={navigate} onScroll={handleScroll} />
         </View>
         <View style={{ width: SCREEN_WIDTH }}>
-          <ExploreScreen
+          <BookingsScreen
             navigate={navigate}
-            routeParams={tabParams["Salons"]}
             onScroll={handleScroll}
           />
         </View>
         <View style={{ width: SCREEN_WIDTH }}>
-          <HomeScreen navigate={navigate} onScroll={handleScroll} />
+          <MapScreen navigate={navigate} onScroll={handleScroll} />
         </View>
         <View style={{ width: SCREEN_WIDTH }}>
           <ShopScreen navigate={navigate} onScroll={handleScroll} />
@@ -206,7 +206,7 @@ export default function AppNavigator() {
 
   const navigate = useCallback((screenName, params = {}) => {
     squeezeAnim.setValue(0);
-    const targetTab = screenName === "Salons" ? "Explore" : screenName;
+    const targetTab = screenName;
     if (TAB_ORDER.includes(screenName) || screenName === "MainTabs") {
       if (TAB_ORDER.includes(screenName)) {
         setCurrentTab(screenName);
@@ -317,6 +317,25 @@ export default function AppNavigator() {
             }}
           >
             <Stack.Screen name="MainTabs" component={renderMainTabs} />
+            <Stack.Screen name="Explore">
+              {({ route }) => (
+                <ExploreScreen
+                  goBack={goBack}
+                  navigate={navigate}
+                  routeParams={route.params}
+                  onScroll={handleScroll}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="CategoryDetail">
+              {({ route }) => (
+                <CategoryDetailScreen
+                  goBack={goBack}
+                  navigate={navigate}
+                  routeParams={route.params}
+                />
+              )}
+            </Stack.Screen>
             <Stack.Screen name="Onboarding">
               {({ navigation }) => (
                 <OnboardingScreen

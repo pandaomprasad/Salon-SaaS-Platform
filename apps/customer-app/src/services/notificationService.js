@@ -11,7 +11,7 @@ LogBox.ignoreLogs([
   "functionality provided by expo-notifications was removed from Expo Go",
 ]);
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const isExpoGo = Constants?.executionEnvironment === ExecutionEnvironment?.StoreClient;
 
 let Notifications = null;
 if (!isExpoGo && Platform.OS !== "web") {
@@ -84,7 +84,7 @@ export const notificationService = {
       if (!permission) return null;
 
       const projectId =
-        Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
+        Constants?.easConfig?.projectId || Constants?.expoConfig?.extra?.eas?.projectId;
 
       const token = await Notifications.getExpoPushTokenAsync({
         projectId,

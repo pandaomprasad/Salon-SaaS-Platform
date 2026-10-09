@@ -12,19 +12,33 @@ import { Platform } from "react-native";
  */
 
 export const C = {
-  // Brand Purple & Indigo Accents (Global Reference Color)
-  purple: "#6C5CE7",
-  purpleDark: "#5A4AD1",
-  purpleLight: "#8075E5",
-  purpleTint: "rgba(108, 92, 231, 0.12)",
+  // Global Crimson Brand Colors (#B3261E)
+  crimson: "#B3261E",
+  crimsonDark: "#8C1D2A",
+  crimsonLight: "#D9383A",
+  crimsonTint: "rgba(179, 38, 30, 0.10)",
+  crimsonTintStrong: "rgba(179, 38, 30, 0.18)",
 
-  // Primary Gold & Amber Accents
-  main: "#C48B36",
-  gold: "#C48B36",
-  goldDark: "#B87E2C",
-  goldLight: "#D49B45",
-  goldTint: "rgba(196, 139, 54, 0.10)",
-  goldTintStrong: "rgba(196, 139, 54, 0.18)",
+  // Primary Accent & Highlighting Tokens
+  main: "#B3261E",
+  primary: "#B3261E",
+  brand: "#B3261E",
+  accent: "#B3261E",
+  price: "#B3261E",
+  button: "#B3261E",
+  highlight: "#B3261E",
+
+  // Theme Aliases & Fallbacks
+  purple: "#B3261E",
+  purpleDark: "#8C1D2A",
+  purpleLight: "#D9383A",
+  purpleTint: "rgba(179, 38, 30, 0.12)",
+
+  gold: "#B3261E",
+  goldDark: "#8C1D2A",
+  goldLight: "#D9383A",
+  goldTint: "rgba(179, 38, 30, 0.10)",
+  goldTintStrong: "rgba(179, 38, 30, 0.18)",
 
   // Primary Ink & Dark (#121212)
   dark: "#121212",
@@ -85,6 +99,11 @@ export const C = {
 
   verified: "#2a7dff",
 
+  // Tab Bar Tokens
+  tabActive: "#B3261E",
+  tabActiveTint: "#FCE8E8",
+  tabCenterBtn: "#8C1D2A",
+
   green: "#228B22",
   blue: "#6C5CE7",
   blur: "rgba(255, 255, 255, 0.3)",
@@ -132,6 +151,9 @@ export function applyTheme(isDark) {
     C.divider = "#2A2A2C";
 
     C.thinking = "rgba(212, 155, 69, 0.25)";
+    C.tabActive = "#E63973";
+    C.tabActiveTint = "rgba(230, 57, 115, 0.18)";
+    C.tabCenterBtn = "#D91C5C";
     C.grep = "#2A2A2C";
     C.read = "#2A2A2C";
     C.edit = "#2A2A2C";
@@ -156,12 +178,19 @@ export function applyTheme(isDark) {
     C.lightGrey = "#F5F5F0";
     C.lightGreyBorder = "#E8E8E0";
 
-    C.main = "#C48B36";
-    C.gold = "#C48B36";
-    C.goldDark = "#B87E2C";
-    C.goldLight = "#D49B45";
-    C.goldTint = "rgba(196, 139, 54, 0.10)";
-    C.goldTintStrong = "rgba(196, 139, 54, 0.18)";
+    C.main = "#B3261E";
+    C.primary = "#B3261E";
+    C.brand = "#B3261E";
+    C.accent = "#B3261E";
+    C.price = "#B3261E";
+    C.button = "#B3261E";
+    C.highlight = "#B3261E";
+    C.crimson = "#B3261E";
+    C.gold = "#B3261E";
+    C.goldDark = "#8C1D2A";
+    C.goldLight = "#D9383A";
+    C.goldTint = "rgba(179, 38, 30, 0.10)";
+    C.goldTintStrong = "rgba(179, 38, 30, 0.18)";
 
     C.ink = "#121212";
     C.dark = "#121212";
@@ -181,6 +210,9 @@ export function applyTheme(isDark) {
     C.divider = "#E8E8E0";
 
     C.thinking = "rgba(196, 139, 54, 0.15)";
+    C.tabActive = "#B3261E";
+    C.tabActiveTint = "#FCE8E8";
+    C.tabCenterBtn = "#8C1D2A";
     C.grep = "#E8E8E0";
     C.read = "#E8E8E0";
     C.edit = "#E8E8E0";

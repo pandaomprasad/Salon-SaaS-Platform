@@ -22,7 +22,7 @@ export default function AppleSignInButton({ onSuccess, onError, variant = "full"
 
   const handleAppleSignIn = async () => {
     if (Platform.OS !== "ios" || !isAvailable) {
-      onError?.("Apple Sign-In is only available on iOS devices.");
+      if (onError) onError("Apple Sign-In is only available on iOS devices.");
       return;
     }
 
@@ -47,9 +47,9 @@ export default function AppleSignInButton({ onSuccess, onError, variant = "full"
       setLoading(false);
 
       if (res.success) {
-        onSuccess?.(res);
+        if (onSuccess) onSuccess(res);
       } else {
-        onError?.(res.error || "Apple sign-in failed on server.");
+        if (onError) onError(res.error || "Apple sign-in failed on server.");
       }
     } catch (err) {
       setLoading(false);
@@ -57,7 +57,7 @@ export default function AppleSignInButton({ onSuccess, onError, variant = "full"
         console.log("[Apple SignIn Cancelled by User]");
       } else {
         console.error("[Apple SignIn Exception]", err);
-        onError?.(err.message || "Failed to sign in with Apple.");
+        if (onError) onError(err.message || "Failed to sign in with Apple.");
       }
     }
   };

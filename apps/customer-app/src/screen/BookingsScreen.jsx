@@ -23,8 +23,11 @@ import AppointmentDetailModal from "../components/AppointmentDetailModal";
 import RescheduleModal from "../components/RescheduleModal";
 import CancelBookingModal from "../components/CancelBookingModal";
 import AddReviewModal from "../components/AddReviewModal";
+import { useLocationStore } from "../store/useLocationStore";
+import ComingSoonLocation from "../components/ComingSoonLocation";
+import LocationPickerModal from "../components/LocationPickerModal";
 
-const TABS = ["Upcoming", "Pass"];
+const TABS = ["Upcoming", "Past"];
 
 function formatHeaderDateTime(dateStr, timeStr) {
   if (!dateStr) return "Upcoming Visit";
@@ -88,6 +91,7 @@ function formatTimeRange(start, end) {
 export default function BookingsScreen({ navigate, onScroll, onBack }) {
   const { isAuthenticated, user } = useAuth();
   const { theme, isDark } = useTheme();
+  const accentColor = C.purple || "#D91C5C";
   const [activeTab, setActiveTab] = useState("Upcoming");
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -286,30 +290,140 @@ export default function BookingsScreen({ navigate, onScroll, onBack }) {
 
   if (!isAuthenticated) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🔒</Text>
-        <Text style={styles.emptyTitle}>Sign in to view your appointments</Text>
-        <Text style={styles.emptySub}>
-          Log in to track your upcoming salon visits, view booking history, and manage your schedule.
-        </Text>
-        <TouchableOpacity
-          onPress={() => navigate && navigate("Login")}
-          activeOpacity={0.88}
-        >
-          <View style={styles.signInBtnGradient}>
-            <Text style={styles.signInBtnText}>Sign In Now</Text>
+      <View style={styles.guestScreenContainer}>
+        {/* Header Bar */}
+        <View style={styles.guestHeader}>
+          <Text style={styles.guestHeaderTitle}>Bookings</Text>
+          <View style={styles.guestBadgePill}>
+            <Text style={styles.guestBadgeText}>GUEST</Text>
           </View>
-        </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.guestScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero Double Ring Badge */}
+          <View style={styles.guestHeroCircle}>
+            <View style={styles.guestHeroInnerCircle}>
+              <Ionicons name="calendar-sharp" size={34} color={accentColor} />
+            </View>
+          </View>
+
+          <View style={styles.eyebrowContainer}>
+            <Text style={styles.eyebrowText}>MY SALON VISITS</Text>
+          </View>
+
+          <Text style={styles.guestTitle}>Sign in to view appointments</Text>
+          <Text style={styles.guestSub}>
+            Track real-time visit status, reschedule slots effortlessly, and access your full booking history.
+          </Text>
+
+          {/* Feature Highlights Cards */}
+          <View style={styles.guestFeatureGrid}>
+            <View style={styles.guestFeatureCard}>
+              <View style={styles.guestFeatureIconBox}>
+                <Ionicons name="notifications-outline" size={18} color={accentColor} />
+              </View>
+              <View style={styles.guestFeatureTextCol}>
+                <Text style={styles.guestFeatureCardTitle}>Real-time Updates</Text>
+                <Text style={styles.guestFeatureCardSub}>Instant alerts on booking status</Text>
+              </View>
+            </View>
+
+            <View style={styles.guestFeatureCard}>
+              <View style={styles.guestFeatureIconBox}>
+                <Ionicons name="time-outline" size={18} color={accentColor} />
+              </View>
+              <View style={styles.guestFeatureTextCol}>
+                <Text style={styles.guestFeatureCardTitle}>Easy Rescheduling</Text>
+                <Text style={styles.guestFeatureCardSub}>Modify your slot with one tap</Text>
+              </View>
+            </View>
+
+            <View style={styles.guestFeatureCard}>
+              <View style={styles.guestFeatureIconBox}>
+                <Ionicons name="sparkles-outline" size={18} color={accentColor} />
+              </View>
+              <View style={styles.guestFeatureTextCol}>
+                <Text style={styles.guestFeatureCardTitle}>Visit History &amp; Reviews</Text>
+                <Text style={styles.guestFeatureCardSub}>Rate services &amp; rebook favorites</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Primary Sign In Button */}
+          <TouchableOpacity
+            style={styles.guestSignInBtn}
+            onPress={() => navigate && navigate("Login")}
+            activeOpacity={0.88}
+          >
+            <Ionicons name="log-in-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.guestSignInBtnText}>Sign In Now</Text>
+          </TouchableOpacity>
+
+          {/* Sign Up Link */}
+          <TouchableOpacity
+            style={styles.guestSignUpRow}
+            onPress={() => navigate && navigate("Register")}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.guestSignUpMuted}>New to ST CUT? </Text>
+            <Text style={styles.guestSignUpLink}>Create an account</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     );
   }
 
+  const upcomingCount = appointments.filter((app) => {
+    const status = app.status?.toUpperCase() || "";
+    return status === "PENDING" || status === "CONFIRMED" || status === "IN_PROGRESS";
+  }).length;
+
   const filteredAppointments = appointments.filter((app) => {
     const status = app.status?.toUpperCase() || "";
     if (activeTab === "Upcoming") return status === "PENDING" || status === "CONFIRMED" || status === "IN_PROGRESS";
-    if (activeTab === "Pass") return status === "COMPLETED" || status === "CANCELLED" || status === "NO_SHOW";
+    if (activeTab === "Past") return status === "COMPLETED" || status === "CANCELLED" || status === "NO_SHOW";
     return true;
   });
+
+  const selectedCity = useLocationStore((state) => state.selectedCity);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const isCityEmpty = selectedCity && selectedCity.toLowerCase() !== "brahmapur";
+
+  if (isCityEmpty) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={styles.header}>
+          <View style={styles.headerTopRow}>
+            <View>
+              <Text style={styles.title}>Your Appointments</Text>
+              <Text style={styles.subTitle}>Manage your upcoming and past bookings</Text>
+            </View>
+          </View>
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 20, paddingBottom: 100 }}>
+          <ComingSoonLocation
+            city={selectedCity}
+            onChangeLocation={() => setLocationModalVisible(true)}
+            onSelectQuickCity={(c) => setSelectedCity(c)}
+          />
+        </ScrollView>
+        <LocationPickerModal
+          visible={locationModalVisible}
+          selectedCity={selectedCity}
+          onSelectCity={(city) => {
+            setSelectedCity(city);
+            setLocationModalVisible(false);
+          }}
+          onClose={() => setLocationModalVisible(false)}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -388,18 +502,16 @@ export default function BookingsScreen({ navigate, onScroll, onBack }) {
 
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          {onBack ? (
-            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-              <Ionicons name="arrow-back" size={20} color={isDark ? "#FFFFFF" : "#18181B"} />
-            </TouchableOpacity>
-          ) : null}
-          <Text style={styles.title}>Your Appointments</Text>
+          <View>
+            <Text style={styles.title}>Your Appointments</Text>
+            <Text style={styles.subTitle}>Manage your upcoming and past bookings</Text>
+          </View>
           <View style={styles.headerIconGroup}>
-            <TouchableOpacity style={styles.headerSquareBtn} activeOpacity={0.7}>
-              <Ionicons name="map-outline" size={17} color={isDark ? "#FFFFFF" : "#18181B"} />
+            <TouchableOpacity style={styles.headerCircularBtn} activeOpacity={0.7}>
+              <Ionicons name="map-outline" size={20} color="#18181B" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerSquareBtn} activeOpacity={0.7}>
-              <Ionicons name="swap-horizontal-outline" size={17} color={isDark ? "#FFFFFF" : "#18181B"} />
+            <TouchableOpacity style={styles.headerCircularBtn} activeOpacity={0.7}>
+              <Ionicons name="swap-vertical-outline" size={20} color="#18181B" />
             </TouchableOpacity>
           </View>
         </View>
@@ -407,15 +519,19 @@ export default function BookingsScreen({ navigate, onScroll, onBack }) {
         <View style={styles.segmentedTabContainer}>
           {TABS.map((tab) => {
             const isSelected = activeTab === tab;
+            const tabText = tab === "Upcoming" ? `Upcoming (${upcomingCount})` : "Past";
             return (
               <TouchableOpacity
                 key={tab}
                 style={[styles.segmentedTabBtn, isSelected && styles.segmentedTabBtnActive]}
-                onPress={() => setActiveTab(tab)}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setActiveTab(tab);
+                }}
                 activeOpacity={0.88}
               >
                 <Text style={[styles.segmentedTabText, isSelected && styles.segmentedTabTextActive]}>
-                  {tab}
+                  {tabText}
                 </Text>
               </TouchableOpacity>
             );
@@ -443,119 +559,132 @@ export default function BookingsScreen({ navigate, onScroll, onBack }) {
             <Text style={styles.emptySub}>When you book a service, your visit details will appear here.</Text>
           </View>
         ) : (
-          filteredAppointments.map((appt) => {
-            const apptId = appt._id || appt.id;
-            const salonName =
-              appt.salon?.name ||
-              (typeof appt.salonId === "object" ? appt.salonId?.name : null) ||
-              (typeof appt.branchId === "object" ? appt.branchId?.name : null) ||
-              "Bella Rinova";
+          <View>
+            {filteredAppointments.map((appt) => {
+              const apptId = appt._id || appt.id;
+              const salonName =
+                appt.salon?.name ||
+                (typeof appt.salonId === "object" ? appt.salonId?.name : null) ||
+                (typeof appt.branchId === "object" ? appt.branchId?.name : null) ||
+                "Royal Cut Luxury Salon & Spa";
 
-            const addressText =
-              appt.branch?.address?.city ||
-              (typeof appt.branchId === "object" ? appt.branchId?.address?.street || appt.branchId?.name : null) ||
-              appt.salon?.address ||
-              "6391 Elgin St. Celina, Delaware";
+              const addressText =
+                appt.branch?.address?.city ||
+                (typeof appt.branchId === "object" ? appt.branchId?.address?.street || appt.branchId?.name : null) ||
+                appt.salon?.address ||
+                "Silk City Road, Near Old Bus Stand";
 
-            const rawSvcs = Array.isArray(appt.services) && appt.services.length > 0
-              ? appt.services
-              : (typeof appt.serviceId === "object" && appt.serviceId ? [appt.serviceId] : []);
+              const rawSvcs = Array.isArray(appt.services) && appt.services.length > 0
+                ? appt.services
+                : (typeof appt.serviceId === "object" && appt.serviceId ? [appt.serviceId] : []);
 
-            const serviceName = rawSvcs.length > 0
-              ? rawSvcs.map((s) => (typeof s === "object" ? s.name : s)).join(", ")
-              : appt.service?.name || "Salon Service";
+              const serviceName = rawSvcs.length > 0
+                ? rawSvcs.map((s) => (typeof s === "object" ? s.name : s)).join(", ")
+                : appt.service?.name || "Signature Haircut & Styling";
+              
+              const totalMins = appt.totalDurationMinutes || rawSvcs.reduce((sum, s) => sum + ((typeof s === "object" ? s.durationMinutes : null) || 30), 0) || 45;
 
-            const coverImage =
-              appt.salon?.coverImage ||
-              appt.salon?.logo ||
-              "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500&q=80";
+              const coverImage =
+                appt.salon?.coverImage ||
+                appt.salon?.logo ||
+                "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500&q=80";
 
-            const rawDate = appt.date || (typeof appt.slotId === "object" ? appt.slotId?.date : null);
-            const rawTime = appt.startTime || (typeof appt.slotId === "object" ? appt.slotId?.startTime : null);
-            const headerDateStr = formatHeaderDateTime(rawDate, rawTime);
+              const rawDate = appt.date || (typeof appt.slotId === "object" ? appt.slotId?.date : null);
+              const rawTime = appt.startTime || (typeof appt.slotId === "object" ? appt.slotId?.startTime : null);
+              
+              let formattedDate = rawDate;
+              let timeStr = "10:00 AM";
+              try {
+                if (rawDate) {
+                  const d = new Date(rawDate);
+                  if (!isNaN(d.getTime())) {
+                    formattedDate = `${d.getDate()} ${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+                  }
+                }
+                if (rawTime) {
+                  const parts = rawTime.split(":");
+                  let hours = parseInt(parts[0], 10);
+                  const mins = parts[1] || "00";
+                  const ampm = hours >= 12 ? "PM" : "AM";
+                  hours = hours % 12 || 12;
+                  timeStr = `${hours < 10 ? '0'+hours : hours}:${mins} ${ampm}`;
+                }
+              } catch(e) {}
 
-            const status = (appt.status || "PENDING").toUpperCase();
-            const isPending = status === "PENDING";
-            const isConfirmed = status === "CONFIRMED";
-            const isCompleted = status === "COMPLETED";
+              const status = (appt.status || "PENDING").toUpperCase();
+              const isPending = status === "PENDING";
+              const isConfirmed = status === "CONFIRMED";
+              const isCompleted = status === "COMPLETED";
 
-            const isRemindOn = reminders[apptId] !== false;
+              return (
+                <TouchableOpacity
+                  key={apptId}
+                  style={styles.card}
+                  onPress={() => setSelectedAppt(appt)}
+                  activeOpacity={0.92}
+                >
+                  <View style={styles.cardMain}>
+                    <Image source={{ uri: coverImage }} style={styles.cardImg} resizeMode="cover" />
+                    <View style={styles.cardDetails}>
+                      <View style={styles.cardHeaderRow}>
+                        <View style={styles.cardDateTime}>
+                          <Text style={styles.cardDateText}>{formattedDate || "23 September 2026"}</Text>
+                          <View style={styles.timePill}>
+                            <Text style={styles.timePillText}>{timeStr}</Text>
+                          </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                      </View>
+                      
+                      <Text style={styles.salonTitle} numberOfLines={1}>{salonName}</Text>
+                      
+                      <View style={styles.locationRow}>
+                        <Ionicons name="location-outline" size={14} color="#9CA3AF" />
+                        <Text style={styles.locationText} numberOfLines={1}>{addressText}</Text>
+                      </View>
 
-            return (
-              <TouchableOpacity
-                key={apptId}
-                style={styles.card}
-                onPress={() => setSelectedAppt(appt)}
-                activeOpacity={0.92}
-              >
-                {/* Date & Time Header */}
-                <Text style={styles.cardDateHeader}>{headerDateStr}</Text>
-
-                {/* Card Body */}
-                <View style={styles.cardBodyRow}>
-                  <Image
-                    source={{ uri: coverImage }}
-                    style={styles.cardImage}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.cardContentBox}>
-                    <Text style={styles.salonTitleText} numberOfLines={1}>{salonName}</Text>
-                    <Text style={styles.addressText} numberOfLines={1}>{addressText}</Text>
-                    <Text style={styles.servicesLabelText} numberOfLines={2}>
-                      <Text style={{ fontWeight: "700" }}>Services: </Text>{serviceName}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Bottom Footer Actions */}
-                <View style={styles.cardFooterRow}>
-                  {isPending || isConfirmed ? (
-                    <TouchableOpacity
-                      style={styles.rescheduleOutlineBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setRescheduleAppt(appt);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="calendar-outline" size={13} color={isDark ? "#A0A09C" : "#555555"} style={{ marginRight: 4 }} />
-                      <Text style={styles.rescheduleOutlineBtnText}>Reschedule</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.statusPillBadge}>
-                      <Text style={styles.statusPillBadgeText}>{status}</Text>
+                      <View style={styles.serviceRow}>
+                        <View style={styles.serviceIconWrap}>
+                          <Ionicons name="cut-outline" size={14} color="#762237" />
+                        </View>
+                        <View style={styles.serviceTextCol}>
+                          <Text style={styles.serviceName} numberOfLines={1}>{serviceName}</Text>
+                          <Text style={styles.serviceMeta}>{rawSvcs.length || 1} Service • {totalMins} mins (approx)</Text>
+                        </View>
+                      </View>
                     </View>
-                  )}
+                  </View>
 
-                  {isPending || isConfirmed ? (
-                    <TouchableOpacity
-                      style={styles.cancelOutlineBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setCancelApptModal(appt);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.cancelOutlineBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                  ) : isCompleted ? (
-                    <TouchableOpacity
-                      style={styles.cancelOutlineBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setReviewModalAppt(appt);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.cancelOutlineBtnText}>
-                        {appt.rating?.score ? "Rated ✦" : "Review"}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            );
-          })
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.cardActions}>
+                    {(isPending || isConfirmed) ? (
+                      <>
+                        <TouchableOpacity style={styles.actionBtnOutline} onPress={(e) => { e.stopPropagation(); setRescheduleAppt(appt); }}>
+                          <Ionicons name="calendar-outline" size={16} color="#1F2937" style={{ marginRight: 6 }} />
+                          <Text style={styles.actionBtnOutlineText}>Reschedule</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionBtnDanger} onPress={(e) => { e.stopPropagation(); setCancelApptModal(appt); }}>
+                          <Ionicons name="close-outline" size={18} color="#762237" style={{ marginRight: 4 }} />
+                          <Text style={styles.actionBtnDangerText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : isCompleted ? (
+                       <TouchableOpacity style={styles.actionBtnOutline} onPress={(e) => { e.stopPropagation(); setReviewModalAppt(appt); }} style={{ flex: 1 }}>
+                         <Text style={styles.actionBtnOutlineText}>{appt.rating?.score ? "Rated ✦" : "Review"}</Text>
+                       </TouchableOpacity>
+                    ) : (
+                       <View style={[styles.statusPillBadge, { flex: 1, alignItems: 'center', alignSelf: 'stretch' }]}>
+                         <Text style={styles.statusPillBadgeText}>{status}</Text>
+                       </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            
+
+          </View>
         )}
       </ScrollView>
     </View>
@@ -599,7 +728,175 @@ function getStatusTextStyle(status) {
 }
 
 function getStyles(theme = {}, isDark = false) {
+  const accentColor = C.purple || "#D91C5C";
+
   return StyleSheet.create({
+    guestScreenContainer: {
+      flex: 1,
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
+    },
+    guestHeader: {
+      paddingTop: 54,
+      paddingHorizontal: 20,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? "#1C1C1E" : "#F0F0F5",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    guestHeaderTitle: {
+      fontSize: 24,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#111827",
+      letterSpacing: -0.5,
+    },
+    guestBadgePill: {
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.15)" : "#FDF2F5",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(217, 28, 92, 0.3)" : "#FCE7EC",
+    },
+    guestBadgeText: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: accentColor,
+      letterSpacing: 0.6,
+    },
+    guestScrollContent: {
+      flexGrow: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 40,
+    },
+    guestHeroCircle: {
+      width: 86,
+      height: 86,
+      borderRadius: 43,
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.12)" : "#FDF2F5",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+      borderWidth: 1.5,
+      borderColor: isDark ? "rgba(217, 28, 92, 0.25)" : "#FCE7EC",
+    },
+    guestHeroInnerCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.2)" : "#FBE6EA",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    eyebrowContainer: {
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.12)" : "#FDF2F5",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+      marginBottom: 10,
+    },
+    eyebrowText: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: accentColor,
+      letterSpacing: 1,
+    },
+    guestTitle: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#111827",
+      textAlign: "center",
+      marginBottom: 8,
+      letterSpacing: -0.4,
+    },
+    guestSub: {
+      fontSize: 13.5,
+      color: isDark ? "#9CA3AF" : "#6B7280",
+      textAlign: "center",
+      lineHeight: 20,
+      marginBottom: 24,
+      maxWidth: 320,
+    },
+    guestFeatureGrid: {
+      width: "100%",
+      gap: 10,
+      marginBottom: 26,
+    },
+    guestFeatureCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C2E" : "#F3F4F6",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.2 : 0.03,
+      shadowRadius: 6,
+      elevation: 1,
+    },
+    guestFeatureIconBox: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.15)" : "#FDF2F5",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 14,
+    },
+    guestFeatureTextCol: {
+      flex: 1,
+    },
+    guestFeatureCardTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#111827",
+      marginBottom: 2,
+    },
+    guestFeatureCardSub: {
+      fontSize: 12,
+      fontWeight: "400",
+      color: isDark ? "#9CA3AF" : "#6B7280",
+    },
+    guestSignInBtn: {
+      width: "100%",
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: accentColor,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: accentColor,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+      elevation: 4,
+      marginBottom: 16,
+    },
+    guestSignInBtnText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+    },
+    guestSignUpRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 6,
+    },
+    guestSignUpMuted: {
+      fontSize: 13.5,
+      color: isDark ? "#9CA3AF" : "#6B7280",
+    },
+    guestSignUpLink: {
+      fontSize: 13.5,
+      fontWeight: "700",
+      color: accentColor,
+    },
     container: {
       flex: 1,
       backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
@@ -626,47 +923,52 @@ function getStyles(theme = {}, isDark = false) {
       marginRight: 10,
     },
     title: {
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: "800",
-      color: isDark ? "#FFFFFF" : "#18181B",
-      letterSpacing: -0.4,
+      color: isDark ? "#FFFFFF" : "#111827",
+      letterSpacing: -0.5,
+    },
+    subTitle: {
+      fontSize: 14,
+      color: isDark ? "#9CA3AF" : "#6B7280",
+      marginTop: 2,
     },
     headerIconGroup: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: 10,
     },
-    headerSquareBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 12,
+    headerCircularBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
       borderWidth: 1,
-      borderColor: isDark ? "#2C2C2E" : "#EBECEF",
+      borderColor: isDark ? "#2C2C2E" : "#E5E7EB",
       alignItems: "center",
       justifyContent: "center",
     },
     segmentedTabContainer: {
       flexDirection: "row",
-      backgroundColor: isDark ? "#1C1C1E" : "#F4F4F6",
-      borderRadius: 18,
+      backgroundColor: isDark ? "#1C1C1E" : "#F3F4F6",
+      borderRadius: 24,
       padding: 4,
       width: "100%",
     },
     segmentedTabBtn: {
       flex: 1,
-      paddingVertical: 11,
+      paddingVertical: 12,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 14,
+      borderRadius: 20,
     },
     segmentedTabBtnActive: {
-      backgroundColor: isDark ? "#2C2C2E" : "#161622",
+      backgroundColor: "#6F2A3B",
     },
     segmentedTabText: {
       fontSize: 14,
       fontWeight: "600",
-      color: isDark ? "#A0A09C" : "#71717A",
+      color: isDark ? "#A0A09C" : "#6B7280",
     },
     segmentedTabTextActive: {
       color: "#FFFFFF",
@@ -674,7 +976,7 @@ function getStyles(theme = {}, isDark = false) {
     },
     contentContainer: {
       paddingHorizontal: 20,
-      paddingTop: 4,
+      paddingTop: 10,
       paddingBottom: 100,
     },
     centerBox: {
@@ -724,145 +1026,208 @@ function getStyles(theme = {}, isDark = false) {
       fontSize: 14,
       fontWeight: "700",
     },
+    
+    /* Card Styles */
     card: {
       backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 24,
-      padding: 18,
+      borderRadius: 20,
+      padding: 16,
       marginBottom: 16,
       borderWidth: 1,
-      borderColor: isDark ? "#2C2C2E" : "#F0F0F4",
+      borderColor: isDark ? "#2C2C2E" : "#F3F4F6",
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.3 : 0.04,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.3 : 0.03,
+      shadowRadius: 8,
       elevation: 2,
     },
-    cardDateHeader: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: isDark ? "#FFFFFF" : "#18181B",
-      marginBottom: 14,
-      letterSpacing: -0.2,
-    },
-    cardBodyRow: {
+    cardMain: {
       flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 16,
+      alignItems: "flex-start",
     },
-    cardImage: {
-      width: 70,
-      height: 70,
-      borderRadius: 18,
-      backgroundColor: isDark ? "#2C2C2E" : "#F0F0F4",
+    cardImg: {
+      width: 80,
+      height: 110,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#2C2C2E" : "#F3F4F6",
     },
-    cardContentBox: {
+    cardDetails: {
       flex: 1,
       marginLeft: 14,
-      justifyContent: "center",
     },
-    salonTitleText: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: isDark ? "#FFFFFF" : "#18181B",
-      marginBottom: 3,
-      letterSpacing: -0.2,
-    },
-    addressText: {
-      fontSize: 12,
-      fontWeight: "400",
-      color: isDark ? "#A0A09C" : "#8E8E93",
-      marginBottom: 6,
-    },
-    servicesLabelText: {
-      fontSize: 12.5,
-      fontWeight: "600",
-      color: "#635BFF",
-      lineHeight: 17,
-    },
-    cardFooterRow: {
+    cardHeaderRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingTop: 14,
-      borderTopWidth: 1,
-      borderTopColor: isDark ? "#2A2A2D" : "#F4F4F6",
+      marginBottom: 8,
     },
-    reminderToggleGroup: {
+    cardDateTime: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
     },
-    switchTrack: {
-      width: 44,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: isDark ? "#3A3A3C" : "#E4E4E8",
-      padding: 2,
-      justifyContent: "center",
-    },
-    switchTrackActive: {
-      backgroundColor: "#635BFF",
-    },
-    switchThumb: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: "#FFFFFF",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 2,
-      elevation: 1,
-    },
-    switchThumbActive: {
-      alignSelf: "flex-end",
-    },
-    reminderText: {
-      fontSize: 12.5,
+    cardDateText: {
+      fontSize: 13,
       fontWeight: "600",
-      color: isDark ? "#D1D1D6" : "#48484A",
+      color: isDark ? "#D1D5DB" : "#4B5563",
+      marginRight: 8,
     },
-    rescheduleOutlineBtn: {
+    timePill: {
+      backgroundColor: "#FDF3F4",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    timePillText: {
+      color: "#6F2A3B",
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    salonTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: isDark ? "#F9FAFB" : "#111827",
+      marginBottom: 4,
+    },
+    locationRow: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: isDark ? "#3A3A3C" : "#E0E0E6",
-      backgroundColor: isDark ? "#2C2C2E" : "#F8F8FA",
+      marginBottom: 12,
     },
-    rescheduleOutlineBtnText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: isDark ? "#E5E5EA" : "#333333",
+    locationText: {
+      fontSize: 12,
+      color: isDark ? "#9CA3AF" : "#6B7280",
+      marginLeft: 4,
+      flex: 1,
     },
-    cancelOutlineBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 7,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: isDark ? "#3A3A3C" : "#E0E0E6",
-      backgroundColor: isDark ? "#2C2C2E" : "#FFFFFF",
+    serviceRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    serviceIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: "#FDF3F4",
       alignItems: "center",
       justifyContent: "center",
+      marginRight: 8,
     },
-    cancelOutlineBtnText: {
+    serviceTextCol: {
+      flex: 1,
+    },
+    serviceName: {
       fontSize: 13,
       fontWeight: "600",
-      color: isDark ? "#E5E5EA" : "#333333",
+      color: "#6F2A3B",
+    },
+    serviceMeta: {
+      fontSize: 11,
+      color: isDark ? "#9CA3AF" : "#6B7280",
+      marginTop: 2,
+    },
+    cardDivider: {
+      height: 1,
+      backgroundColor: isDark ? "#2C2C2E" : "#F3F4F6",
+      marginVertical: 14,
+      borderStyle: "dashed",
+    },
+    cardActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    actionBtnOutline: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? "#374151" : "#E5E7EB",
+      backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+    },
+    actionBtnOutlineText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#F9FAFB" : "#1F2937",
+    },
+    actionBtnDanger: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: "#FDF3F4",
+      backgroundColor: "#FDF3F4",
+    },
+    actionBtnDangerText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#6F2A3B",
     },
     statusPillBadge: {
       paddingHorizontal: 12,
-      paddingVertical: 5,
-      borderRadius: 10,
-      backgroundColor: isDark ? "#2C2C2E" : "#F4F4F6",
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#2C2C2E" : "#F3F4F6",
+      justifyContent: "center",
     },
     statusPillBadgeText: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: "700",
       color: isDark ? "#A0A09C" : "#71717A",
+      textAlign: "center",
     },
+    
+    /* Bottom Banner */
+    bottomBanner: {
+      backgroundColor: "#FDF3F4",
+      borderRadius: 20,
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 8,
+      marginBottom: 30,
+    },
+    bannerIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "#FFFFFF",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
+    bannerIconHeart: {
+      position: "absolute",
+      bottom: 6,
+      right: 6,
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      backgroundColor: "#6F2A3B",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    bannerTextCol: {
+      flex: 1,
+      paddingRight: 8,
+    },
+    bannerTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#111827",
+      marginBottom: 4,
+    },
+    bannerSub: {
+      fontSize: 13,
+      color: "#6B7280",
+    },
+
     toastBanner: {
       position: "absolute",
       top: 48,

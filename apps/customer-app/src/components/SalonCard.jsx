@@ -1,9 +1,10 @@
 import React, { memo, useCallback } from "react";
-import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import VerifiedBadge from "./VerifiedBadge";
 import { C, S, FS, FW, R, SHADOWS, FONT_FAMILY } from "../theme";
 import { useFavorites } from "../context/FavoritesContext";
+import { useTheme } from "../context/ThemeContext";
 import BouncyButton from "./BouncyButton";
 import AppleTouchable from "./AppleTouchable";
 
@@ -95,19 +96,31 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
   const { isFavorite, toggleFavorite } = useFavorites();
   const isOpen = checkIsOpen(salon);
 
-  const numericRating = typeof salon.rating === "number" ? salon.rating : parseFloat(salon.rating || 4.8);
+  const ratingObj = typeof salon?.rating === "object" && salon?.rating !== null ? salon.rating : null;
+  const rawAvg = typeof salon?.rating === "number"
+    ? salon.rating
+    : (ratingObj?.avgScore || ratingObj?.average || ratingObj?.score || salon?.avgScore || salon?.avgRating);
+
+  const rawReviews = salon?.totalReviews ?? salon?.reviewCount ?? salon?.reviewsCount ?? ratingObj?.totalReviews ?? ratingObj?.reviewsCount ?? ratingObj?.count ?? (Array.isArray(salon?.reviews) ? salon.reviews.length : undefined);
+
+  const numericRating = typeof rawAvg === "number" && !isNaN(rawAvg) && rawAvg > 0 ? rawAvg : 5.0;
   const ratingStr = numericRating.toFixed(1);
+  const reviewsCount = typeof rawReviews === "number" ? rawReviews : 0;
   const isTopRated = numericRating >= 4.5;
   const coverImage = salon.coverImage || salon.image || DEMO_IMAGES[index % DEMO_IMAGES.length];
-  const branchCount = salon.branches?.length || 1;
   const isFav = isFavorite(salon._id || salon.id);
   const isCompact = variant === "compact";
-  const address = formatAddress(
-    salon.address || salon.branches?.[0]?.address || salon.location?.address,
-    salon.city || salon.branches?.[0]?.address?.city || "Nearby salon"
-  );
-  const distance = salon.distance || salon.distanceKm || salon.branches?.[0]?.distance || "Nearby";
+
+  const rawAddress = salon.address?.formattedAddress || salon.address?.street || formatAddress(salon.address, "Brahmapur");
+  const distance = salon.distance || salon.distanceKm || (index === 0 ? "1.2 km" : index === 1 ? "1.8 km" : "2.1 km");
   const lowestServicePrice = getLowestServicePrice(salon);
+
+  const categories = salon.categories && salon.categories.length > 0
+    ? salon.categories
+    : ["Haircut", "Facial", "Hair Spa", "Beard Styling"];
+
+  const displayTags = categories.slice(0, 4);
+  const extraCount = categories.length > 4 ? categories.length - 4 : (index === 0 ? 3 : index === 1 ? 2 : 0);
 
   const handlePress = useCallback(() => {
     if (onPress) onPress(salon);
@@ -121,7 +134,8 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
     [toggleFavorite, salon]
   );
 
-  const styles = getStyles();
+  const { theme, isDark } = useTheme();
+  const styles = getStyles(theme, isDark);
 
   if (isCompact) {
     return (
@@ -142,7 +156,7 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
         </View>
         <View style={styles.compactInfo}>
           <Text style={styles.compactName} numberOfLines={1}>{salon.name}</Text>
-          <Text style={styles.compactAddress} numberOfLines={1}>{address}</Text>
+          <Text style={styles.compactAddress} numberOfLines={1}>{rawAddress}</Text>
           <View style={styles.compactMeta}>
             <View style={styles.stars}>
               {[0, 1, 2, 3, 4].map((star) => (
@@ -150,12 +164,12 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
                   key={star}
                   name={star < Math.round(numericRating) ? "star" : "star-outline"}
                   size={10}
-                  color={C.main}
+                  color="#7A0026"
                 />
               ))}
             </View>
             <View style={styles.distance}>
-              <Ionicons name="location" size={11} color={C.muted} />
+              <Ionicons name="location-outline" size={11} color={isDark ? "#A1A1AA" : "#71717A"} />
               <Text style={styles.distanceText}>{typeof distance === "number" ? `${distance} km` : distance}</Text>
             </View>
           </View>
@@ -168,45 +182,100 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
     <BouncyButton
       style={[styles.card, isHorizontal ? styles.horizontal : styles.full]}
       onPress={handlePress}
+      activeOpacity={0.95}
     >
       {/* Image container */}
       <View style={styles.imageFrame}>
         <Image source={{ uri: coverImage }} style={styles.image} resizeMode="cover" />
 
+        {/* Top-Left Rating Badge Pill */}
+        <View style={styles.ratingBadge}>
+          <Ionicons name="star" size={12} color="#FFD700" style={{ marginRight: 4 }} />
+          <Text style={styles.ratingBadgeText}>
+            {ratingStr} <Text style={styles.reviewsText}>({reviewsCount})</Text>
+          </Text>
+        </View>
+
         {/* Favorite Heart Button */}
         <AppleTouchable style={styles.favBtn} onPress={handleFavPress} scaleTo={0.88} hapticType="medium">
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
-            size={16}
-            color={isFav ? C.heart || "#FF3B30" : C.ink}
+            size={18}
+            color={isFav ? "#FF3B30" : "#18181B"}
           />
         </AppleTouchable>
 
-        {/* Top Rated Badge Pill — Only shown for ratings >= 4.5 */}
+        {/* Guest Favourite Badge Pill — Bottom-Right of Image */}
         {isTopRated ? (
-          <View style={styles.topRatedBadge}>
-            <Ionicons name="star" size={11} color="#FFFFFF" style={{ marginRight: 3 }} />
-            <Text style={styles.topRatedText}>Guest Favorite</Text>
+          <View style={styles.guestFavBadge}>
+            <Ionicons name="sparkles" size={12} color="#FFD700" style={{ marginRight: 4 }} />
+            <Text style={styles.guestFavText}>Guest Favourite</Text>
           </View>
         ) : null}
-
-        {/* Rating Badge Pill at 500 position (bottom-right image overlay) */}
-        <View style={styles.mainCardRatingPill}>
-          <Ionicons name="star" size={12} color="#FFD700" style={{ marginRight: 3 }} />
-          <Text style={styles.ratingPillText}>{ratingStr}</Text>
-        </View>
       </View>
 
       {/* Info Content */}
       <View style={styles.info}>
+        {/* Title & Distance Row */}
         <View style={styles.titleRow}>
           <Text style={styles.name} numberOfLines={1}>{salon.name}</Text>
-          <VerifiedBadge size={16} color={C.verified} />
+          <View style={styles.distanceBadge}>
+            <Ionicons name="location-sharp" size={12} color={isDark ? "#A1A1AA" : "#71717A"} style={{ marginRight: 2 }} />
+            <Text style={styles.distanceText}>{typeof distance === "number" ? `${distance} km` : distance}</Text>
+            <Ionicons name="navigate-outline" size={11} color={isDark ? "#A1A1AA" : "#71717A"} style={{ marginLeft: 3 }} />
+          </View>
         </View>
 
-        <Text style={styles.description} numberOfLines={1}>
-          {salon.description || "Hair · Skin · Spa · Grooming"}
-        </Text>
+        {/* Location & Status Single Row Side-by-Side */}
+        <View style={styles.locationRow}>
+          <Ionicons name="location-outline" size={13} color={isDark ? "#A1A1AA" : "#71717A"} style={{ marginRight: 4 }} />
+          <Text style={styles.locationText} numberOfLines={1}>{rawAddress}</Text>
+          <Text style={[styles.statusStatusText, { color: isOpen ? "#16A34A" : "#DC2626" }]}>
+            {" · "}{isOpen ? "Open" : "Closed"}
+          </Text>
+        </View>
+
+        {/* Service Tag Pills */}
+        {/* <View style={styles.tagsRow}>
+          {displayTags.map((tag, idx) => (
+            <View key={idx} style={styles.tagPill}>
+              <Text style={styles.tagText}>{typeof tag === "object" ? tag.name : tag}</Text>
+            </View>
+          ))}
+          {extraCount > 0 ? (
+            <View style={[styles.tagPill, styles.extraTagPill]}>
+              <Text style={styles.tagText}>+{extraCount}</Text>
+            </View>
+          ) : null}
+        </View> */}
+
+        {/* Bottom Status & Book Now CTA */}
+        {/* <View style={styles.footerRow}>
+          <View style={styles.statusCol}>
+            <View style={styles.statusDotRow}>
+              <Ionicons name="time-outline" size={14} color={isDark ? "#A1A1AA" : "#71717A"} style={{ marginRight: 4 }} />
+              <Text style={styles.statusTimeText}>
+                Closes {index === 1 ? "8:30 PM" : "9:00 PM"}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.bookBtn, index === 0 ? styles.bookBtnFilled : styles.bookBtnOutline]}
+            onPress={handlePress}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.bookBtnText, index === 0 ? styles.bookBtnTextFilled : styles.bookBtnTextOutline]}>
+              Book Now
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={14}
+              color={index === 0 ? "#FFFFFF" : isDark ? "#F43F5E" : "#7A0026"}
+              style={{ marginLeft: 6 }}
+            />
+          </TouchableOpacity>
+        </View> */}
       </View>
     </BouncyButton>
   );
@@ -214,19 +283,24 @@ function SalonCard({ salon, onPress, isHorizontal = false, index = 0, variant = 
 
 export default memo(SalonCard);
 
-function getStyles() {
+function getStyles(theme = {}, isDark = false) {
   return StyleSheet.create({
     card: {
-      backgroundColor: C.surface,
-      borderRadius: R.lg,
-      marginBottom: S.sm,
+      backgroundColor: isDark ? "#1E1E24" : "#FFFFFF",
+      borderRadius: 20,
+      marginBottom: 16,
       borderWidth: 1,
-      borderColor: C.border,
-      ...SHADOWS.md,
+      borderColor: isDark ? "#27272A" : "#F0F0F3",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.2 : 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+      overflow: "hidden",
     },
     horizontal: {
-      width: SCREEN_WIDTH * 0.62,
-      marginRight: S.md,
+      width: SCREEN_WIDTH * 0.75,
+      marginRight: 16,
     },
     full: {
       width: "100%",
@@ -237,13 +311,13 @@ function getStyles() {
       minHeight: 76,
       paddingVertical: 9,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
+      borderBottomColor: isDark ? "#27272A" : "#EFEFF4",
     },
     compactImage: {
       width: 58,
       height: 58,
       borderRadius: 12,
-      backgroundColor: C.lifted,
+      backgroundColor: isDark ? "#27272A" : "#F4F4F6",
     },
     compactImageWrap: {
       width: 58,
@@ -260,58 +334,19 @@ function getStyles() {
       backgroundColor: "rgba(15, 15, 13, 0.9)",
       paddingHorizontal: 7,
       paddingVertical: 4,
-      borderRadius: R.pill,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: "rgba(255, 255, 255, 0.18)",
       zIndex: 2,
     },
-    mainCardPricePill: {
-      position: "absolute",
-      right: 10,
-      bottom: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      backgroundColor: "rgba(15, 15, 13, 0.84)",
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: R.pill,
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.22)",
-      zIndex: 10,
-    },
-    mainCardRatingPill: {
-      position: "absolute",
-      right: 8,
-      bottom: 8,
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: "rgba(15, 15, 13, 0.84)",
-      paddingHorizontal: 8,
-      paddingVertical: 3.5,
-      borderRadius: R.pill,
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.22)",
-      zIndex: 10,
-    },
     pricePillIcon: {
-      color: C.main || "#C48B36",
+      color: "#D49B45",
       fontSize: 10,
-      lineHeight: 12,
     },
     pricePillText: {
       color: "#FFFFFF",
-      fontFamily: FONT_FAMILY.bodyBold,
       fontSize: 12,
-      fontWeight: FW.bold,
-      lineHeight: 14,
-    },
-    ratingPillText: {
-      color: "#FFFFFF",
-      fontFamily: FONT_FAMILY.bodyBold,
-      fontSize: 12,
-      fontWeight: FW.bold,
-      lineHeight: 14,
+      fontWeight: "700",
     },
     compactInfo: {
       flex: 1,
@@ -320,18 +355,15 @@ function getStyles() {
       justifyContent: "center",
     },
     compactName: {
-      color: C.ink,
-      fontFamily: FONT_FAMILY.bodyBold,
+      color: isDark ? "#FFFFFF" : "#18181B",
       fontSize: 14,
-      fontWeight: FW.bold,
+      fontWeight: "700",
       marginBottom: 3,
     },
     compactAddress: {
-      color: C.muted,
-      fontFamily: FONT_FAMILY.body,
-      fontSize: 10.5,
-      lineHeight: 14,
-      marginBottom: 7,
+      color: isDark ? "#A1A1AA" : "#71717A",
+      fontSize: 11,
+      marginBottom: 6,
     },
     compactMeta: {
       flexDirection: "row",
@@ -347,164 +379,172 @@ function getStyles() {
       flexDirection: "row",
       alignItems: "center",
       gap: 3,
-      marginLeft: S.sm,
     },
     distanceText: {
-      color: C.muted,
-      fontFamily: FONT_FAMILY.bodyMedium,
-      fontSize: 10,
+      color: isDark ? "#A1A1AA" : "#71717A",
+      fontSize: 12,
+      fontWeight: "500",
     },
     imageFrame: {
-      height: 125,
-      backgroundColor: C.lifted,
+      height: 160,
+      backgroundColor: isDark ? "#27272A" : "#F4F4F6",
       position: "relative",
-      borderTopLeftRadius: R.lg,
-      borderTopRightRadius: R.lg,
-      overflow: "hidden",
+      width: "100%",
     },
     image: {
       width: "100%",
       height: "100%",
     },
-    favBtn: {
+    ratingBadge: {
       position: "absolute",
-      top: 8,
-      left: 8,
-      width: 32,
-      height: 32,
-      borderRadius: R.md,
-      backgroundColor: C.surface,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: C.border,
-      zIndex: 10,
-    },
-    topRatedBadge: {
-      position: "absolute",
-      top: 8,
-      right: 8,
+      top: 12,
+      left: 12,
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: "rgba(18, 18, 18, 0.72)",
-      paddingHorizontal: 8,
-      paddingVertical: 3.5,
-      borderRadius: R.pill,
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.2)",
+      backgroundColor: "rgba(0, 0, 0, 0.65)",
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 16,
     },
-    topRatedText: {
+    ratingBadgeText: {
       color: "#FFFFFF",
-      fontSize: 9.5,
-      fontWeight: FW.bold,
-      letterSpacing: 0.2,
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    reviewsText: {
+      color: "#D4D4D8",
+      fontSize: 12,
+      fontWeight: "400",
+    },
+    favBtn: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "#FFFFFF",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    guestFavBadge: {
+      position: "absolute",
+      bottom: 12,
+      right: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.65)",
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 16,
+    },
+    guestFavText: {
+      color: "#FFFFFF",
+      fontSize: 11,
+      fontWeight: "700",
     },
     info: {
-      paddingHorizontal: 12,
-      paddingVertical: 9,
+      padding: 16,
     },
     titleRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 5,
-      marginBottom: 1,
+      justifyContent: "space-between",
+      marginBottom: 4,
     },
     name: {
-      fontFamily: FONT_FAMILY.serif,
-      fontSize: 15,
-      fontWeight: FW.bold,
-      color: C.ink,
-      flexShrink: 1,
+      fontSize: 16,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#18181B",
+      flex: 1,
+      marginRight: 8,
     },
-    cardStatusBadge: {
+    distanceBadge: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 7,
-      paddingVertical: 2.5,
-      borderRadius: R.pill,
-      gap: 4,
-      marginLeft: "auto",
     },
-    cardStatusOpen: {
-      backgroundColor: "#E8F8EE",
-      borderWidth: 1,
-      borderColor: "#C3F0D3",
+    locationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      // marginBottom: 10,
     },
-    cardStatusClosed: {
-      backgroundColor: "#FEE2E2",
-      borderWidth: 1,
-      borderColor: "#FECACA",
+    locationText: {
+      color: isDark ? "#A1A1AA" : "#71717A",
+      fontSize: 12,
+      fontWeight: "400",
+      flexShrink: 1,
     },
-    cardStatusDot: {
-      width: 5,
-      height: 5,
-      borderRadius: 2.5,
+    tagsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 12,
     },
-    cardDotOpen: {
-      backgroundColor: "#22C55E",
+    tagPill: {
+      backgroundColor: isDark ? "#2A1B22" : "#FDF0F2",
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 12,
     },
-    cardDotClosed: {
-      backgroundColor: "#EF4444",
+    extraTagPill: {
+      backgroundColor: isDark ? "#27272A" : "#F4F4F6",
     },
-    cardStatusText: {
-      fontSize: 9.5,
-      fontWeight: FW.bold,
-    },
-    cardTextOpen: {
-      color: "#15803D",
-    },
-    cardTextClosed: {
-      color: "#B91C1C",
-    },
-    description: {
-      fontSize: 11.5,
-      fontFamily: FONT_FAMILY.body,
-      color: C.muted,
-      marginTop: 2,
-      marginBottom: 2,
+    tagText: {
+      fontSize: 11,
+      color: isDark ? "#F43F5E" : "#7A0026",
+      fontWeight: "600",
     },
     footerRow: {
       flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
+      justifyContent: "space-between",
       marginTop: 2,
     },
-    locationBox: {
+    statusCol: {
+      flex: 1,
+    },
+    statusDotRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 3,
     },
-    ratingBox: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
+    statusStatusText: {
+      fontSize: 12,
+      fontWeight: "700",
     },
-    ratingText: {
-      fontSize: FS.bodySm,
-      fontWeight: FW.bold,
-      color: C.ink,
-    },
-    branchCount: {
-      fontSize: 11,
-      fontFamily: FONT_FAMILY.bodyMedium,
-      color: C.muted,
-    },
-    priceFooterText: {
-      fontSize: 11.5,
-      fontFamily: FONT_FAMILY.bodyMedium,
-      fontWeight: FW.medium,
-      color: C.main || "#C48B36",
+    statusTimeText: {
+      fontSize: 12,
+      color: isDark ? "#A1A1AA" : "#71717A",
     },
     bookBtn: {
-      backgroundColor: C.blue,
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-      borderRadius: R.button,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 18,
+      height: 38,
+      borderRadius: 19,
+    },
+    bookBtnFilled: {
+      backgroundColor: isDark ? "#9F1239" : "#7A0026",
+    },
+    bookBtnOutline: {
+      backgroundColor: isDark ? "#1E1E24" : "#FFFFFF",
+      borderWidth: 1.5,
+      borderColor: isDark ? "#F43F5E" : "#7A0026",
     },
     bookBtnText: {
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    bookBtnTextFilled: {
       color: "#FFFFFF",
-      fontSize: FS.xs + 1,
-      fontWeight: FW.bold,
+    },
+    bookBtnTextOutline: {
+      color: isDark ? "#F43F5E" : "#7A0026",
     },
   });
 }

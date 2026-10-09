@@ -5,9 +5,12 @@ import { C, S, FS, FW, R, TYPO, FF } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 import FloatingSearchCapsule from "./FloatingSearchCapsule";
 import AppleTouchable from "./AppleTouchable";
+import { useLocationStore } from "../store/useLocationStore";
 
-export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, onFilterPress, userName, selectedCity, onSearchSubmit }) {
+export default function Ios26HomeHero({ onSearchClick, onLocationClick, onNotificationClick, onFilterPress, userName, selectedCity: propSelectedCity, onSearchSubmit }) {
   const { isDark, toggleTheme, toggleAnim } = useTheme();
+  const storeCity = useLocationStore((state) => state.selectedCity);
+  const selectedCity = propSelectedCity || storeCity || "Brahmapur";
   const [hasUnread, setHasUnread] = useState(false);
 
   useEffect(() => {

@@ -19,24 +19,16 @@ import AppleBottomSheet from "./AppleBottomSheet";
 
 const RECENT_KEY = "@recent_locations_v2";
 
-const POPULAR_CITIES = [
-  { id: "Mumbai", name: "Mumbai", area: "Bandra, Juhu, South Mumbai", lat: 19.076, lng: 72.8777 },
-  { id: "Delhi", name: "Delhi NCR", area: "Connaught Place, Saket, Gurgaon", lat: 28.6139, lng: 77.209 },
-  { id: "Bangalore", name: "Bangalore", area: "Indiranagar, Koramangala", lat: 12.9716, lng: 77.5946 },
-  { id: "Hyderabad", name: "Hyderabad", area: "Banjara Hills, Jubilee Hills", lat: 17.385, lng: 78.4867 },
-  { id: "Pune", name: "Pune", area: "Koregaon Park, Viman Nagar", lat: 18.5204, lng: 73.8567 },
-  { id: "Kolkata", name: "Kolkata", area: "Park Street, Salt Lake", lat: 22.5726, lng: 88.3639 },
-  { id: "Chennai", name: "Chennai", area: "Nungambakkam, Anna Nagar", lat: 13.0827, lng: 80.2707 },
-];
-
 export default function LocationPickerModal({
   visible,
-  selectedCity,
+  selectedCity: propSelectedCity,
   onSelectCity,
   onClose,
 }) {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
   const styles = getStyles(isDark);
+  const storeCity = useLocationStore((state) => state.selectedCity);
+  const selectedCity = propSelectedCity || storeCity || "Brahmapur";
 
   const [search, setSearch] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
@@ -46,13 +38,11 @@ export default function LocationPickerModal({
   const [detectedGps, setDetectedGps] = useState(null);
   const [activeLocation, setActiveLocation] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
-  const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setSearch("");
       setSearchResults([]);
-      setIsFocused(false);
       storage.getItem(RECENT_KEY).then((raw) => {
         if (raw) {
           try {
@@ -85,30 +75,32 @@ export default function LocationPickerModal({
         }
 
         setIsDetecting(true);
+        setDetectStatus("Detecting location...");
         getCurrentLocation()
           .then((geoResult) => {
-            const city = cleanCityName(geoResult.city || "Delhi");
+            const city = cleanCityName(geoResult.city || "Brahmapur");
             const state = geoResult.state || "Odisha";
-            const displayLabel =
-              state && state.toLowerCase() !== city.toLowerCase()
-                ? `${city}, ${state}`
-                : city;
+            const area = geoResult.area || (state && state.toLowerCase() !== city.toLowerCase() ? `${state}, India` : "India");
 
             const locObj = {
+              id: city,
+              name: city,
               city,
               state,
-              area: geoResult.area || displayLabel,
-              label: displayLabel,
+              area,
+              label: `${city}, ${area}`,
             };
 
             setDetectedGps(locObj);
             if (!activeLocation) setActiveLocation(locObj);
             storage.setItem("@cached_gps_loc", JSON.stringify(locObj));
             setIsDetecting(false);
+            setDetectStatus("");
           })
           .catch((err) => {
             console.warn("Auto-detect GPS error:", err);
             setIsDetecting(false);
+            setDetectStatus("");
           });
       });
     }
@@ -134,7 +126,7 @@ export default function LocationPickerModal({
   const handleLocationSelect = useCallback(
     (placeObj) => {
       const cityName = cleanCityName(
-        placeObj.name || placeObj.city || placeObj.id || "Mumbai"
+        placeObj.name || placeObj.city || placeObj.id || "Brahmapur"
       );
       const areaName = placeObj.area || placeObj.name || cityName;
       const stateName =
@@ -165,78 +157,71 @@ export default function LocationPickerModal({
       });
 
       useLocationStore.getState().setSelectedCity(cityName);
+      useLocationStore.getState().setLocationDetails(newLoc);
       if (onSelectCity) onSelectCity(cityName);
       onClose();
     },
     [onSelectCity, onClose]
   );
 
-  const filteredPopular = POPULAR_CITIES.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.area.toLowerCase().includes(search.toLowerCase())
-  );
-
   const handleGpsClick = async () => {
     if (detectedGps) {
-      handleLocationSelect({
-        id: detectedGps.city,
-        name: detectedGps.city,
-        city: detectedGps.city,
-        area: detectedGps.label,
-        state: detectedGps.state,
-      });
+      handleLocationSelect(detectedGps);
       return;
     }
 
     setIsDetecting(true);
-    setDetectStatus("Accessing GPS & Maps...");
+    setDetectStatus("Detecting location...");
 
     try {
       const geoResult = await getCurrentLocation();
-      const city = cleanCityName(geoResult.city || "Delhi");
+      const city = cleanCityName(geoResult.city || "Brahmapur");
       const state = geoResult.state || "Odisha";
-      const displayLabel =
-        state && state.toLowerCase() !== city.toLowerCase()
-          ? `${city}, ${state}`
-          : city;
+      const area = geoResult.area || (state && state.toLowerCase() !== city.toLowerCase() ? `${state}, India` : "India");
 
       const locObj = {
         id: city,
         name: city,
         city,
         state,
-        area: displayLabel,
-        label: displayLabel,
+        area,
+        label: `${city}, ${area}`,
       };
 
       setDetectedGps(locObj);
-      setDetectStatus(`Detected: ${displayLabel}`);
+      setActiveLocation(locObj);
+      storage.setItem("@cached_gps_loc", JSON.stringify(locObj));
+      setDetectStatus(`Detected: ${city}`);
 
       setTimeout(() => {
         setIsDetecting(false);
         setDetectStatus("");
         handleLocationSelect(locObj);
-      }, 400);
+      }, 300);
     } catch (err) {
-      setDetectStatus("GPS location set to Delhi");
+      setDetectStatus("Using Brahmapur");
+      const fallbackObj = {
+        id: "Brahmapur",
+        name: "Brahmapur",
+        city: "Brahmapur",
+        state: "Odisha",
+        area: "Odisha, India",
+        label: "Brahmapur, Odisha, India",
+      };
+      setDetectedGps(fallbackObj);
+      setActiveLocation(fallbackObj);
       setTimeout(() => {
         setIsDetecting(false);
         setDetectStatus("");
-        handleLocationSelect({
-          id: "Delhi",
-          name: "Delhi",
-          city: "Delhi",
-          area: "Delhi, India",
-        });
-      }, 400);
+        handleLocationSelect(fallbackObj);
+      }, 300);
     }
   };
 
   const currentCardData =
     activeLocation ||
     detectedGps || {
-      city: selectedCity || "Bhubaneswar",
+      city: selectedCity || "Brahmapur",
       state: "Odisha",
       area: "Odisha, India",
     };
@@ -245,116 +230,99 @@ export default function LocationPickerModal({
     <AppleBottomSheet
       visible={visible}
       onClose={onClose}
-      height={isFocused || search.length > 0 ? "88%" : "78%"}
+      height="85%"
     >
       <View style={styles.sheetInner}>
         {/* Header Row */}
         <View style={styles.header}>
           <View style={styles.headerTextWrap}>
             <Text style={styles.title}>Select Location</Text>
-            <Text style={styles.subtitle}>Discover top salons near your city</Text>
+            <Text style={styles.subtitle}>Find top salons near you</Text>
           </View>
 
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-            <Ionicons name="close" size={20} color={isDark ? "#FFFFFF" : "#18181B"} />
+            <Ionicons name="close" size={18} color={isDark ? "#FFFFFF" : "#18181B"} />
           </TouchableOpacity>
         </View>
 
-        {/* GPS Auto Detect Banner Card */}
+        {/* GPS Use Current Location Card */}
         <TouchableOpacity
-          style={styles.gpsBtn}
+          style={styles.gpsCard}
           onPress={handleGpsClick}
           disabled={isDetecting}
-          activeOpacity={0.82}
+          activeOpacity={0.8}
         >
-          <View style={styles.gpsIconBox}>
+          <View style={styles.gpsIconCircle}>
             {isDetecting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color="#C05278" />
             ) : (
-              <Ionicons name="navigate" size={18} color="#FFFFFF" />
+              <Ionicons name="disc-outline" size={20} color="#C05278" />
             )}
           </View>
           <View style={styles.gpsTextInfo}>
-            <Text style={styles.gpsTitle}>Use Current GPS Location</Text>
+            <Text style={styles.gpsTitle}>Use Current Location</Text>
             <Text style={styles.gpsSub} numberOfLines={1}>
-              {detectStatus ||
-                (detectedGps
-                  ? detectedGps.label
-                  : isDetecting
-                  ? "Detecting location..."
-                  : "Auto-detect nearest area")}
+              {isDetecting
+                ? detectStatus || "Detecting location..."
+                : detectedGps
+                ? `${detectedGps.city}${detectedGps.area ? `, ${detectedGps.area}` : ""}`
+                : "Tap to detect your current location"}
             </Text>
           </View>
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={isDark ? "#8E8E9A" : "#8E8E93"}
-          />
+          <Ionicons name="chevron-forward" size={16} color="#A1A1AA" />
         </TouchableOpacity>
 
-        {/* Search Input Box */}
-        <View style={styles.searchBox}>
-          <Ionicons
-            name="search"
-            size={18}
-            color={isDark ? "#8E8E9A" : "#8E8E93"}
-          />
+        {/* Search Bar Input Box */}
+        <View style={styles.searchPill}>
+          <Ionicons name="search-outline" size={18} color="#9999A0" style={{ marginRight: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search city, area or pincode..."
-            placeholderTextColor={isDark ? "#71717A" : "#A0A0AB"}
+            placeholder="Search Indian city, area or pincode..."
+            placeholderTextColor="#9999A0"
             value={search}
             onChangeText={setSearch}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => {
-              if (!search) setIsFocused(false);
-            }}
           />
           {isSearching ? (
-            <ActivityIndicator size="small" color="#6C5CE7" />
+            <ActivityIndicator size="small" color="#C05278" />
           ) : search ? (
-            <TouchableOpacity
-              onPress={() => {
-                setSearch("");
-                setIsFocused(false);
-              }}
-            >
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={isDark ? "#8E8E9A" : "#8E8E93"}
-              />
+            <TouchableOpacity onPress={() => setSearch("")} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={18} color="#9999A0" />
             </TouchableOpacity>
           ) : null}
         </View>
 
+        {/* Scrollable Content Body */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           style={styles.scrollBody}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: 30 }}
         >
-          {/* Current Location Card */}
+          {/* Current Location Section */}
           {!search ? (
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionLabel}>CURRENT LOCATION</Text>
+              <Text style={styles.eyebrow}>CURRENT LOCATION</Text>
               <TouchableOpacity
                 style={styles.currentLocCard}
                 onPress={() => handleLocationSelect(currentCardData)}
-                activeOpacity={0.82}
+                activeOpacity={0.85}
               >
-                <View style={styles.currentLocIconBox}>
-                  <Ionicons name="location" size={20} color="#6C5CE7" />
+                <View style={styles.currentLocIconCircle}>
+                  <Ionicons name="location-sharp" size={20} color="#7A0026" />
                 </View>
                 <View style={styles.currentLocTextWrap}>
                   <Text style={styles.currentLocCity}>
                     {currentCardData.city || currentCardData.name}
                   </Text>
                   <Text style={styles.currentLocSub} numberOfLines={1}>
-                    {currentCardData.area || currentCardData.state || "Odisha, India"}
+                    {currentCardData.area || "Odisha, India"}
                   </Text>
                 </View>
 
-                <View style={styles.checkBadge}>
+                <View style={styles.currentBadge}>
+                  <Text style={styles.currentBadgeText}>Current</Text>
+                </View>
+
+                <View style={styles.checkCircle}>
                   <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
@@ -364,128 +332,54 @@ export default function LocationPickerModal({
           {/* Recent Searches Section */}
           {!search && recentSearches.length > 0 ? (
             <View style={styles.sectionContainer}>
-              <View style={styles.recentHeader}>
-                <Text style={styles.sectionLabel}>RECENT SEARCHES</Text>
+              <Text style={styles.eyebrow}>RECENT SEARCHES</Text>
+              {recentSearches.map((place) => (
                 <TouchableOpacity
-                  onPress={() => {
-                    setRecentSearches([]);
-                    storage.removeItem(RECENT_KEY);
-                  }}
+                  key={place.id || place.name}
+                  style={styles.cityCard}
+                  onPress={() => handleLocationSelect(place)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.clearText}>Clear</Text>
+                  <View style={styles.cityIconWrap}>
+                    <Ionicons name="time-outline" size={20} color="#C05278" />
+                  </View>
+                  <View style={styles.cityInfo}>
+                    <Text style={styles.cityName}>{place.name}</Text>
+                    <Text style={styles.cityArea} numberOfLines={1}>{place.area}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#A1A1AA" />
                 </TouchableOpacity>
-              </View>
-
-              {recentSearches.map((item) => {
-                const isSelected =
-                  selectedCity === item.name || selectedCity === item.city;
-                return (
-                  <TouchableOpacity
-                    key={`recent_${item.id || item.name}`}
-                    style={[
-                      styles.cityRow,
-                      isSelected && styles.cityRowSelected,
-                    ]}
-                    onPress={() => handleLocationSelect(item)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={styles.cityIconWrap}>
-                      <Ionicons
-                        name="time-outline"
-                        size={18}
-                        color={isSelected ? "#6C5CE7" : isDark ? "#8E8E9A" : "#8E8E93"}
-                      />
-                    </View>
-                    <View style={styles.cityInfo}>
-                      <Text
-                        style={[
-                          styles.cityName,
-                          isSelected && styles.cityNameSelected,
-                        ]}
-                      >
-                        {item.name}
-                      </Text>
-                      <Text style={styles.cityArea} numberOfLines={1}>
-                        {item.area || item.name}
-                      </Text>
-                    </View>
-                    {isSelected ? (
-                      <View style={styles.checkBadge}>
-                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
+              ))}
             </View>
           ) : null}
 
-          {/* Location Results / Popular Cities */}
-          <Text style={styles.sectionLabel}>
-            {search.length >= 2 ? "SEARCH RESULTS" : "POPULAR CITIES"}
-          </Text>
-
-          {search.length >= 2 && searchResults.length > 0
-            ? searchResults.map((place) => (
-                <TouchableOpacity
-                  key={place.id}
-                  style={styles.cityRow}
-                  onPress={() => handleLocationSelect(place)}
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.cityIconWrap}>
-                    <Ionicons name="location-outline" size={18} color="#6C5CE7" />
-                  </View>
-                  <View style={styles.cityInfo}>
-                    <Text style={styles.cityNameSelected}>{place.name}</Text>
-                    <Text style={styles.cityArea} numberOfLines={1}>
-                      {place.area}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            : filteredPopular.map((city) => {
-                const isSelected =
-                  selectedCity &&
-                  selectedCity.toLowerCase().includes(city.id.toLowerCase());
-                return (
+          {/* Search Results Section */}
+          {search.length >= 2 ? (
+            <View style={styles.sectionContainer}>
+              <Text style={styles.eyebrow}>SEARCH RESULTS</Text>
+              {searchResults.length > 0 ? (
+                searchResults.map((place) => (
                   <TouchableOpacity
-                    key={city.id}
-                    style={[
-                      styles.cityRow,
-                      isSelected && styles.cityRowSelected,
-                    ]}
-                    onPress={() => handleLocationSelect(city)}
-                    activeOpacity={0.75}
+                    key={place.id}
+                    style={styles.cityCard}
+                    onPress={() => handleLocationSelect(place)}
+                    activeOpacity={0.8}
                   >
                     <View style={styles.cityIconWrap}>
-                      <Ionicons
-                        name="location"
-                        size={18}
-                        color={isSelected ? "#6C5CE7" : isDark ? "#8E8E9A" : "#8E8E93"}
-                      />
+                      <Ionicons name="location-outline" size={20} color="#C05278" />
                     </View>
-
                     <View style={styles.cityInfo}>
-                      <Text
-                        style={[
-                          styles.cityName,
-                          isSelected && styles.cityNameSelected,
-                        ]}
-                      >
-                        {city.name}
-                      </Text>
-                      <Text style={styles.cityArea}>{city.area}</Text>
+                      <Text style={styles.cityName}>{place.name}</Text>
+                      <Text style={styles.cityArea} numberOfLines={1}>{place.area}</Text>
                     </View>
-
-                    {isSelected ? (
-                      <View style={styles.checkBadge}>
-                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                      </View>
-                    ) : null}
+                    <Ionicons name="chevron-forward" size={18} color="#A1A1AA" />
                   </TouchableOpacity>
-                );
-              })}
+                ))
+              ) : !isSearching ? (
+                <Text style={styles.noResultsText}>No matching locations found</Text>
+              ) : null}
+            </View>
+          ) : null}
         </ScrollView>
       </View>
     </AppleBottomSheet>
@@ -498,8 +392,8 @@ function getStyles(isDark) {
       flex: 1,
       backgroundColor: isDark ? "#181820" : "#FFFFFF",
       paddingHorizontal: 20,
-      paddingTop: 12,
-      paddingBottom: Platform.OS === "ios" ? 34 : 20,
+      paddingTop: 10,
+      paddingBottom: Platform.OS === "ios" ? 28 : 16,
     },
     header: {
       flexDirection: "row",
@@ -511,41 +405,41 @@ function getStyles(isDark) {
       flex: 1,
     },
     title: {
-      fontSize: 22,
-      fontWeight: "800",
+      fontSize: 20,
+      fontWeight: "700",
       color: isDark ? "#FFFFFF" : "#18181B",
       letterSpacing: -0.3,
     },
     subtitle: {
-      fontSize: 12.5,
-      fontWeight: "500",
-      color: isDark ? "#8E8E9A" : "#8E8E93",
+      fontSize: 13,
+      fontWeight: "400",
+      color: isDark ? "#A1A1AA" : "#71717A",
       marginTop: 2,
     },
     closeBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       backgroundColor: isDark ? "#282834" : "#F4F4F6",
       alignItems: "center",
       justifyContent: "center",
     },
-    gpsBtn: {
+    gpsCard: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: isDark ? "#22222D" : "#F4F4F6",
+      backgroundColor: isDark ? "#22222D" : "#FAFAFB",
       paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 20,
-      marginBottom: 14,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      marginBottom: 16,
       borderWidth: 1,
-      borderColor: isDark ? "#323242" : "#E5E5EA",
+      borderColor: isDark ? "#27272A" : "#F4F4F6",
     },
-    gpsIconBox: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: "#6C5CE7",
+    gpsIconCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "#FDF0F2",
       alignItems: "center",
       justifyContent: "center",
       marginRight: 12,
@@ -554,61 +448,57 @@ function getStyles(isDark) {
       flex: 1,
     },
     gpsTitle: {
-      fontSize: 14.5,
+      fontSize: 14,
       fontWeight: "700",
       color: isDark ? "#FFFFFF" : "#18181B",
     },
     gpsSub: {
       fontSize: 12,
-      fontWeight: "500",
-      color: isDark ? "#8E8E9A" : "#8E8E93",
+      color: isDark ? "#A1A1AA" : "#71717A",
       marginTop: 2,
     },
-    searchBox: {
+    searchPill: {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: isDark ? "#22222D" : "#F4F4F6",
-      borderRadius: 16,
+      borderRadius: 20,
       paddingHorizontal: 14,
       height: 46,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: isDark ? "#323242" : "#E5E5EA",
+      marginBottom: 20,
     },
     searchInput: {
       flex: 1,
-      marginLeft: 10,
-      fontSize: 13.5,
+      fontSize: 14,
       color: isDark ? "#FFFFFF" : "#18181B",
-      fontWeight: "500",
+      paddingVertical: 0,
     },
     scrollBody: {
       flex: 1,
     },
     sectionContainer: {
-      marginBottom: 16,
+      marginBottom: 20,
     },
-    sectionLabel: {
-      fontSize: 10,
-      fontWeight: "800",
-      color: isDark ? "#8E8E9A" : "#8E8E93",
-      letterSpacing: 1,
-      marginBottom: 8,
+    eyebrow: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: isDark ? "#A1A1AA" : "#71717A",
+      letterSpacing: 0.5,
+      marginBottom: 10,
     },
     currentLocCard: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: isDark ? "#22222D" : "#F7F7FA",
+      backgroundColor: "#FDF0F2",
       padding: 14,
-      borderRadius: 18,
+      borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: "#6C5CE7",
+      borderColor: "#C05278",
     },
-    currentLocIconBox: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: "rgba(108, 92, 231, 0.15)",
+    currentLocIconCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "#FDF0F2",
       alignItems: "center",
       justifyContent: "center",
       marginRight: 12,
@@ -618,69 +508,86 @@ function getStyles(isDark) {
     },
     currentLocCity: {
       fontSize: 15,
-      fontWeight: "800",
-      color: isDark ? "#FFFFFF" : "#18181B",
+      fontWeight: "700",
+      color: "#18181B",
     },
     currentLocSub: {
       fontSize: 12,
-      color: isDark ? "#8E8E9A" : "#8E8E93",
+      color: "#71717A",
       marginTop: 2,
-      fontWeight: "500",
     },
-    checkBadge: {
-      width: 24,
-      height: 24,
+    currentBadge: {
+      backgroundColor: "#FFFFFF",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
       borderRadius: 12,
-      backgroundColor: "#6C5CE7",
+      marginRight: 10,
+    },
+    currentBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: "#7A0026",
+    },
+    checkCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: "#C05278",
       alignItems: "center",
       justifyContent: "center",
     },
-    recentHeader: {
+    popularHeaderRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
+      marginBottom: 10,
     },
-    clearText: {
-      fontSize: 11,
-      fontWeight: "700",
-      color: "#6C5CE7",
+    seeAllText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: "#C05278",
     },
-    cityRow: {
+    cityCard: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 12,
-      paddingHorizontal: 12,
-      borderRadius: 14,
-      marginBottom: 4,
+      backgroundColor: isDark ? "#1E1E24" : "#FFFFFF",
+      padding: 12,
+      borderRadius: 16,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: isDark ? "#27272A" : "#F4F4F6",
     },
-    cityRowSelected: {
-      backgroundColor: isDark ? "#22222D" : "#F4F4F6",
+    cityCardSelected: {
+      borderColor: "#C05278",
+      backgroundColor: "#FDF0F2",
     },
     cityIconWrap: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: "#FDF0F2",
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 12,
+      marginRight: 14,
     },
     cityInfo: {
       flex: 1,
     },
     cityName: {
-      fontSize: 14.5,
-      fontWeight: "600",
-      color: isDark ? "#E0E0E6" : "#2C2C34",
-    },
-    cityNameSelected: {
-      fontSize: 14.5,
-      fontWeight: "800",
+      fontSize: 15,
+      fontWeight: "700",
       color: isDark ? "#FFFFFF" : "#18181B",
     },
     cityArea: {
       fontSize: 12,
-      color: isDark ? "#8E8E9A" : "#8E8E93",
+      color: isDark ? "#A1A1AA" : "#71717A",
       marginTop: 2,
+    },
+    noResultsText: {
+      fontSize: 13,
+      color: isDark ? "#A1A1AA" : "#71717A",
+      fontStyle: "italic",
+      paddingVertical: 10,
     },
   });
 }

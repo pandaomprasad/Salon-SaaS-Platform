@@ -203,7 +203,7 @@ export default function NotificationCenterScreen({ navigate, onBack }) {
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="checkmark-done-sharp" size={15} color="#6C5CE7" style={{ marginRight: 4 }} />
+            <Ionicons name="checkmark-done-sharp" size={15} color={isDark ? "#FF5252" : "#B3261E"} style={{ marginRight: 4 }} />
             <Text style={styles.markAllReadText}>Mark all as read</Text>
           </TouchableOpacity>
 
@@ -221,12 +221,12 @@ export default function NotificationCenterScreen({ navigate, onBack }) {
       {/* Notification List Scroll */}
       {loading ? (
         <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color="#6C5CE7" />
+          <ActivityIndicator size="large" color={isDark ? "#FF5252" : "#B3261E"} />
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="notifications-off-outline" size={32} color={isDark ? "#6366F1" : "#4F46E5"} />
+            <Ionicons name="notifications-off-outline" size={32} color={isDark ? "#FF5252" : "#B3261E"} />
           </View>
           <Text style={styles.emptyTitle}>No Notifications</Text>
           <Text style={styles.emptySubtitle}>You're all caught up! When you have new alerts, they will show up here.</Text>
@@ -236,7 +236,7 @@ export default function NotificationCenterScreen({ navigate, onBack }) {
           style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6C5CE7" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={isDark ? "#FF5252" : "#B3261E"} />}
         >
           {notifications.map((item, index) => {
             const isLast = index === notifications.length - 1;
@@ -304,10 +304,10 @@ function getStyles(isDark) {
     markAllReadText: {
       fontSize: 13.5,
       fontWeight: "600",
-      color: "#6C5CE7",
+      color: isDark ? "#FF5252" : "#B3261E",
     },
     unreadPill: {
-      backgroundColor: "rgba(108, 92, 231, 0.12)",
+      backgroundColor: isDark ? "rgba(179, 38, 30, 0.22)" : "rgba(179, 38, 30, 0.10)",
       paddingHorizontal: 10,
       paddingVertical: 3,
       borderRadius: 12,
@@ -315,7 +315,7 @@ function getStyles(isDark) {
     unreadPillText: {
       fontSize: 12,
       fontWeight: "600",
-      color: "#6C5CE7",
+      color: isDark ? "#FF5252" : "#B3261E",
     },
     divider: {
       height: StyleSheet.hairlineWidth,
@@ -352,7 +352,7 @@ function getStyles(isDark) {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: "#6C5CE7",
+      backgroundColor: isDark ? "#FF5252" : "#B3261E",
     },
     readHollowRing: {
       width: 8,
@@ -380,7 +380,7 @@ function getStyles(isDark) {
     },
     actionTextLink: {
       fontWeight: "700",
-      color: "#6C5CE7",
+      color: isDark ? "#FF5252" : "#B3261E",
     },
     timestampText: {
       fontSize: 12,
@@ -399,7 +399,7 @@ function getStyles(isDark) {
       width: 72,
       height: 72,
       borderRadius: 36,
-      backgroundColor: isDark ? "rgba(99, 102, 241, 0.12)" : "rgba(99, 102, 241, 0.08)",
+      backgroundColor: isDark ? "rgba(179, 38, 30, 0.20)" : "rgba(179, 38, 30, 0.08)",
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 18,

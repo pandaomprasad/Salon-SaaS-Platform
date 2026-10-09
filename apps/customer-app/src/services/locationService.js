@@ -243,23 +243,33 @@ export async function getCurrentLocation() {
 }
 
 /**
- * Search locations by name/query
+ * Search locations by name/query (Restricted to India)
  */
 export async function searchLocations(query) {
   if (!query || query.trim().length < 2) return [];
 
   try {
-    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
+    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=10&addressdetails=1`;
     const res = await fetch(osmUrl, {
       headers: { "User-Agent": "SalonSaaSApp/1.0" },
     });
     const data = await res.json();
     if (Array.isArray(data)) {
-      return data.map((item) => {
+      const indianResults = data.filter((item) => {
+        const countryCode = (item.address?.country_code || "").toLowerCase();
+        const country = (item.address?.country || "").toLowerCase();
+        if (countryCode && countryCode !== "in") return false;
+        if (country && !country.includes("india")) return false;
+        return true;
+      });
+
+      return indianResults.map((item) => {
         const rawName = item.display_name.split(",")[0];
         return {
           id: item.place_id.toString(),
           name: cleanCityName(rawName),
+          city: cleanCityName(item.address?.city || item.address?.town || item.address?.state_district || rawName),
+          state: item.address?.state || "India",
           area: item.display_name,
           lat: parseFloat(item.lat),
           lng: parseFloat(item.lon),
@@ -271,12 +281,17 @@ export async function searchLocations(query) {
   }
 
   try {
-    const response = await apiClient.get(`/location/search?q=${encodeURIComponent(query)}`);
+    const response = await apiClient.get(`/location/search?q=${encodeURIComponent(query)}&country=in`);
     if (response && response.success && Array.isArray(response.data)) {
-      return response.data.map((item) => ({
-        ...item,
-        name: cleanCityName(item.name),
-      }));
+      return response.data
+        .filter((item) => {
+          const c = (item.country || "").toLowerCase();
+          return !c || c === "india" || c === "in";
+        })
+        .map((item) => ({
+          ...item,
+          name: cleanCityName(item.name),
+        }));
     }
   } catch (err) {
     // Silent fail

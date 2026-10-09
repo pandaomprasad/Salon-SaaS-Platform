@@ -14,13 +14,14 @@ import {
   Share,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { FONT_FAMILY } from "../theme";
+import { FONT_FAMILY, C } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useFavorites } from "../context/FavoritesContext";
 import VerifyEmailModal from "../components/VerifyEmailModal";
 
-const TOP_INSET = Platform.OS === "ios" ? 52 : (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 36);
+const TOP_INSET =
+  Platform.OS === "ios" ? 52 : StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 36;
 
 export default function ProfileScreen({ navigate, onScroll }) {
   const { user, isAuthenticated, logout, refreshProfile } = useAuth();
@@ -31,31 +32,20 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
   const isVerified = Boolean(user?.isEmailVerified || user?.email_verified);
 
-  // 1. Initial mount & AppState foreground refresh
   useEffect(() => {
     if (!isAuthenticated || !refreshProfile) return;
-
     refreshProfile();
-
     const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (nextAppState === "active") {
-        refreshProfile();
-      }
+      if (nextAppState === "active") refreshProfile();
     });
-
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, [isAuthenticated, refreshProfile]);
 
-  // 2. Periodic polling ONLY if user email is unverified
   useEffect(() => {
     if (!isAuthenticated || isVerified || !refreshProfile) return;
-
     const interval = setInterval(() => {
       refreshProfile();
     }, 4000);
-
     return () => clearInterval(interval);
   }, [isAuthenticated, isVerified, refreshProfile]);
 
@@ -70,20 +60,15 @@ export default function ProfileScreen({ navigate, onScroll }) {
   };
 
   const handleLogoutPress = () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: logout },
-      ]
-    );
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: logout },
+    ]);
   };
 
   const MALE_AVATAR_ASSET = require("../../assets/male-avatar.png");
   const FEMALE_AVATAR_ASSET = require("../../assets/female-avatar.png");
 
-  // Helper function to resolve profile image source based on user photo or gender preference
   const resolveProfileAvatarSource = (userData) => {
     if (userData?.avatarUrl && typeof userData.avatarUrl === "string" && userData.avatarUrl.trim().length > 0) {
       return { uri: userData.avatarUrl.trim() };
@@ -109,7 +94,11 @@ export default function ProfileScreen({ navigate, onScroll }) {
 
   const userAvatarSource = resolveProfileAvatarSource(user);
   const userName = resolveUserName(user);
-  const userEmail = isAuthenticated ? (user?.email || "") : "Sign in to manage appointments & preferences";
+  const userEmail = isAuthenticated
+    ? user?.email || ""
+    : "Sign in to manage your appointments and preferences";
+
+  const accentColor = C.purple || "#D91C5C";
 
   return (
     <View style={styles.container}>
@@ -121,246 +110,273 @@ export default function ProfileScreen({ navigate, onScroll }) {
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        {/* Top Row: Left Avatar Box, Right Action Buttons */}
-        <View style={styles.topRow}>
-          <TouchableOpacity
-            style={styles.avatarCard}
-            onPress={() => {
-              if (isAuthenticated) {
-                if (navigate) navigate("EditProfile");
-              } else {
-                if (navigate) navigate("Login");
-              }
-            }}
-            activeOpacity={0.85}
-          >
-            <Image source={userAvatarSource} style={styles.avatarImage} />
-          </TouchableOpacity>
-
-          <View style={styles.topActionsRow}>
+        {/* Profile Header Section */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerTopRow}>
+            {/* Avatar & Edit Icon */}
             <TouchableOpacity
-              style={styles.actionBtnSquare}
-              onPress={() => navigate && navigate("NotificationCenter")}
-              activeOpacity={0.75}
+              style={styles.avatarWrap}
+              onPress={() => (isAuthenticated ? navigate && navigate("EditProfile") : navigate && navigate("Login"))}
+              activeOpacity={0.85}
             >
-              <Ionicons name="notifications-outline" size={20} color={isDark ? "#FFFFFF" : "#1A1A1E"} />
+              <Image source={userAvatarSource} style={styles.avatarImage} />
+              <View style={styles.editBadge}>
+                <Ionicons name="pencil" size={12} color="#FFFFFF" />
+              </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionBtnSquare}
-              onPress={() => navigate && navigate("SavedSalons")}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="heart-outline" size={20} color={isDark ? "#FFFFFF" : "#1A1A1E"} />
-              {favorites.length > 0 && <View style={styles.favBadgeDot} />}
-            </TouchableOpacity>
+            {/* Quick Action Icons */}
+            <View style={styles.topRightActions}>
+              <TouchableOpacity
+                style={styles.iconCircleBtn}
+                onPress={() => navigate && navigate("NotificationCenter")}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="notifications-outline" size={20} color={isDark ? "#FFFFFF" : "#111827"} />
+                <View style={styles.redBadgeDot} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.iconCircleBtn}
+                onPress={() => navigate && navigate("SavedSalons")}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="heart-outline" size={20} color={isDark ? "#FFFFFF" : "#111827"} />
+                {favorites.length > 0 && <View style={styles.favBadgeDot} />}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* User Name + Purple Edit Icon (ONLY SHOWN WHEN LOGGED IN) */}
-        <TouchableOpacity
-          style={styles.userNameRow}
-          onPress={() => {
-            if (isAuthenticated) {
-              if (navigate) navigate("EditProfile");
-            } else {
-              if (navigate) navigate("Login");
-            }
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.nameText}>{userName}</Text>
-          {isAuthenticated && (
-            <View style={styles.purpleEditIconBox}>
-              <Ionicons name="create-outline" size={15} color="#5842E3" />
+          {/* User Name & Subtext */}
+          <Text style={styles.userNameText}>{userName}</Text>
+          <Text style={styles.userSubtext}>{userEmail}</Text>
+
+          {/* Auth Action Buttons (When Guest) */}
+          {!isAuthenticated && (
+            <View style={styles.authButtonsRow}>
+              <TouchableOpacity
+                style={styles.primaryAuthBtn}
+                onPress={() => navigate && navigate("Login")}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.primaryAuthBtnText}>Login / Sign Up</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.secondaryAuthBtn}
+                onPress={() => navigate && navigate("Register")}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.secondaryAuthBtnText}>Create Account</Text>
+              </TouchableOpacity>
             </View>
           )}
+        </View>
+
+        {/* Promo / Self Care Card Banner */}
+        <TouchableOpacity
+          style={styles.promoCard}
+          onPress={() => navigate && navigate("Home")}
+          activeOpacity={0.9}
+        >
+          <View style={styles.promoContentCol}>
+            <View style={styles.promoTagPill}>
+              <Text style={styles.promoTagText}>SELF CARE</Text>
+            </View>
+            <Text style={styles.promoTitle}>Beauty Looks Better With You</Text>
+            <Text style={styles.promoSub}>
+              Book appointments, save favorites and get personalized offers.
+            </Text>
+            <View style={styles.promoLinkRow}>
+              <Text style={styles.promoLinkText}>Explore Services</Text>
+              <Ionicons name="arrow-forward" size={14} color={accentColor} style={{ marginLeft: 4 }} />
+            </View>
+          </View>
+          <View style={styles.promoIconWrap}>
+            <Ionicons name="sparkles" size={30} color={accentColor} />
+          </View>
         </TouchableOpacity>
 
-        {/* User Email Subtext */}
-        <Text style={styles.emailText}>{userEmail}</Text>
-
-        <View style={styles.menuSpacer} />
-
-        {/* Appearance Mode Selection Card */}
+        {/* App Appearance Card */}
         <View style={styles.themeCard}>
           <Text style={styles.themeCardHeader}>APP APPEARANCE</Text>
           <View style={styles.themeSegmentRow}>
             <TouchableOpacity
-              style={[
-                styles.themeTab,
-                themeMode === "light" && styles.themeTabActive,
-              ]}
+              style={[styles.themeTab, themeMode === "light" && styles.themeTabActive]}
               onPress={() => setThemeMode("light")}
               activeOpacity={0.8}
             >
               <Ionicons
                 name="sunny"
                 size={14}
-                color={themeMode === "light" ? "#FFFFFF" : isDark ? "#A0A0A5" : "#66666E"}
+                color={themeMode === "light" ? "#FFFFFF" : isDark ? "#9CA3AF" : "#6B7280"}
               />
-              <Text
-                style={[
-                  styles.themeTabLabel,
-                  themeMode === "light" && styles.themeTabLabelActive,
-                ]}
-              >
+              <Text style={[styles.themeTabLabel, themeMode === "light" && styles.themeTabLabelActive]}>
                 Light
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.themeTab,
-                themeMode === "dark" && styles.themeTabActive,
-              ]}
+              style={[styles.themeTab, themeMode === "dark" && styles.themeTabActive]}
               onPress={() => setThemeMode("dark")}
               activeOpacity={0.8}
             >
               <Ionicons
                 name="moon"
                 size={14}
-                color={themeMode === "dark" ? "#FFFFFF" : isDark ? "#A0A0A5" : "#66666E"}
+                color={themeMode === "dark" ? "#FFFFFF" : isDark ? "#9CA3AF" : "#6B7280"}
               />
-              <Text
-                style={[
-                  styles.themeTabLabel,
-                  themeMode === "dark" && styles.themeTabLabelActive,
-                ]}
-              >
+              <Text style={[styles.themeTabLabel, themeMode === "dark" && styles.themeTabLabelActive]}>
                 Dark
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.themeTab,
-                themeMode === "system" && styles.themeTabActive,
-              ]}
+              style={[styles.themeTab, themeMode === "system" && styles.themeTabActive]}
               onPress={() => setThemeMode("system")}
               activeOpacity={0.8}
             >
               <Ionicons
                 name="phone-portrait-outline"
                 size={14}
-                color={themeMode === "system" ? "#FFFFFF" : isDark ? "#A0A0A5" : "#66666E"}
+                color={themeMode === "system" ? "#FFFFFF" : isDark ? "#9CA3AF" : "#6B7280"}
               />
-              <Text
-                style={[
-                  styles.themeTabLabel,
-                  themeMode === "system" && styles.themeTabLabelActive,
-                ]}
-              >
+              <Text style={[styles.themeTabLabel, themeMode === "system" && styles.themeTabLabelActive]}>
                 System
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuListGroup}>
+        {/* Menu Items Cards */}
+        <View style={styles.menuGroup}>
           {/* 1. Appointment History */}
           <TouchableOpacity
-            style={styles.menuItemRow}
+            style={styles.menuCard}
             onPress={() => navigate && navigate("Bookings")}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="calendar-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>Appointment History</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(217, 28, 92, 0.15)" : "#FDF2F5" }]}>
+              <Ionicons name="calendar-outline" size={20} color={accentColor} />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Appointment History</Text>
+              <Text style={styles.menuSub}>View and manage your bookings</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
           {/* 2. Payment Methods */}
           <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => navigate ? navigate("SavedAddresses") : Alert.alert("Payment Methods", "Manage payment methods.")}
+            style={styles.menuCard}
+            onPress={() => (navigate ? navigate("SavedAddresses") : Alert.alert("Payment Methods", "Manage payment methods."))}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="card-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>Payment Methods</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(59, 130, 246, 0.15)" : "#EFF6FF" }]}>
+              <Ionicons name="card-outline" size={20} color="#3B82F6" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Payment Methods</Text>
+              <Text style={styles.menuSub}>Save and manage your payment options</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
           {/* 3. Payment History */}
           <TouchableOpacity
-            style={styles.menuItemRow}
+            style={styles.menuCard}
             onPress={() => navigate && navigate("Bookings")}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="reload-circle-outline" size={23} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>Payment History</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#F0FDF4" }]}>
+              <Ionicons name="time-outline" size={20} color="#10B981" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Payment History</Text>
+              <Text style={styles.menuSub}>View past transactions</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
-          {/* 3. Change Password */}
+          {/* 4. Change Password */}
           <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => navigate && navigate("EditProfile")}
+            style={styles.menuCard}
+            onPress={() => (isAuthenticated ? navigate && navigate("EditProfile") : navigate && navigate("Login"))}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="lock-closed-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>Change Password</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.15)" : "#FEF3C7" }]}>
+              <Ionicons name="lock-closed-outline" size={20} color="#F59E0B" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Change Password</Text>
+              <Text style={styles.menuSub}>Keep your account secure</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
-          {/* 4. Invites Friends */}
+          {/* 5. Invite Friends */}
           <TouchableOpacity
-            style={styles.menuItemRow}
+            style={styles.menuCard}
             onPress={handleShareApp}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="people-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>Invites Friends</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(139, 92, 246, 0.15)" : "#F3E8FF" }]}>
+              <Ionicons name="people-outline" size={20} color="#8B5CF6" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Invite Friends</Text>
+              <Text style={styles.menuSub}>Earn rewards together</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
-          {/* 5. FAQs */}
+          {/* 6. FAQs */}
           <TouchableOpacity
-            style={styles.menuItemRow}
+            style={styles.menuCard}
             onPress={() => navigate && navigate("Support")}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="chatbubble-ellipses-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>FAQs</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2" }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#EF4444" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>FAQs</Text>
+              <Text style={styles.menuSub}>Find answers to common questions</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
-          {/* 6. About Us */}
+          {/* 7. About Us */}
           <TouchableOpacity
-            style={styles.menuItemRow}
+            style={styles.menuCard}
             onPress={() => navigate && navigate("About")}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="help-circle-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>About Us</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(99, 102, 241, 0.15)" : "#EEF2FF" }]}>
+              <Ionicons name="information-circle-outline" size={20} color="#6366F1" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>About Us</Text>
+              <Text style={styles.menuSub}>Learn more about our app</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
 
-          {/* 7. Logout */}
+          {/* 8. Login / Logout */}
           <TouchableOpacity
-            style={styles.menuItemRowLast}
+            style={styles.menuCard}
             onPress={isAuthenticated ? handleLogoutPress : () => navigate && navigate("Login")}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeftGroup}>
-              <Ionicons name="close-circle-outline" size={22} color={isDark ? "#FFFFFF" : "#1A1A1E"} style={styles.menuIcon} />
-              <Text style={styles.menuLabel}>{isAuthenticated ? "Logout" : "Login"}</Text>
+            <View style={[styles.menuIconBox, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5" }]}>
+              <Ionicons name={isAuthenticated ? "log-out-outline" : "log-in-outline"} size={20} color="#10B981" />
             </View>
-            <Ionicons name="chevron-forward" size={15} color={isDark ? "#55555E" : "#C7C7CC"} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>{isAuthenticated ? "Logout" : "Login"}</Text>
+              <Text style={styles.menuSub}>{isAuthenticated ? "Sign out of your account" : "Access your account"}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={isDark ? "#6B7280" : "#9CA3AF"} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -376,106 +392,225 @@ export default function ProfileScreen({ navigate, onScroll }) {
 }
 
 function getStyles(isDark) {
+  const accentColor = C.purple || "#D91C5C";
+
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: isDark ? "#121216" : "#FFFFFF",
+      backgroundColor: isDark ? "#0A0A0C" : "#FAFAFC",
     },
     scrollContent: {
-      paddingHorizontal: 24,
-      paddingTop: TOP_INSET + 8,
-      paddingBottom: 90,
+      paddingHorizontal: 20,
+      paddingTop: TOP_INSET + 6,
+      paddingBottom: 110,
     },
-    topRow: {
+    headerContainer: {
+      marginBottom: 20,
+    },
+    headerTopRow: {
       flexDirection: "row",
-      alignItems: "flex-start",
+      alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: 16,
+      marginBottom: 14,
     },
-    avatarCard: {
+    avatarWrap: {
       width: 72,
       height: 72,
-      borderRadius: 24,
-      overflow: "hidden",
-      backgroundColor: isDark ? "#282834" : "#F4F4F8",
+      borderRadius: 36,
+      position: "relative",
+      backgroundColor: isDark ? "#1C1C1E" : "#F3F4F6",
     },
     avatarImage: {
-      width: "100%",
-      height: "100%",
+      width: 72,
+      height: 72,
+      borderRadius: 36,
       resizeMode: "cover",
     },
-    topActionsRow: {
+    editBadge: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: accentColor,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 2,
+      borderColor: isDark ? "#0A0A0C" : "#FAFAFC",
+    },
+    topRightActions: {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
     },
-    actionBtnSquare: {
+    iconCircleBtn: {
       width: 44,
       height: 44,
       borderRadius: 14,
-      backgroundColor: isDark ? "#1E1E24" : "#FFFFFF",
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
       borderWidth: 1,
-      borderColor: isDark ? "#2E2E38" : "#ECECEF",
+      borderColor: isDark ? "#2C2C2E" : "#F3F4F6",
       alignItems: "center",
       justifyContent: "center",
       position: "relative",
     },
-    favBadgeDot: {
-      width: 7,
-      height: 7,
+    redBadgeDot: {
+      width: 8,
+      height: 8,
       borderRadius: 4,
-      backgroundColor: "#5842E3",
+      backgroundColor: "#EF4444",
       position: "absolute",
-      top: 9,
-      right: 9,
+      top: 10,
+      right: 10,
+      borderWidth: 1.5,
+      borderColor: isDark ? "#1C1C1E" : "#FFFFFF",
     },
-    userNameRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 2,
+    favBadgeDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: accentColor,
+      position: "absolute",
+      top: 10,
+      right: 10,
     },
-    nameText: {
-      fontFamily: FONT_FAMILY.serif,
+    userNameText: {
       fontSize: 22,
       fontWeight: "800",
-      color: isDark ? "#FFFFFF" : "#1A1A1E",
-      letterSpacing: -0.3,
+      color: isDark ? "#FFFFFF" : "#111827",
+      letterSpacing: -0.4,
+      marginBottom: 4,
     },
-    purpleEditIconBox: {
-      width: 26,
-      height: 26,
-      borderRadius: 7,
-      backgroundColor: "rgba(88, 66, 227, 0.12)",
+    userSubtext: {
+      fontSize: 13,
+      fontWeight: "400",
+      color: isDark ? "#9CA3AF" : "#6B7280",
+      lineHeight: 18,
+      marginBottom: 14,
+    },
+    authButtonsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      marginTop: 4,
+    },
+    primaryAuthBtn: {
+      backgroundColor: accentColor,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 18,
+      height: 44,
+      borderRadius: 14,
+      shadowColor: accentColor,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    primaryAuthBtnText: {
+      color: "#FFFFFF",
+      fontSize: 13.5,
+      fontWeight: "700",
+    },
+    secondaryAuthBtn: {
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 16,
+      height: 44,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C2E" : "#E5E7EB",
+    },
+    secondaryAuthBtnText: {
+      color: isDark ? "#FFFFFF" : "#374151",
+      fontSize: 13.5,
+      fontWeight: "600",
+    },
+    promoCard: {
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 18,
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C2E" : "#F3F4F6",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.2 : 0.04,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    promoContentCol: {
+      flex: 1,
+      paddingRight: 10,
+    },
+    promoTagPill: {
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.15)" : "#FDF2F5",
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+      alignSelf: "flex-start",
+      marginBottom: 6,
+    },
+    promoTagText: {
+      fontSize: 9.5,
+      fontWeight: "800",
+      color: accentColor,
+      letterSpacing: 0.8,
+    },
+    promoTitle: {
+      fontSize: 17,
+      fontWeight: "800",
+      color: isDark ? "#FFFFFF" : "#111827",
+      letterSpacing: -0.3,
+      marginBottom: 4,
+    },
+    promoSub: {
+      fontSize: 12.5,
+      color: isDark ? "#9CA3AF" : "#6B7280",
+      lineHeight: 17,
+      marginBottom: 10,
+    },
+    promoLinkRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    promoLinkText: {
+      fontSize: 12.5,
+      fontWeight: "700",
+      color: accentColor,
+    },
+    promoIconWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: isDark ? "rgba(217, 28, 92, 0.15)" : "#FDF2F5",
       alignItems: "center",
       justifyContent: "center",
     },
-    emailText: {
-      fontSize: 13.5,
-      fontWeight: "400",
-      color: isDark ? "#888894" : "#B0B0B8",
-    },
-    menuSpacer: {
-      height: 20,
-    },
     themeCard: {
-      backgroundColor: isDark ? "#1A1A22" : "#F7F7FA",
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
       borderRadius: 18,
       padding: 14,
-      marginBottom: 10,
+      marginBottom: 18,
       borderWidth: 1,
-      borderColor: isDark ? "#282834" : "#EFEFF4",
+      borderColor: isDark ? "#2C2C2E" : "#F3F4F6",
     },
     themeCardHeader: {
       fontSize: 10,
       fontWeight: "800",
-      color: "#6C5CE7",
-      letterSpacing: 1.2,
+      color: accentColor,
+      letterSpacing: 1,
       marginBottom: 10,
     },
     themeSegmentRow: {
       flexDirection: "row",
-      backgroundColor: isDark ? "#282834" : "#EBECEF",
+      backgroundColor: isDark ? "#2C2C2E" : "#F3F4F6",
       borderRadius: 12,
       padding: 3,
     },
@@ -484,56 +619,65 @@ function getStyles(isDark) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 9,
+      paddingVertical: 8,
       borderRadius: 10,
       gap: 6,
     },
     themeTabActive: {
-      backgroundColor: "#6C5CE7",
-      shadowColor: "#6C5CE7",
+      backgroundColor: accentColor,
+      shadowColor: accentColor,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 4,
       elevation: 2,
     },
     themeTabLabel: {
-      fontSize: 12.5,
+      fontSize: 12,
       fontWeight: "600",
-      color: isDark ? "#A0A0A5" : "#66666E",
+      color: isDark ? "#9CA3AF" : "#6B7280",
     },
     themeTabLabelActive: {
       color: "#FFFFFF",
       fontWeight: "700",
     },
-    menuListGroup: {
-      flexDirection: "column",
+    menuGroup: {
+      gap: 10,
     },
-    menuItemRow: {
+    menuCard: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: 18,
+      backgroundColor: isDark ? "#1C1C1E" : "#FFFFFF",
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: isDark ? "#2C2C2E" : "#F3F4F6",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.15 : 0.03,
+      shadowRadius: 6,
+      elevation: 1,
     },
-    menuItemRowLast: {
-      flexDirection: "row",
+    menuIconBox: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: 18,
+      justifyContent: "center",
+      marginRight: 14,
     },
-    menuLeftGroup: {
-      flexDirection: "row",
-      alignItems: "center",
+    menuTextCol: {
+      flex: 1,
     },
-    menuIcon: {
-      marginRight: 18,
-      width: 24,
-      textAlign: "center",
+    menuTitle: {
+      fontSize: 14.5,
+      fontWeight: "700",
+      color: isDark ? "#FFFFFF" : "#111827",
+      marginBottom: 2,
     },
-    menuLabel: {
-      fontSize: 15.5,
-      fontWeight: "600",
-      color: isDark ? "#E6E6EC" : "#1A1A1E",
-      letterSpacing: -0.2,
+    menuSub: {
+      fontSize: 12,
+      fontWeight: "400",
+      color: isDark ? "#9CA3AF" : "#6B7280",
     },
   });
 }
